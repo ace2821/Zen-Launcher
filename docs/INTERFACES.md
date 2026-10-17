@@ -108,7 +108,7 @@ interface LaunchInfo {
 | `get_game` | `{ id }` | `Game` |
 | `update_game` | `{ id, patch }` | `Game` (patch = subset of editable fields) |
 | `remove_game` | `{ id }` | — (removes from library with its play history; never touches files) |
-| `launch_game` | `{ id }` | `LaunchInfo` (native only in M1; `UNSUPPORTED` otherwise) |
+| `launch_game` | `{ id }` | `LaunchInfo` (native + `windows` via system wine; `retro`/`mod` → `UNSUPPORTED`) |
 | `list_sessions` | `{ gameId, limit? }` | `Session[]` (newest first) |
 | `get_settings` | — | `Settings` |
 | `update_settings` | `{ patch }` | `Settings` |
@@ -166,6 +166,23 @@ these fields loads them as defaults.
 - Default UI font is `maple-mono`; display/serif headings stay Instrument
   Serif. Light theme is deferred; accents are dark-theme presets.
 
+## Launch rules (M1)
+
+- `native`: `.sh` through `sh`; `.AppImage` exec bit ensured; otherwise direct
+  exec (exec bit required, else `LAUNCH_FAILED`).
+- `windows`: system `wine` with a per-game prefix at
+  `~/.local/share/zen-launcher/prefixes/<gameId>`; `.bat`/`.cmd` entry points
+  run through `wine cmd /c`. `WINEPREFIX` / `WINEDLLOVERRIDES`
+  (`mscoree,mshtml=` by default) can be overridden per game via `env`.
+- Wine prefixes are also prepared in the background (`wineboot -u`,
+  best-effort) at app start for every Windows game and right after a Windows
+  game is approved; `launch_game` does not depend on it — a still-running
+  setup only means Wine waits for the prefix lock on the first Play.
+- `retro` / `mod` → `UNSUPPORTED` (their runners arrive in later milestones).
+- Default cwd = the executable's directory (`workDir` overrides). Session
+  supervision tracks the direct child; launchers that exit immediately end the
+  session early (known limitation).
+
 ## Scanner heuristics (M1 minimum)
 
 - Walk each source root recursively; skip already-approved game folders.
@@ -175,6 +192,8 @@ these fields loads them as defaults.
   - Unreal: `*/Binaries/Linux/` or `Engine/` directory
   - GameMaker / Ren'Py: known file patterns (`*.yyp`, `renpy/`)
 - Generic fallback: executable bit + ELF magic, `.sh`, `.AppImage`.
+- Windows batch launchers: `.bat` files in generic folders (`launcher.bat`
+  preferred over other names).
 - Ignore pitfalls: `*setup*`, `*redist*`, `unins*`, `crash*`, `_CommonRedist`,
   `DirectX`, `dotnet`, `vc_redist`, `support/`, `docs/`.
 - Candidate = deepest folder that contains a plausible primary executable.

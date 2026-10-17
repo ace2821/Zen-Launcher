@@ -92,6 +92,24 @@ fn detects_appimage() {
 }
 
 #[test]
+fn detects_batch_launcher_with_priority() {
+    let candidates = scan_fixture("batch_launcher");
+    assert_eq!(candidates.len(), 1, "got: {candidates:#?}");
+
+    let candidate = &candidates[0];
+    assert_eq!(candidate.engine, EngineKind::Unknown);
+    assert_eq!(
+        candidate.executable.as_deref(),
+        Some(canonical(fixture("batch_launcher/launcher.bat")).as_path())
+    );
+    assert!(
+        candidate.evidence.iter().any(|e| e.contains("batch")),
+        "evidence should mention the batch launcher: {:?}",
+        candidate.evidence
+    );
+}
+
+#[test]
 fn ignores_redistributables_crash_handlers_and_docs() {
     let candidates = scan_fixture("messy_redist");
     assert!(

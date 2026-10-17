@@ -124,7 +124,8 @@ usable for a desktop game-library project.
 - Runner abstraction: argument list, env map, working dir, built-in toggles.
 - Native runner: direct exec; `.sh` and AppImage supported (exec bit managed).
 - Wine runner: per-game prefix lifecycle (create, configure via `winecfg`
-  shortcut, recreate, delete); winetricks hooks postponed.
+  shortcut, recreate, delete); winetricks hooks postponed. Minimal system-wine
+  path already in: `wine` + per-game prefix + `.bat`/`.cmd` via `cmd /c`.
 - Proton runner: umu-launcher integration; Proton-GE detection; clear
   fallback rules (Proton-GE → system Wine).
 - RetroArch runner: binary + core selection per game, ROM path, per-game
@@ -234,7 +235,8 @@ usable for a desktop game-library project.
   *Acceptance:* scan a folder → approve → launch → time counted → state
   persists across restarts.
 - **M2 — Launch power:** profiles (args/env/cwd + toggles), Wine per-game
-  prefix + umu/Proton-GE, RetroArch runner, `.desktop` shortcuts, auto-scan.
+  prefix (minimal system-wine runner already in) + umu/Proton-GE, RetroArch
+  runner, `.desktop` shortcuts, auto-scan.
 - **M3 — Metadata and order:** Steam match + SteamGridDB + ScreenScraper,
   artwork cache, details view, search/filters, tags/collections,
   favorites/recents, export/import.

@@ -190,8 +190,12 @@ pub fn approve_candidate(
         to_path_string(&Path::new(&install_path).join(&executable_raw))
     };
 
-    // Type inference: `.exe` → windows, everything else → native.
-    let game_type = if executable.to_ascii_lowercase().ends_with(".exe") {
+    // Type inference: `.exe`/`.bat`/`.cmd` → windows, everything else → native.
+    let executable_lower = executable.to_ascii_lowercase();
+    let game_type = if executable_lower.ends_with(".exe")
+        || executable_lower.ends_with(".bat")
+        || executable_lower.ends_with(".cmd")
+    {
         crate::models::GameType::Windows
     } else {
         crate::models::GameType::Native
@@ -206,6 +210,8 @@ pub fn approve_candidate(
     if let Some(existing) = db::find_game_by_install_path(&conn, &install_path)? {
         db::set_candidate_status(&conn, id, CandidateStatus::Approved)?;
         drop(conn);
+        // Head start on the Wine prefix so the first Play is fast.
+        crate::wine::initialize_for_game(&existing);
         emit_library_changed(&app);
         return Ok(existing);
     }
@@ -227,6 +233,8 @@ pub fn approve_candidate(
     db::set_candidate_status(&conn, id, CandidateStatus::Approved)?;
     drop(conn);
 
+    // Head start on the Wine prefix so the first Play is fast.
+    crate::wine::initialize_for_game(&game);
     emit_library_changed(&app);
     Ok(game)
 }

@@ -14,6 +14,7 @@ pub mod settings;
 pub mod state;
 pub mod time;
 pub mod tray;
+pub mod wine;
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -64,10 +65,22 @@ fn setup_app(app: &mut tauri::App) -> AppResult<()> {
 
     let config_path = paths::config_file()?;
     let settings = settings::load_from(&config_path);
+
+    // Head start for the first Play: initialise missing Wine prefixes for
+    // Windows games in the background (best-effort — see `wine.rs`).
+    let games = match db::list_games(&conn) {
+        Ok(games) => games,
+        Err(err) => {
+            tracing::warn!("could not list games for the wine startup sweep: {err:?}");
+            Vec::new()
+        }
+    };
     app.manage(AppState::new(conn, settings, config_path));
 
     tray::init(app)?;
     tray::install_close_handler(app.handle());
+
+    wine::initialize_missing(&games);
 
     tracing::info!("Zen Launcher ready");
     Ok(())

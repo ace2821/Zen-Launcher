@@ -130,9 +130,10 @@ export interface LaunchAvailability {
 }
 
 /**
- * M1 launches native entries only (contract: `launch_game` → `UNSUPPORTED`
- * otherwise), and never launches a game whose executable is gone. The UI
- * mirrors exactly that instead of offering a button that would fail.
+ * M1 launches native entries directly and Windows entries through Wine
+ * (contract: `launch_game` → `UNSUPPORTED` for retro/mod), and never launches
+ * a game whose executable is gone. The UI mirrors exactly that instead of
+ * offering a button that would fail.
  */
 export function useLaunchAvailability(game: Game): LaunchAvailability {
   const { t } = useTranslation();
@@ -140,7 +141,7 @@ export function useLaunchAvailability(game: Game): LaunchAvailability {
     if (game.status === "missing") {
       return { available: false, hint: t("details.playBlockedMissing") };
     }
-    if (game.type !== "native") {
+    if (game.type !== "native" && game.type !== "windows") {
       return {
         available: false,
         hint: t("details.playBlockedType", { type: t(`gameType.${game.type}`) }),

@@ -9,7 +9,7 @@
 //! - Godot: `*.pck` next to an executable
 //! - Unreal: `Engine/` or `Binaries/Linux/`
 //! - GameMaker (`*.yyp`, `*.win`) / Ren'Py (`renpy/`)
-//! - generic fallback: ELF magic + executable bit, `.sh`, `.AppImage`
+//! - generic fallback: ELF magic + executable bit, `.sh`, `.AppImage`, `.bat` (Windows batch launchers)
 //! - ignore `*setup*`, `*redist*`, `unins*`, `crash*`, `_CommonRedist`,
 //!   `DirectX`, `dotnet`, `vc_redist`, `support/`, `docs/`
 //! - candidate = deepest folder that contains a plausible primary executable
@@ -211,6 +211,27 @@ fn first_with_suffix(entries: &[&Entry], suffix: &str) -> Option<PathBuf> {
         .iter()
         .find(|entry| entry.name.to_ascii_lowercase().ends_with(suffix))
         .map(|entry| entry.path.clone())
+}
+
+/// `.bat` launchers in a folder: `launcher.bat` wins, then the shortest name,
+/// then alphabetical.
+fn first_bat_launcher(files: &[&Entry]) -> Option<PathBuf> {
+    let mut found: Vec<&Entry> = files
+        .iter()
+        .copied()
+        .filter(|entry| entry.name.to_ascii_lowercase().ends_with(".bat"))
+        .collect();
+    found.sort_by(|a, b| {
+        let a_name = a.name.to_ascii_lowercase();
+        let b_name = b.name.to_ascii_lowercase();
+        let a_launcher = u8::from(a_name == "launcher.bat");
+        let b_launcher = u8::from(b_name == "launcher.bat");
+        b_launcher
+            .cmp(&a_launcher)
+            .then(a_name.len().cmp(&b_name.len()))
+            .then(a_name.cmp(&b_name))
+    });
+    found.first().map(|entry| entry.path.clone())
 }
 
 fn existing_file(dir: &Path, names: &[String]) -> Option<PathBuf> {
@@ -449,6 +470,20 @@ fn detect_dir(dir: &Path) -> Option<RawCandidate> {
                 script.file_name().unwrap().to_string_lossy()
             )],
             executable: Some(script),
+        });
+    }
+
+    if let Some(batch) = first_bat_launcher(&files) {
+        return Some(RawCandidate {
+            path: dir.to_path_buf(),
+            engine: EngineKind::Unknown,
+            suggested_title: title,
+            confidence: 0.5,
+            evidence: vec![format!(
+                "{} (Windows batch launcher)",
+                batch.file_name().unwrap().to_string_lossy()
+            )],
+            executable: Some(batch),
         });
     }
 
