@@ -1,0 +1,208 @@
+/* Game details: hero, launch options, notes, session history.
+   Page scaffold (scroll / column / panel) comes from page.module.css. */
+
+.skeletonArt {
+  flex: none;
+  width: 204px;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--r-lg);
+}
+
+/* ---------------------------------------------------------------- hero --- */
+
+.hero {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-5);
+}
+
+.heroArt {
+  position: relative;
+  flex: none;
+  width: 204px;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+}
+
+.heroBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+  flex: 1;
+}
+
+.heroFlags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.heroTitle {
+  font-family: var(--font-display);
+  font-size: var(--fs-4xl);
+  font-weight: 400;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.heroMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+.heroMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+
+/* ------------------------------------------------------------- columns --- */
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: var(--s-5);
+  align-items: start;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------- preview --- */
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.previewLabel {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.previewEmpty {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+.previewChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+
+.envList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.envRow {
+  display: flex;
+  gap: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.envKey {
+  flex: none;
+  color: var(--accent);
+}
+
+.envValue {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------------------- facts --- */
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+
+/* ------------------------------------------------------------ sessions --- */
+
+.sessions {
+  display: flex;
+  flex-direction: column;
+}
+
+.sessionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--s-3);
+  align-items: center;
+  padding: var(--s-2) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+
+.sessionRow:last-child {
+  border-bottom: none;
+}
+
+.sessionWhen {
+  color: var(--text-muted);
+}
+
+.sessionDuration {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sessionExit {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.sessionExitWarn {
+  color: var(--warn);
+}
+
+/* --------------------------------------------------------- responsive --- */
+
+@media (max-width: 980px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    flex-direction: column;
+  }
+
+  .heroArt {
+    width: 100%;
+    max-width: 220px;
+  }
+}

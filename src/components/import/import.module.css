@@ -1,0 +1,307 @@
+/* Import view: scan roots, scan progress, candidate review. */
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.narrow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--s-5) var(--s-5) var(--s-7);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+
+.sectionText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  max-width: 62ch;
+}
+
+.sectionActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: none;
+}
+
+.note {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.noteIcon {
+  flex: none;
+  color: var(--accent);
+}
+
+/* -------------------------------------------------------------- sources --- */
+
+.sourceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.sourceRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  transition: border-color var(--t-fast) var(--ease);
+}
+
+.sourceRow:hover {
+  border-color: var(--border-strong);
+}
+
+.sourceMain {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.sourceIcon {
+  flex: none;
+  color: var(--text-faint);
+}
+
+.sourceText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sourcePath {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sourceMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.sourceActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: none;
+}
+
+/* ------------------------------------------------------------- progress --- */
+
+.progressWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-top: var(--s-1);
+  border-top: 1px solid var(--border);
+  animation: zen-fade-in var(--t-slow) var(--ease-out) both;
+}
+
+.progressHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.spinner {
+  animation: zen-spin 900ms linear infinite;
+  color: var(--accent);
+}
+
+/* ----------------------------------------------------------- candidates --- */
+
+.tabs {
+  display: flex;
+  gap: var(--s-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  position: relative;
+  padding: var(--s-2) var(--s-3) var(--s-3);
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  transition: color var(--t-fast) var(--ease);
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tabActive {
+  color: var(--text);
+}
+
+.tabActive::after {
+  content: "";
+  position: absolute;
+  inset: auto var(--s-2) -1px var(--s-2);
+  height: 2px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+}
+
+.candidateList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.candidate {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: var(--s-4);
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  animation: zen-fade-in var(--t-slow) var(--ease-out) both;
+  transition: border-color var(--t-fast) var(--ease);
+}
+
+.candidate:hover {
+  border-color: var(--border-strong);
+}
+
+.candidateCover {
+  width: 92px;
+  height: 118px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+.candidateBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.candidateHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.candidateFields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-3);
+}
+
+.candidateMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.path {
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+
+.candidateActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  justify-content: flex-end;
+}
+
+.candidateFoot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-4);
+  padding-top: var(--s-1);
+}
+
+.footWarn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  margin-right: auto;
+  color: var(--warn);
+  font-size: var(--fs-xs);
+}
+
+.emptyNote {
+  padding: var(--s-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+
+/* Panel variant for a full empty state (icon, title, body, action). */
+.emptyPanel {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+@media (max-width: 760px) {
+  .candidate {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .candidateCover {
+    display: none;
+  }
+}

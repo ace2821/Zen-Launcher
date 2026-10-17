@@ -1,0 +1,395 @@
+/* Library: cover grid, table view, cards, covers. */
+
+.gridScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.gridInner {
+  position: relative;
+  width: 100%;
+}
+
+.gridRow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: 100%;
+  gap: var(--grid-gap, 20px);
+  padding-inline: var(--grid-pad, 24px);
+}
+
+/* ----------------------------------------------------------------- card --- */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  animation: zen-fade-in var(--t-slow) var(--ease-out) both;
+}
+
+.cardCoverWrap {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  transition:
+    border-color var(--t-base) var(--ease),
+    transform var(--t-base) var(--ease),
+    box-shadow var(--t-base) var(--ease);
+}
+
+.card:hover .cardCoverWrap,
+.card:focus-within .cardCoverWrap {
+  border-color: var(--accent-line);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.cardCoverButton {
+  display: block;
+  width: 100%;
+  height: 100%;
+  text-align: left;
+}
+
+.cover {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  container-type: inline-size;
+}
+
+.coverImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.coverInitials {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 22cqw, 44px);
+  letter-spacing: 0.06em;
+  opacity: 0.92;
+  user-select: none;
+}
+
+.coverGlow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 70% at 50% 0%,
+    rgba(255, 255, 255, 0.07) 0%,
+    transparent 60%
+  );
+}
+
+.cardScrim {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 64%;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgba(6, 8, 7, 0.9) 0%,
+    rgba(6, 8, 7, 0.55) 42%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity var(--t-base) var(--ease);
+}
+
+.card:hover .cardScrim,
+.card:focus-within .cardScrim {
+  opacity: 1;
+}
+
+.star {
+  position: absolute;
+  top: var(--s-2);
+  right: var(--s-2);
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-pill);
+  background: rgba(8, 10, 9, 0.62);
+  color: var(--text-muted);
+  opacity: 0;
+  backdrop-filter: blur(4px);
+  transition:
+    opacity var(--t-base) var(--ease),
+    color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
+}
+
+.card:hover .star,
+.card:focus-within .star,
+.starOn {
+  opacity: 1;
+}
+
+.star:hover {
+  color: var(--text);
+  background: rgba(8, 10, 9, 0.82);
+}
+
+.starOn {
+  color: var(--accent);
+}
+
+.cardActions {
+  position: absolute;
+  inset: auto var(--s-2) var(--s-2) var(--s-2);
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity var(--t-base) var(--ease),
+    transform var(--t-base) var(--ease);
+}
+
+.card:hover .cardActions,
+.card:focus-within .cardActions {
+  opacity: 1;
+  transform: none;
+}
+
+.cardActionsGrow {
+  flex: 1;
+}
+
+.cardActionGhost {
+  background: rgba(8, 10, 9, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.cardFlag {
+  position: absolute;
+  top: var(--s-2);
+  left: var(--s-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--s-2);
+  border-radius: var(--r-xs);
+  background: rgba(8, 10, 9, 0.76);
+  color: var(--warn);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  backdrop-filter: blur(4px);
+}
+
+.cardText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-height: 0;
+  padding-top: var(--s-3);
+}
+
+.cardTitle {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cardTitle:hover {
+  color: var(--accent-hover);
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+.cardTags {
+  display: flex;
+  gap: var(--s-1);
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------- table --- */
+
+.tableScroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.table {
+  min-width: 860px;
+  padding-inline: var(--s-5);
+}
+
+.tableRow {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) 92px 104px 148px 124px minmax(0, 0.7fr) 108px;
+  align-items: center;
+  gap: var(--s-3);
+  padding-inline: var(--s-3);
+  border-radius: var(--r-sm);
+}
+
+.tableHead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 38px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tableBodyRow {
+  height: 52px;
+  border-bottom: 1px solid var(--border);
+  transition: background-color var(--t-fast) var(--ease);
+}
+
+.tableBodyRow:hover,
+.tableBodyRow:focus-within {
+  background: var(--surface);
+}
+
+.tableTitleCell {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.tableCover {
+  flex: none;
+  width: 30px;
+  height: 40px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+}
+
+.tableCoverInitials {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.tableTitle {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tableTitle:hover {
+  color: var(--accent-hover);
+}
+
+.tableCell {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.tableTags {
+  display: flex;
+  gap: var(--s-1);
+  overflow: hidden;
+}
+
+.tableActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  opacity: 0.45;
+  transition: opacity var(--t-fast) var(--ease);
+}
+
+.tableBodyRow:hover .tableActions,
+.tableBodyRow:focus-within .tableActions {
+  opacity: 1;
+}
+
+.tableVirtual {
+  position: relative;
+  width: 100%;
+}
+
+.tableVirtualRow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+/* ------------------------------------------------------------- skeleton --- */
+
+.skeletonGrid {
+  display: grid;
+  gap: var(--grid-gap, 20px);
+  padding: var(--s-5);
+  grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+}
+
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.skeletonCover {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--r-md);
+}
+
+.skeletonLine {
+  height: 12px;
+  width: 78%;
+}
+
+.skeletonLineShort {
+  height: 10px;
+  width: 46%;
+}
+
+.emptyWrap {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.skeletonScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}

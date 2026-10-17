@@ -1,0 +1,118 @@
+/*
+ * Design tokens — "Ink & Jade".
+ *
+ * One restrained accent (celadon jade) against a deep neutral ink scale.
+ * Everything else is space, type and a little atmosphere. Components consume
+ * these variables only; no component defines its own palette.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Ink — deep neutral with a faint cool-green cast, so the jade accent
+     belongs to the same family instead of sitting on top of a blue-grey. */
+  --ink-1000: #080a09;
+  --ink-950: #0b0e0d;
+  --ink-900: #101413;
+  --ink-850: #141918;
+  --ink-800: #191f1e;
+  --ink-750: #1f2625;
+  --ink-700: #262e2c;
+  --ink-600: #333c3a;
+  --ink-500: #4b5553;
+  --ink-400: #6b7573;
+  --ink-300: #8e9997;
+  --ink-200: #b3bdba;
+  --ink-150: #cdd5d2;
+  --ink-100: #e4eae7;
+  --ink-050: #f3f7f5;
+
+  /* Jade — the single accent */
+  --jade-700: #2b5f48;
+  --jade-600: #357a5a;
+  --jade-500: #41976e;
+  --jade-400: #5cb389;
+  --jade-300: #83cfa8;
+  --jade-200: #b2e3c8;
+
+  /* Semantic surfaces */
+  --bg: var(--ink-950);
+  --bg-sunken: var(--ink-1000);
+  --surface: var(--ink-900);
+  --surface-raised: var(--ink-850);
+  --surface-hover: var(--ink-800);
+  --surface-active: var(--ink-750);
+
+  --border: rgba(228, 234, 231, 0.07);
+  --border-strong: rgba(228, 234, 231, 0.13);
+
+  /* Semantic text */
+  --text: var(--ink-100);
+  --text-muted: var(--ink-300);
+  --text-faint: var(--ink-400);
+
+  /* Semantic accent */
+  --accent: var(--jade-400);
+  --accent-hover: var(--jade-300);
+  --accent-press: var(--jade-500);
+  --accent-soft: rgba(92, 179, 137, 0.13);
+  --accent-line: rgba(92, 179, 137, 0.34);
+  --on-accent: #06120c;
+
+  --danger: #d9736a;
+  --danger-soft: rgba(217, 115, 106, 0.13);
+  --danger-line: rgba(217, 115, 106, 0.3);
+  --warn: #d9ad64;
+  --warn-soft: rgba(217, 173, 100, 0.13);
+  --info: #7fa8c4;
+  --info-soft: rgba(127, 168, 196, 0.13);
+
+  /* Radii — 10–14px, never fully square */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 12px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+
+  /* Spacing scale */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  /* Type */
+  --font-ui: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Instrument Serif", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-mono: "JetBrains Mono", "Iosevka Fixed", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+  --fs-xl: 18px;
+  --fs-2xl: 23px;
+  --fs-3xl: 30px;
+  --fs-4xl: 40px;
+
+  /* Motion — subtle, 120–200ms */
+  --t-fast: 120ms;
+  --t-base: 160ms;
+  --t-slow: 200ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 10px 28px -12px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 28px 70px -24px rgba(0, 0, 0, 0.7);
+
+  /* Layout */
+  --sidebar-w: 236px;
+  --header-h: 60px;
+  --z-modal: 100;
+  --z-toast: 200;
+}

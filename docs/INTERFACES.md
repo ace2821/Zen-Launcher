@@ -31,7 +31,7 @@ interface Source {
 
 interface Candidate {
   id: number;
-  sourceId: number;
+  sourceId: number | null;    // null once its scan root was removed
   path: string;               // suggested game root folder
   executable: string | null;
   engine: EngineKind;
@@ -95,8 +95,8 @@ interface LaunchInfo {
 | Command | Input | Output |
 |---|---|---|
 | `list_sources` | — | `Source[]` |
-| `add_source` | `{ path }` | `Source` |
-| `remove_source` | `{ id }` | — (candidates/games untouched) |
+| `add_source` | `{ path }` | `Source` (an existing root returns the existing row) |
+| `remove_source` | `{ id }` | — (root only: candidates stay, detached — `sourceId` null; games untouched) |
 | `scan_source` | `{ id }` | `ScanSummary` (async; emits progress events) |
 | `list_candidates` | `{ status? }` | `Candidate[]` |
 | `approve_candidate` | `{ id, patch?: { title?, executable?, args?, workDir? } }` | `Game` |
@@ -104,7 +104,7 @@ interface LaunchInfo {
 | `list_games` | — | `Game[]` |
 | `get_game` | `{ id }` | `Game` |
 | `update_game` | `{ id, patch }` | `Game` (patch = subset of editable fields) |
-| `remove_game` | `{ id }` | — (removes from library only; never touches files) |
+| `remove_game` | `{ id }` | — (removes from library with its play history; never touches files) |
 | `launch_game` | `{ id }` | `LaunchInfo` (native only in M1; `UNSUPPORTED` otherwise) |
 | `list_sessions` | `{ gameId, limit? }` | `Session[]` (newest first) |
 | `get_settings` | — | `Settings` |
@@ -112,6 +112,10 @@ interface LaunchInfo {
 
 Editable `update_game` fields: `title`, `sortTitle`, `type`, `executable`,
 `args`, `env`, `workDir`, `tags`, `favorite`, `hidden`, `notes`, `coverPath`.
+
+Patch semantics: an omitted field keeps its stored value; an explicit `null`
+clears the nullable fields (`sortTitle`, `workDir`, `notes`, `coverPath`).
+Empty `title`/`executable` are rejected with `VALIDATION`.
 
 ## Events (Rust → UI)
 
@@ -169,7 +173,7 @@ Editable `update_game` fields: `title`, `sortTitle`, `type`, `executable`,
 ```sql
 sources(id INTEGER PRIMARY KEY, path TEXT UNIQUE NOT NULL, auto_scan INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL, last_scan_at TEXT);
-candidates(id INTEGER PRIMARY KEY, source_id INTEGER NOT NULL REFERENCES sources(id),
+candidates(id INTEGER PRIMARY KEY, source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
            path TEXT NOT NULL, executable TEXT, engine TEXT NOT NULL DEFAULT 'unknown',
            suggested_title TEXT NOT NULL, confidence REAL NOT NULL DEFAULT 0,
            evidence_json TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL DEFAULT 'pending',
@@ -180,7 +184,7 @@ games(id INTEGER PRIMARY KEY, title TEXT NOT NULL, sort_title TEXT, type TEXT NO
       favorite INTEGER NOT NULL DEFAULT 0, hidden INTEGER NOT NULL DEFAULT 0, notes TEXT,
       cover_path TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       last_played_at TEXT, total_seconds INTEGER NOT NULL DEFAULT 0);
-sessions(id INTEGER PRIMARY KEY, game_id INTEGER NOT NULL REFERENCES games(id),
+sessions(id INTEGER PRIMARY KEY, game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
          started_at TEXT NOT NULL, ended_at TEXT, duration_seconds INTEGER, exit_code INTEGER);
 schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
 ```

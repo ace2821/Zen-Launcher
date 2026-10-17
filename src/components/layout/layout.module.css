@@ -1,0 +1,306 @@
+/* App shell: sidebar navigation, view-aware header, scrolling main region. */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  grid-template-rows: var(--header-h) minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* -------------------------------------------------------------- sidebar --- */
+
+.sidebar {
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  padding: var(--s-4) var(--s-3) var(--s-4);
+  background: var(--bg-sunken);
+  border-right: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3) var(--s-4);
+}
+
+.brandMark {
+  flex: none;
+  color: var(--accent);
+}
+
+.brandName {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+.brandMeta {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  padding: 0 var(--s-3);
+  height: 34px;
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  text-align: left;
+  transition:
+    background-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+
+.navItem:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.navItemActive {
+  background: var(--accent-soft);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.navItemActive .navItemIcon {
+  color: var(--accent);
+}
+
+.navItemIcon {
+  flex: none;
+  color: var(--text-faint);
+  transition: color var(--t-fast) var(--ease);
+}
+
+.navItemLabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebarFoot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-top: auto;
+  padding: var(--s-3);
+  border-top: 1px solid var(--border);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.sidebarFootRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+
+/* --------------------------------------------------------------- header --- */
+
+.header {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: 0 var(--s-5);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.headerHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+  flex: 1;
+}
+
+.headerTitle {
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 400;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerSubtitle {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+.searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 420px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--s-3);
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  height: 34px;
+  padding: 0 34px 0 34px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  color: var(--text);
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
+}
+
+.searchInput::placeholder {
+  color: var(--text-faint);
+}
+
+.searchInput:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+  background: var(--ink-1000);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.searchClear {
+  position: absolute;
+  right: var(--s-1);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-left: auto;
+}
+
+.headerCount {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sortSelect {
+  height: 30px;
+  width: 168px;
+  font-size: var(--fs-sm);
+}
+
+/* ----------------------------------------------------------------- main --- */
+
+.main {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.viewScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.viewPad {
+  padding: var(--s-5);
+}
+
+.viewNarrow {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* ----------------------------------------------------------- responsive --- */
+
+/* The header keeps its search field longest; the count and the view controls
+   are the first things to go when the window gets narrow. */
+@media (max-width: 1120px) {
+  .headerCount {
+    display: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .searchWrap {
+    max-width: 280px;
+  }
+
+  .sortSelect {
+    width: 140px;
+  }
+}
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .brandText,
+  .navItemLabel,
+  .sidebarFootText {
+    display: none;
+  }
+
+  .navItem {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .sidebarFoot {
+    align-items: center;
+  }
+}
+
+@media (max-width: 760px) {
+  .header {
+    gap: var(--s-3);
+    padding: 0 var(--s-4);
+  }
+
+  .searchWrap {
+    max-width: none;
+  }
+
+  .sortSelect {
+    width: 118px;
+  }
+}

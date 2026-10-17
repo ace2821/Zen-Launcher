@@ -1,0 +1,98 @@
+/*
+ * Page scaffold shared by the long-form views (game details, settings):
+ * a scrolling region, a centred column, and the panel primitive.
+ */
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--s-5) var(--s-5) var(--s-8);
+}
+
+.wide {
+  max-width: 1080px;
+}
+
+.narrow {
+  max-width: 860px;
+}
+
+/* --------------------------------------------------------------- panel --- */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.panelHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+
+.panelText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 58ch;
+}
+
+.panelActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: none;
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+/* --------------------------------------------------------------- facts --- */
+
+.facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-2) var(--s-4);
+}
+
+.factKey {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.factValue {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- hint --- */
+
+.hint {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.hintWarn {
+  color: var(--warn);
+}
