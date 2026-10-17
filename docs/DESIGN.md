@@ -91,9 +91,10 @@ usable for a desktop game-library project.
 - V1 extras: tags and collections, favorites/recents, `.desktop` shortcuts per
   game (KDE menu), background auto-scan, library export/import (JSON).
 - i18n: English + Polish from the start.
-- First-run wizard: language, font (Maple Mono default; serif display headings
-  kept), accent preset, default library view, window behavior; skippable and
-  re-runnable from Settings. Dark theme only for now — light theme deferred.
+- First-run wizard: language, font (Maple Mono default; display headings in
+  Space Grotesk), accent preset, default library view, window behavior;
+  skippable and re-runnable from Settings. Dark theme only for now — light
+  theme deferred.
 - App updates: check GitHub Releases, notify only.
 - Branding: postponed; placeholder icon until a dedicated pass.
 
@@ -164,7 +165,7 @@ usable for a desktop game-library project.
 - Standard search bar + keyboard navigation (arrows/Enter/Esc); command
   palette (Ctrl+K) consciously dropped from V1.
 - Dark theme default (light theme deferred); UI font choice (Maple Mono
-  default, serif display headings kept) and accent presets via first-run
+  default, display headings in Space Grotesk) and accent presets via first-run
   wizard / Settings; branding pass deferred.
 - Notifications: scan finished, backup done, update available.
 

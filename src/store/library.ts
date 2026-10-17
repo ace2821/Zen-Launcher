@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { currentLanguage, setLanguage, translate } from "../i18n";
 import { api } from "../lib/api";
+import { applyAppearance } from "../lib/appearance";
 import { toUiError, type UiAppError } from "../lib/errors";
 import { formatClockDuration } from "../lib/format";
 import type {
@@ -32,6 +33,15 @@ export interface ScanProgressState {
 interface UpdateGameOptions {
   /** Toast title used when the patch is rejected. */
   failureTitle?: string;
+}
+
+interface UpdateSettingsOptions {
+  /**
+   * Skip the success toast. Used by the first-run wizard, which writes on every
+   * click: a stack of "Settings saved" toasts behind a takeover is noise, while
+   * failures still surface (that is what the user needs to know about).
+   */
+  silent?: boolean;
 }
 
 interface LibraryState {
@@ -72,7 +82,7 @@ interface LibraryState {
   removeGame(id: number): Promise<void>;
   launchGame(id: number): Promise<void>;
   revealGame(game: Game): Promise<void>;
-  updateSettings(patch: SettingsPatch): Promise<void>;
+  updateSettings(patch: SettingsPatch, options?: UpdateSettingsOptions): Promise<void>;
   reset(): void;
 }
 
@@ -165,6 +175,9 @@ export const useLibraryStore = create<LibraryState>()((set, get) => {
         try {
           const settings = await api.getSettings();
           set({ settings });
+          // The stylesheet already defaults to Maple Mono + jade, so this only
+          // has to correct the frame for a stored choice — never to fill a gap.
+          applyAppearance(settings);
           if (settings.language !== currentLanguage()) {
             await setLanguage(settings.language);
           }
@@ -528,15 +541,20 @@ export const useLibraryStore = create<LibraryState>()((set, get) => {
       }
     },
 
-    async updateSettings(patch) {
+    async updateSettings(patch, options) {
       await run("settings:update", async () => {
         try {
           const settings = await api.updateSettings(patch);
           set({ settings });
+          // Appearance follows the stored settings, not the patch: one writer,
+          // and a refused patch can never repaint the UI.
+          applyAppearance(settings);
           if (patch.language !== undefined && patch.language !== currentLanguage()) {
             await setLanguage(patch.language);
           }
-          toastSuccess(translate("settings.settingsSaved"));
+          if (options?.silent !== true) {
+            toastSuccess(translate("settings.settingsSaved"));
+          }
         } catch (error) {
           toastError(translate("settings.settingsSaveFailed"), toUiError(error));
         }

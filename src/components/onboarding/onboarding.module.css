@@ -1,0 +1,575 @@
+/*
+ * First-run takeover — "Ink & Jade".
+ *
+ * A bordered ink frame over a dimmed, blurred shell: numbered rail on the left
+ * (where am I), one decision per step on the right (what am I choosing). The
+ * accent runs through the whole thing, so picking one visibly repaints the room
+ * you are standing in. Everything is built from the shared tokens; no local
+ * palette, no local motion curve.
+ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-onboarding);
+  display: grid;
+  place-items: center;
+  padding: var(--s-6);
+  background: rgba(6, 8, 7, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.frame {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(940px, 100%);
+  max-height: min(730px, 100%);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* A single accent hairline across the top: the takeover is the one moment the
+   accent introduces itself, so it gets to sit on the frame's edge. */
+.frame::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent-line) 50%,
+    transparent 100%
+  );
+}
+
+.frame:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 3px;
+}
+
+/* ------------------------------------------------------------------ top --- */
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.brandMark {
+  flex: none;
+  color: var(--accent);
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.brandName {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: var(--display-tracking);
+}
+
+.brandKicker {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.progress {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.skip {
+  flex: none;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* ----------------------------------------------------------------- body --- */
+
+.body {
+  display: grid;
+  grid-template-columns: 214px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.rail {
+  padding: var(--s-5) var(--s-3);
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-sunken) 55%, transparent);
+}
+
+.railList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.railItem {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  width: 100%;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-sm);
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  text-align: left;
+  transition:
+    background-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+
+.railItem:hover {
+  background: var(--surface-hover);
+  color: var(--text-muted);
+}
+
+/* Steps already answered keep an accent numeral: the rail doubles as a
+   progress bar without adding a second widget for it. */
+.railItemVisited .railIndex {
+  color: var(--accent);
+}
+
+.railItemActive {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  color: var(--text);
+}
+
+.railIndex {
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  min-height: 0;
+  padding: var(--s-6) var(--s-6) var(--s-5);
+  overflow-y: auto;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xl);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: var(--display-tracking);
+}
+
+.lead {
+  max-width: 60ch;
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  line-height: 1.65;
+}
+
+/* --------------------------------------------------------------- choices --- */
+
+.choices {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.choicesColumns {
+  grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  text-align: left;
+  transition:
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+
+.choice:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.choiceActive {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+
+.choiceMark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  color: transparent;
+  transition:
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+
+.choiceActive .choiceMark {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.choiceIcon {
+  flex: none;
+  color: var(--text-faint);
+}
+
+.choiceActive .choiceIcon {
+  color: var(--accent);
+}
+
+.choiceBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.choiceLabel {
+  font-size: var(--fs-md);
+}
+
+.choiceHint {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+/* Each font option introduces itself in its own face. The button carries
+   `data-font`, which re-points `--font-ui` / `--ui-tracking` locally — the same
+   mechanism the accent swatches use below. */
+.choice[data-font] .choiceLabel,
+.choice[data-font] .choiceSample {
+  font-family: var(--font-ui);
+  letter-spacing: var(--ui-tracking);
+}
+
+.choiceSample {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* --------------------------------------------------------------- accents --- */
+
+.accents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  transition:
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.swatch:hover {
+  background: var(--surface-hover);
+}
+
+.swatchActive {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+/* Previewing an accent that is *not* active works because the preset blocks in
+   tokens.css match `[data-accent]` on any element (see that file). */
+.swatchDot {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    var(--shadow-sm);
+  color: var(--on-accent);
+}
+
+.swatchName {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+}
+
+.swatchActive .swatchName {
+  color: var(--text);
+}
+
+/* --------------------------------------------------------------- preview --- */
+
+.preview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+/* The accent's own atmosphere, on a card you can see change under your cursor. */
+.preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 140% at 100% 0%,
+    var(--glow-primary) 0%,
+    transparent 60%
+  );
+}
+
+.previewHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.previewRule {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.previewDisplay {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: var(--display-tracking);
+}
+
+.previewBody {
+  color: var(--text);
+  font-size: var(--fs-lg);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  /* Resolves to the active UI face, or to the one the element carries in
+     `data-font` — this line is the reason the tour can preview a choice before
+     it is the app's own. */
+  font-family: var(--font-ui);
+  letter-spacing: var(--ui-tracking);
+}
+
+.previewMeta {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+
+.previewActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-1);
+}
+
+/* A sample of the primary button, deliberately not a `<button>`: it shows the
+   accent against --on-accent without pretending to be a control. */
+.previewButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  height: 32px;
+  padding: 0 var(--s-3);
+  border-radius: var(--r-sm);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.previewBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 var(--s-2);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-xs);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* --------------------------------------------------------------- summary --- */
+
+.summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-2) var(--s-4);
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.summaryKey {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.summaryValue {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+
+.summaryNote {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.finishMark {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ foot --- */
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-sunken) 70%, transparent);
+}
+
+.footHint {
+  flex: 1;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+
+/* ----------------------------------------------------------- responsive --- */
+
+@media (max-width: 880px) {
+  .overlay {
+    padding: var(--s-3);
+  }
+
+  .frame {
+    max-height: 100%;
+  }
+
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    padding: var(--s-3);
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .railList {
+    flex-direction: row;
+    gap: var(--s-1);
+    overflow-x: auto;
+  }
+
+  .railItem {
+    flex: none;
+    align-items: center;
+    gap: var(--s-2);
+  }
+
+  .content {
+    padding: var(--s-5) var(--s-4) var(--s-4);
+  }
+
+  .title {
+    font-size: var(--fs-2xl);
+  }
+
+  .footHint {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .railLabel {
+    display: none;
+  }
+
+  .top {
+    gap: var(--s-3);
+  }
+
+  .brandKicker {
+    display: none;
+  }
+}

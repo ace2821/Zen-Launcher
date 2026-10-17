@@ -1,12 +1,15 @@
 import { useTranslation } from "react-i18next";
+import { RotateCcw } from "lucide-react";
 import page from "../components/page/page.module.css";
 import { Badge } from "../components/ui/Badge";
+import { Button } from "../components/ui/Button";
 import { Segmented, SwitchField, type SegmentedOption } from "../components/ui/Field";
 import { Skeleton } from "../components/ui/Feedback";
 import { isMock } from "../lib/api";
 import { STORAGE_PATHS } from "../lib/paths";
 import type { Language } from "../lib/types";
 import { useLibraryStore } from "../store/library";
+import { useOnboardingStore } from "../store/onboarding";
 
 function SettingsSkeleton() {
   return (
@@ -19,15 +22,21 @@ function SettingsSkeleton() {
 }
 
 /**
- * Settings. M1 exposes exactly the three persisted values in the contract
- * (language, tray behaviour, hide-on-launch) plus read-only facts — no invented
- * preferences, and nothing that pretends to be editable but is not.
+ * Settings. Holds the persisted values that have a control here — language and
+ * the two window-behaviour switches — plus read-only facts, and a way back into
+ * the setup tour.
+ *
+ * Font and accent are settings too, but their controls live in the tour (the
+ * only place a choice can be previewed against real type and a real accent), so
+ * this screen points at it rather than growing a second, worse editor for the
+ * same two values.
  */
 export function SettingsView() {
   const { t } = useTranslation();
   const settings = useLibraryStore((state) => state.settings);
   const updateSettings = useLibraryStore((state) => state.updateSettings);
   const saving = useLibraryStore((state) => state.busy["settings:update"] === true);
+  const requestRerun = useOnboardingStore((state) => state.requestRerun);
 
   if (settings === null) {
     return (
@@ -82,6 +91,21 @@ export function SettingsView() {
               disabled={saving}
               onChange={(checked) => void updateSettings({ hideOnLaunch: checked })}
             />
+          </div>
+        </section>
+
+        {/* ------------------------------------------------- setup tour --- */}
+        <section className={page.panel}>
+          <div className={page.panelHead}>
+            <div className={page.panelText}>
+              <h2 className="sectionTitle">{t("settings.onboardingTitle")}</h2>
+              <p className="sectionHint">{t("settings.onboardingDescription")}</p>
+            </div>
+            <div className={page.panelActions}>
+              <Button icon={RotateCcw} onClick={requestRerun}>
+                {t("settings.onboardingRun")}
+              </Button>
+            </div>
           </div>
         </section>
 

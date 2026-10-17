@@ -3,6 +3,7 @@ import { api, isMockApi } from "../lib/api";
 import type { Language } from "../lib/types";
 import { resetConfirm } from "../store/confirm";
 import { useLibraryStore } from "../store/library";
+import { useOnboardingStore } from "../store/onboarding";
 import { useShellStore } from "../store/shell";
 import { resetToasts } from "../store/toasts";
 
@@ -14,6 +15,16 @@ export const INITIAL_SHELL = {
   layout: "grid" as const,
 };
 
+export interface SetupOptions {
+  /**
+   * Whether the setup tour counts as already finished. Default `true`, because
+   * every other suite is about a screen *behind* the tour and should not have to
+   * dismiss a takeover overlay first. The tour's own suite passes `false` to
+   * reproduce a first run.
+   */
+  onboarding?: boolean;
+}
+
 /**
  * Puts the whole app back to a known state: a fresh in-memory adapter, an empty
  * store that has re-subscribed to it, and empty toast/confirm queues.
@@ -22,7 +33,10 @@ export const INITIAL_SHELL = {
  * `api` singleton would otherwise leak sessions, candidates and listeners into
  * each other.
  */
-export async function setupMockApp(language: Language = "en"): Promise<void> {
+export async function setupMockApp(
+  language: Language = "en",
+  options: SetupOptions = {},
+): Promise<void> {
   initI18n(language);
   await setLanguage(language);
 
@@ -32,6 +46,13 @@ export async function setupMockApp(language: Language = "en"): Promise<void> {
   if (isMockApi(api)) api.reset();
   useLibraryStore.getState().reset();
   useShellStore.setState({ ...INITIAL_SHELL });
+  useOnboardingStore.setState({ requested: false });
+
+  if (options.onboarding !== false) {
+    // The seed is a first run (`onboardingCompleted: false`); a suite that is not
+    // about the tour marks it finished the same way the app would.
+    await api.updateSettings({ onboardingCompleted: true });
+  }
 
   await useLibraryStore.getState().init();
 }
@@ -43,4 +64,5 @@ export function resetStores(): void {
   if (isMockApi(api)) api.reset();
   useLibraryStore.getState().reset();
   useShellStore.setState({ ...INITIAL_SHELL });
+  useOnboardingStore.setState({ requested: false });
 }

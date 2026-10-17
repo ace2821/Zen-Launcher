@@ -1,10 +1,14 @@
 Fonts bundled with Zen Launcher (self-hosted, no runtime network requests).
 
-Instrument Sans + Instrument Serif
-Copyright 2022 The Instrument Sans/Serif Project Authors
+Instrument Sans (the optional proportional UI face)
+Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans)
 Licensed under the SIL Open Font License, Version 1.1.
 
-Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans)
+The other two bundled families keep their own provenance notes and vendored-file
+hashes next to this file:
+
+  Maple Mono (UI, the default face)  -> OFL-MapleMono.txt
+  Space Grotesk (display/headings)   -> OFL-SpaceGrotesk.txt
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

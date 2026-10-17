@@ -89,6 +89,18 @@ export interface Settings {
   closeToTray: boolean;
   /** Default true. */
   hideOnLaunch: boolean;
+  /**
+   * UI/body font id. Default `"maple-mono"`. The core rejects anything outside
+   * `[a-z0-9-]`, longer than 32 chars or empty; an id the UI does not know is
+   * normalised to the default instead of being applied (see `lib/appearance.ts`).
+   */
+  font: string;
+  /**
+   * Accent preset id. Default `"jade"`; same normalisation rules as `font`.
+   */
+  accent: string;
+  /** Default false: the first-run wizard has not been finished or skipped yet. */
+  onboardingCompleted: boolean;
 }
 
 export interface ScanSummary {
@@ -129,6 +141,9 @@ export interface SettingsPatch {
   language?: Language;
   closeToTray?: boolean;
   hideOnLaunch?: boolean;
+  font?: string;
+  accent?: string;
+  onboardingCompleted?: boolean;
 }
 
 /* ---------------------------------------------------------------------------

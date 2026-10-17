@@ -163,8 +163,8 @@ these fields loads them as defaults.
   `accent`, `closeToTray`, `hideOnLaunch`.
 - Default library view (grid/list) stays UI-local (existing persisted layout
   store) — not part of the IPC contract.
-- Default UI font is `maple-mono`; display/serif headings stay Instrument
-  Serif. Light theme is deferred; accents are dark-theme presets.
+- Default UI font is `maple-mono`; display headings are Space Grotesk. Light
+  theme is deferred; accents are dark-theme presets.
 
 ## Launch rules (M1)
 

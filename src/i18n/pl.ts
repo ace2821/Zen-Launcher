@@ -194,7 +194,7 @@ export const pl: TranslationShape = {
     notFoundTitle: "Ten wpis zniknął",
     notFoundBody: "Nie ma go już w bibliotece.",
     play: "Graj",
-    playBlockedType: "Uruchamianie wpisów typu {{type}} pojawi się po M1.",
+    playBlockedType: "Uruchamianie wpisów typu {{type}} nie jest jeszcze obsługiwane.",
     playBlockedMissing:
       "Brakuje pliku wykonywalnego. Popraw ścieżkę w opcjach uruchamiania.",
     launchOptions: "Opcje uruchamiania",
@@ -264,7 +264,7 @@ export const pl: TranslationShape = {
     behaviourDescription: "Jak okno reaguje, gdy gra działa.",
     closeToTray: "Działaj w zasobniku po zamknięciu okna",
     closeToTrayHint:
-      "Zamknięcie okna ukrywa je w zasobniku; naprawdę kończy program „Zakończ” z menu zasobnika.",
+      "Zamknięcie okna ukrywa je w zasobniku. Aby całkiem zamknąć program, wybierz „Zakończ” w menu zasobnika.",
     hideOnLaunch: "Ukryj okno przy starcie gry",
     hideOnLaunchHint: "Launcher schodzi z drogi, a sesja działa dalej.",
     storageTitle: "Dane",
@@ -282,9 +282,89 @@ export const pl: TranslationShape = {
     modeMock: "Mock (w pamięci)",
     modeMockHint:
       "Brak podłączonego rdzenia Rust: wszystko działa na adapterze w pamięci i nic nie trafia na dysk.",
+    onboardingTitle: "Kreator konfiguracji",
+    onboardingDescription:
+      "Język, czcionka interfejsu, akcent, domyślny widok biblioteki oraz zachowanie okna podczas gry. Każdy wybór zapisuje się od razu, więc nie ma czego zatwierdzać.",
+    onboardingRun: "Uruchom kreatora ponownie",
     settingsSaved: "Ustawienia zapisane",
     settingsSaveFailed: "Nie udało się zapisać ustawień",
     licenseName: "MIT",
+  },
+
+  onboarding: {
+    kicker: "Pierwsze uruchomienie",
+    stepCounter: "Krok {{current}} z {{total}}",
+    railLabel: "Kroki konfiguracji",
+    stepLanguage: "Język",
+    stepAppearance: "Wygląd",
+    stepLibrary: "Biblioteka",
+    stepWindow: "Okno",
+    stepFinish: "Gotowe",
+
+    languageTitle: "Wybierz język",
+    languageBody:
+      "Cały interfejs przełączy się od razu, razem z tym kreatorem. Nic nie jest przypisane na stałe — język zmienisz w każdej chwili w Ustawieniach.",
+
+    appearanceTitle: "Nadaj charakter",
+    appearanceBody:
+      "Domyślnie interfejs pisze Maple Mono, a akcent podkreśla to, co ma przyciągać wzrok: przyciski, obwódki fokusu, liczniki. Jedno i drugie możesz zmienić.",
+
+    fontTitle: "Czcionka interfejsu",
+    fontBody:
+      "Obowiązuje w tekstach całej aplikacji. Nagłówki i tak pisze Space Grotesk.",
+    fontMapleMono: "Maple Mono",
+    fontMapleMonoHint:
+      "Domyślna. Spokojna czcionka o stałej szerokości, z ligaturami programistycznymi.",
+    fontInstrumentSans: "Instrument Sans",
+    fontInstrumentSansHint: "Proporcjonalna i łagodniejsza — bez ligatur.",
+    fontSystem: "Systemowa",
+    fontSystemHint: "Ta, której używa Twój pulpit.",
+
+    accentTitle: "Akcent",
+    accentJade: "Jadeit",
+    accentPlum: "Śliwka",
+    accentAzure: "Lazur",
+    accentEmber: "Żar",
+    accentRose: "Róż",
+    accentNeutral: "Grafit",
+
+    previewTitle: "Podgląd",
+    previewDisplay: "Ink & Jade",
+    fontSample: "Zażółć gęślą jaźń",
+    previewSample:
+      "Zażółć gęślą jaźń. The quick brown fox jumps over the lazy dog.",
+    previewMeta: "~/.local/share/zen-launcher/library.db",
+    previewButton: "Graj",
+
+    libraryTitle: "Jak ma się otwierać biblioteka?",
+    libraryBody:
+      "Widok, w którym wylądujesz po uruchomieniu. W nagłówku przełączysz go w każdej chwili.",
+    libraryGrid: "Siatka okładek",
+    libraryGridHint: "Duże okładki, trzy lub cztery w rzędzie.",
+    libraryList: "Lista",
+    libraryListHint: "Gęściej: tytuł, typ, czas gry, ostatnio grane.",
+
+    windowTitle: "Gdy gra działa",
+    windowBody:
+      "Co launcher robi z własnym oknem. Oba przełączniki zmienisz później w Ustawieniach.",
+
+    finishTitle: "Wszystko gotowe",
+    finishBody: "Oto, co wybrałeś w tym kreatorze.",
+    summaryLanguage: "Język",
+    summaryFont: "Czcionka",
+    summaryAccent: "Akcent",
+    summaryLibrary: "Widok biblioteki",
+    summaryTray: "Zamknięcie do zasobnika",
+    summaryHideOnLaunch: "Ukrywanie przy starcie gry",
+    finishNote:
+      "Zapisane tylko na tym komputerze. Kreatora uruchomisz ponownie w Ustawieniach, gdy zechcesz wrócić do tych wyborów.",
+
+    back: "Wstecz",
+    next: "Dalej",
+    finish: "Zaczynajmy",
+    skip: "Pomiń",
+    skipHint: "Pomiń konfigurację i zostań przy ustawieniach domyślnych.",
+    footHint: "Wybory zapisują się na bieżąco.",
   },
 
   errors: {

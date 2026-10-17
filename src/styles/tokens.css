@@ -27,7 +27,9 @@
   --ink-100: #e4eae7;
   --ink-050: #f3f7f5;
 
-  /* Jade — the single accent */
+  /* Jade — the default accent's rungs. The semantic accent tokens further down
+     alias these; every other preset writes those same semantic tokens directly,
+     which is why jade needs no `[data-accent="jade"]` block. */
   --jade-700: #2b5f48;
   --jade-600: #357a5a;
   --jade-500: #41976e;
@@ -51,13 +53,23 @@
   --text-muted: var(--ink-300);
   --text-faint: var(--ink-400);
 
-  /* Semantic accent */
+  /* Semantic accent — jade unless `[data-accent]` says otherwise, so a
+     missing attribute (pre-JS first paint) or an id the UI does not know lands
+     on the shipped identity instead of an unstyled UI. Presets live in the
+     `[data-accent="…"]` blocks below.
+
+     These are the only tokens an accent preset may touch: the ink scale stays
+     constant so every preset still reads as Ink & Jade. */
   --accent: var(--jade-400);
   --accent-hover: var(--jade-300);
   --accent-press: var(--jade-500);
   --accent-soft: rgba(92, 179, 137, 0.13);
   --accent-line: rgba(92, 179, 137, 0.34);
   --on-accent: #06120c;
+  /* The two atmosphere glows behind everything (see global.css). Tintable, so
+     switching the accent also changes the room the UI sits in. */
+  --glow-primary: rgba(92, 179, 137, 0.09);
+  --glow-secondary: rgba(127, 168, 196, 0.05);
 
   --danger: #d9736a;
   --danger-soft: rgba(217, 115, 106, 0.13);
@@ -84,10 +96,39 @@
   --s-7: 48px;
   --s-8: 64px;
 
-  /* Type */
-  --font-ui: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Instrument Serif", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  --font-mono: "JetBrains Mono", "Iosevka Fixed", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* Type — three UI faces, selected by `data-font` on <html> (see
+     lib/appearance.ts). Maple Mono is the default, so an unattributed first
+     paint is already correct. Space Grotesk keeps the display voice and is
+     never user-selectable: headings, the wordmark and dialog titles. It is a
+     grotesk from the same family tree as Space Mono, which is what makes the
+     display and the monospace UI read as one design rather than two.
+
+     `--font-mono` deliberately resolves to Maple Mono as well: it is the only
+     monospace this app ships, and letting paths/ids fall back to whatever
+     monospace the desktop happens to have would undo the identity. */
+  --font-maple: "Maple Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas,
+    monospace;
+  --font-instrument: "Instrument Sans", system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --font-system: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans",
+    sans-serif;
+  --font-space: "Space Grotesk", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans", sans-serif;
+
+  --font-ui: var(--font-maple);
+  --font-mono: var(--font-maple);
+  --font-display: var(--font-space);
+
+  /* Tracking is per role, not per control. Monospace UI needs it pulled in a
+     hair; the proportional faces sit at the default. Display type goes the other
+     way: Space Grotesk is drawn with tight sidebearings and reads a shade loose
+     at heading sizes, so headings tighten slightly — the serif it replaced
+     wanted the opposite. Consumed by `body` in global.css (inherited by every
+     control via `letter-spacing: inherit` in the reset) and by the display
+     selectors themselves. */
+  --tracking-maple: -0.012em;
+  --ui-tracking: var(--tracking-maple);
+  --display-tracking: -0.01em;
 
   --fs-xs: 11px;
   --fs-sm: 12px;
@@ -114,5 +155,99 @@
   --sidebar-w: 236px;
   --header-h: 60px;
   --z-modal: 100;
+  /* The first-run takeover: above dialogs, below toasts so a failed settings
+     write still reaches the user while the wizard is on screen. Kept under the
+     grain overlay (z-index 9998 in global.css) so the takeover keeps texture. */
+  --z-onboarding: 150;
   --z-toast: 200;
+}
+
+/* -------------------------------------------------------------------- fonts */
+
+/* `data-font` selects the UI/body face (see lib/appearance.ts for the ids). Like
+   the accent blocks below it matches any element, not just `<html>`: the wizard
+   shows every font option — and the live preview line — in a face that is not
+   necessarily the active one. Keep these blocks below `:root`, they tie with it
+   on specificity. */
+
+[data-font="maple-mono"] {
+  --font-ui: var(--font-maple);
+  --ui-tracking: var(--tracking-maple);
+}
+
+[data-font="instrument-sans"] {
+  --font-ui: var(--font-instrument);
+  --ui-tracking: 0em;
+}
+
+[data-font="system"] {
+  --font-ui: var(--font-system);
+  --ui-tracking: 0em;
+}
+
+/* ------------------------------------------------------------------ accents */
+
+/* Each preset sets exactly the same nine tokens. Contrast measured against the
+   ink surfaces (AA for interactive elements): base accent 6.9–10.8:1 on --bg,
+   hover 8.7–12.7:1 on --surface-raised, --on-accent 6.9–10.9:1 on --accent.
+   Jade is absent on purpose — it is the `:root` value above.
+
+   The selectors match `[data-accent]` on any element, not just `<html>`: the
+   wizard's swatches carry the attribute to preview an accent that is *not* the
+   active one. That relies on these blocks sitting below `:root` (equal
+   specificity, later wins) — keep them where they are. */
+
+[data-accent="plum"] {
+  --accent: #ab8dd8;
+  --accent-hover: #c6aae9;
+  --accent-press: #8f6cc4;
+  --accent-soft: rgba(171, 141, 216, 0.13);
+  --accent-line: rgba(171, 141, 216, 0.34);
+  --on-accent: #120a1e;
+  --glow-primary: rgba(171, 141, 216, 0.09);
+  --glow-secondary: rgba(120, 150, 220, 0.05);
+}
+
+[data-accent="azure"] {
+  --accent: #5aa9d6;
+  --accent-hover: #8ac6e8;
+  --accent-press: #4189b3;
+  --accent-soft: rgba(90, 169, 214, 0.13);
+  --accent-line: rgba(90, 169, 214, 0.34);
+  --on-accent: #04121a;
+  --glow-primary: rgba(90, 169, 214, 0.09);
+  --glow-secondary: rgba(122, 122, 220, 0.05);
+}
+
+[data-accent="ember"] {
+  --accent: #df8f52;
+  --accent-hover: #f0b47e;
+  --accent-press: #c4723a;
+  --accent-soft: rgba(223, 143, 82, 0.13);
+  --accent-line: rgba(223, 143, 82, 0.34);
+  --on-accent: #1a0d03;
+  --glow-primary: rgba(223, 143, 82, 0.09);
+  --glow-secondary: rgba(110, 140, 200, 0.05);
+}
+
+[data-accent="rose"] {
+  --accent: #dd80a6;
+  --accent-hover: #eea5c3;
+  --accent-press: #c1628a;
+  --accent-soft: rgba(221, 128, 166, 0.13);
+  --accent-line: rgba(221, 128, 166, 0.34);
+  --on-accent: #1c0711;
+  --glow-primary: rgba(221, 128, 166, 0.09);
+  --glow-secondary: rgba(120, 150, 200, 0.05);
+}
+
+[data-accent="neutral"] {
+  --accent: #b9c4c1;
+  --accent-hover: #d3dcda;
+  --accent-press: #9aa5a2;
+  --accent-soft: rgba(185, 196, 193, 0.13);
+  --accent-line: rgba(185, 196, 193, 0.34);
+  --on-accent: #0a0d0c;
+  --glow-primary: rgba(185, 196, 193, 0.07);
+  --glow-secondary: rgba(140, 160, 180, 0.04);
 }

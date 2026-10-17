@@ -37,13 +37,19 @@ if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
  * reads the scroll container's `clientHeight`, so with zeros it would believe
  * the viewport is empty and mount nothing. A single nominal viewport is enough
  * for every measurement the app performs.
+ *
+ * Guarded because a suite that opts into the Node environment (a file that only
+ * reads stylesheets off disk, say) has no `Element` at all — this setup file is
+ * shared by every suite, so it must not assume its tests have a DOM.
  */
 const VIEWPORT = { width: 1200, height: 900 };
-for (const property of ["clientWidth", "clientHeight"] as const) {
-  Object.defineProperty(Element.prototype, property, {
-    configurable: true,
-    get: () => VIEWPORT[property === "clientWidth" ? "width" : "height"],
-  });
+if (typeof Element !== "undefined") {
+  for (const property of ["clientWidth", "clientHeight"] as const) {
+    Object.defineProperty(Element.prototype, property, {
+      configurable: true,
+      get: () => VIEWPORT[property === "clientWidth" ? "width" : "height"],
+    });
+  }
 }
 
 afterEach(() => {

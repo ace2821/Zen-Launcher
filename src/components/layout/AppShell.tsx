@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect } from "react";
 import { useLibraryStore } from "../../store/library";
 import { useShellStore } from "../../store/shell";
+import { OnboardingWizard } from "../onboarding/OnboardingWizard";
 import { ConfirmHost } from "../ui/ConfirmHost";
 import { Toaster } from "../ui/Toaster";
 import { GameDetailsView } from "../../views/GameDetailsView";
@@ -55,6 +56,10 @@ export function AppShell() {
 
       <ConfirmHost />
       <Toaster />
+      {/* Mounted unconditionally and portaled to <body>: it renders itself only
+          while the tour is due, and it is above every view so a first run can
+          happen on top of whatever screen the app booted into. */}
+      <OnboardingWizard />
     </div>
   );
 }

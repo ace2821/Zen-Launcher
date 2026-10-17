@@ -77,6 +77,9 @@
 .coverInitials {
   font-family: var(--font-display);
   font-size: clamp(28px, 22cqw, 44px);
+  font-weight: 500;
+  /* Deliberately not --display-tracking: this is a two-letter monogram, and the
+     wide setting is what makes it read as a mark rather than as a clipped word. */
   letter-spacing: 0.06em;
   opacity: 0.92;
   user-select: none;

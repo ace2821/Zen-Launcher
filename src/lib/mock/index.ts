@@ -11,6 +11,7 @@ import type {
   LaunchInfo,
   ScanSummary,
   Session,
+  Settings,
   SettingsPatch,
   Source,
   UnlistenFn,
@@ -26,6 +27,11 @@ export interface MockOptions {
   sessionMs?: number;
   /** Injectable clock, so tests get stable timestamps. */
   now?: () => Date;
+  /**
+   * Stand-in for a `config.toml` already on disk. Partial on purpose: an older
+   * file without the appearance keys loads as defaults (see `loadSettings`).
+   */
+  settings?: Partial<Settings>;
 }
 
 /**
@@ -41,6 +47,27 @@ export interface MockApi extends LauncherApi {
 
 function nowString(clock: () => Date): string {
   return clock().toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+const SETTINGS_ID_MAX = 32;
+const SETTINGS_ID_PATTERN = /^[a-z0-9-]+$/;
+
+/**
+ * Mirrors the core's rule for `font` / `accent`: the value is trimmed, then
+ * rejected outright when it is empty, longer than 32 characters or contains
+ * anything outside `[a-z0-9-]`. The UI never sends such a value — but the mock
+ * refuses it exactly like the core would, so the contract stays testable.
+ */
+function normalizeSettingsId(field: "font" | "accent", value: string): string {
+  const trimmed = value.trim();
+  if (
+    trimmed.length === 0 ||
+    trimmed.length > SETTINGS_ID_MAX ||
+    !SETTINGS_ID_PATTERN.test(trimmed)
+  ) {
+    throw uiError("VALIDATION", `Unsupported ${field} id: ${value}`);
+  }
+  return trimmed;
 }
 
 function copySource(source: Source): Source {
@@ -77,7 +104,7 @@ export function createMockApi(options: MockOptions = {}): MockApi {
   const sessionMs = options.sessionMs ?? 15_000;
   const clock = options.now ?? (() => new Date());
 
-  let state: MockState = createSeedState();
+  let state: MockState = createSeedState(options.settings);
   let epoch = 0;
   const listeners = new Map<EventName, Set<AnyListener>>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
@@ -157,7 +184,7 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       timers.clear();
       listeners.clear();
       revealedPaths.length = 0;
-      state = createSeedState();
+      state = createSeedState(options.settings);
     },
 
     /* ---------------------------------------------------------------- sources */
@@ -452,7 +479,22 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       ) {
         throw uiError("VALIDATION", `Unsupported language: ${patch.language}`);
       }
-      state.settings = { ...state.settings, ...patch };
+      // Applied field by field so an absent key in the patch can never overwrite
+      // a stored value with `undefined`.
+      const next: Settings = { ...state.settings };
+      if (patch.language !== undefined) next.language = patch.language;
+      if (patch.closeToTray !== undefined) next.closeToTray = patch.closeToTray;
+      if (patch.hideOnLaunch !== undefined) next.hideOnLaunch = patch.hideOnLaunch;
+      if (patch.font !== undefined) {
+        next.font = normalizeSettingsId("font", patch.font);
+      }
+      if (patch.accent !== undefined) {
+        next.accent = normalizeSettingsId("accent", patch.accent);
+      }
+      if (patch.onboardingCompleted !== undefined) {
+        next.onboardingCompleted = patch.onboardingCompleted;
+      }
+      state.settings = next;
       return { ...state.settings };
     },
 

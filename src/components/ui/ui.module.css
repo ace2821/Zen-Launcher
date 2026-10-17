@@ -253,8 +253,9 @@
 .modalTitle {
   font-family: var(--font-display);
   font-size: var(--fs-2xl);
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.2;
+  letter-spacing: var(--display-tracking);
 }
 
 .modalBody {
@@ -689,7 +690,8 @@
 .emptyTitle {
   font-family: var(--font-display);
   font-size: var(--fs-2xl);
-  font-weight: 400;
+  font-weight: 500;
+  letter-spacing: var(--display-tracking);
 }
 
 .emptyBody {

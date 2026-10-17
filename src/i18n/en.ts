@@ -195,7 +195,7 @@ export const en = {
     notFoundTitle: "This entry is gone",
     notFoundBody: "It is no longer in the library.",
     play: "Play",
-    playBlockedType: "Launching {{type}} entries arrives after M1.",
+    playBlockedType: "Launching {{type}} entries isn't supported yet.",
     playBlockedMissing:
       "The executable is missing. Fix the path in the launch options.",
     launchOptions: "Launch options",
@@ -265,7 +265,7 @@ export const en = {
     behaviourDescription: "How the window reacts while a game is running.",
     closeToTray: "Keep running in the tray on close",
     closeToTrayHint:
-      "Closing the window hides it to the tray; Quit from the tray menu exits.",
+      "Closing the window hides it to the tray. To exit the app entirely, use Quit in the tray menu.",
     hideOnLaunch: "Hide the window when a game starts",
     hideOnLaunchHint:
       "The launcher drops out of the way and the session keeps running.",
@@ -283,9 +283,88 @@ export const en = {
     modeMock: "Mock (in-memory)",
     modeMockHint:
       "No Rust core attached: every action runs against the in-memory adapter and nothing is written to disk.",
+    onboardingTitle: "Setup tour",
+    onboardingDescription:
+      "Language, interface font, accent, default library view and what the window does while a game runs. Every choice persists the moment you make it, so there is nothing to submit.",
+    onboardingRun: "Run the setup tour again",
     settingsSaved: "Settings saved",
     settingsSaveFailed: "Could not save the settings",
     licenseName: "MIT",
+  },
+
+  onboarding: {
+    kicker: "First run",
+    stepCounter: "Step {{current}} of {{total}}",
+    railLabel: "Setup steps",
+    stepLanguage: "Language",
+    stepAppearance: "Appearance",
+    stepLibrary: "Library",
+    stepWindow: "Window",
+    stepFinish: "Done",
+
+    languageTitle: "Choose your language",
+    languageBody:
+      "The whole interface follows immediately, including this tour. Nothing is stuck: Settings switches it back at any time.",
+
+    appearanceTitle: "Set the tone",
+    appearanceBody:
+      "The interface is set in Maple Mono by default; the accent colours the small, loud things — buttons, focus rings, counters. Both are yours to change.",
+
+    fontTitle: "Interface font",
+    fontBody:
+      "Applies to text across the app. Headings are always in Space Grotesk.",
+    fontMapleMono: "Maple Mono",
+    fontMapleMonoHint: "Default. A calm fixed-width face with coding ligatures.",
+    fontInstrumentSans: "Instrument Sans",
+    fontInstrumentSansHint: "Proportional and softer, without ligatures.",
+    fontSystem: "System",
+    fontSystemHint: "Whatever your desktop already uses.",
+
+    accentTitle: "Accent",
+    accentJade: "Jade",
+    accentPlum: "Plum",
+    accentAzure: "Azure",
+    accentEmber: "Ember",
+    accentRose: "Rose",
+    accentNeutral: "Graphite",
+
+    previewTitle: "Preview",
+    previewDisplay: "Ink & Jade",
+    fontSample: "Zażółć gęślą jaźń",
+    previewSample:
+      "Zażółć gęślą jaźń. The quick brown fox jumps over the lazy dog.",
+    previewMeta: "~/.local/share/zen-launcher/library.db",
+    previewButton: "Play",
+
+    libraryTitle: "How should the library open?",
+    libraryBody:
+      "The view your collection lands in. The header toggles between the two whenever you like.",
+    libraryGrid: "Cover grid",
+    libraryGridHint: "Big artwork, three or four to a row.",
+    libraryList: "List",
+    libraryListHint: "Denser: title, type, playtime, last played.",
+
+    windowTitle: "While a game runs",
+    windowBody:
+      "What the launcher does with its own window, both changeable later in Settings.",
+
+    finishTitle: "Ready when you are",
+    finishBody: "Here is everything the tour collected.",
+    summaryLanguage: "Language",
+    summaryFont: "Font",
+    summaryAccent: "Accent",
+    summaryLibrary: "Library view",
+    summaryTray: "Close to tray",
+    summaryHideOnLaunch: "Hide on launch",
+    finishNote:
+      "Saved on this machine only. Run the tour again from Settings whenever you want to revisit these.",
+
+    back: "Back",
+    next: "Next",
+    finish: "Start using Zen Launcher",
+    skip: "Skip",
+    skipHint: "Skip the tour and keep the defaults.",
+    footHint: "Your choices are saved as you go.",
   },
 
   errors: {

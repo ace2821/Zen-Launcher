@@ -1,10 +1,53 @@
 /*
- * Self-hosted fonts (SIL OFL 1.1 — see assets/fonts/OFL.txt).
+ * Self-hosted fonts (SIL OFL 1.1 — assets/fonts/OFL.txt for Instrument Sans,
+ * OFL-MapleMono.txt for Maple Mono, OFL-SpaceGrotesk.txt for Space Grotesk).
  *
  * Bundled rather than fetched from a CDN: Zen Launcher is local-first and must
- * render identically offline. Instrument Sans carries the UI; Instrument Serif
- * gives titles and the wordmark an editorial voice.
+ * render identically offline. Maple Mono carries the UI by default (see
+ * `--font-ui` in tokens.css), Instrument Sans and system-ui are the two
+ * alternates, and Space Grotesk keeps the display/heading voice — a grotesk
+ * descended from Space Mono, so it shares its DNA with the monospace UI.
  */
+
+/* One static instance per weight the theme actually uses (400/500/600/700 —
+ * grep `font-weight` in src/**\/*.css before changing this list). Four separate
+ * faces are deliberate: `font-synthesis-weight: none` in global.css means the
+ * browser must never fake a weight it was not given.
+ *
+ * `@fontsource/maple-mono` labels its single subset `latin`, but the file
+ * carries the latin-ext codepoints Polish diacritics need, so no `unicode-range`
+ * is declared here — each face covers everything it contains. */
+@font-face {
+  font-family: "Maple Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/maple-mono-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Maple Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/maple-mono-latin-500.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Maple Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../assets/fonts/maple-mono-latin-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Maple Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/maple-mono-latin-700.woff2") format("woff2");
+}
 
 @font-face {
   font-family: "Instrument Sans";
@@ -30,35 +73,35 @@
     U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+/*
+ * Space Grotesk — the display voice. Only weight 500 is shipped: every display
+ * site in src/**\/*.css asks for 500 (see the `--font-display` consumers), and
+ * `font-synthesis-weight: none` on `body` means a missing face would render at
+ * the wrong weight instead of a faked one.
+ *
+ * Unlike Maple Mono, this family's subsets really are split: the `latin` file
+ * carries no Polish diacritics at all (ą ć ę ł ń ś ź ż are absent from its
+ * cmap — verified), so `latin-ext` is mandatory here and both faces declare a
+ * `unicode-range` so the browser only downloads the ext file when it is needed.
+ */
 @font-face {
-  font-family: "Instrument Serif";
+  font-family: "Space Grotesk";
   font-style: normal;
-  font-weight: 400;
+  font-weight: 500;
   font-display: swap;
-  src: url("../assets/fonts/instrument-serif-latin.woff2") format("woff2");
+  src: url("../assets/fonts/space-grotesk-latin-500.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
     U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
     U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: "Instrument Serif";
+  font-family: "Space Grotesk";
   font-style: normal;
-  font-weight: 400;
+  font-weight: 500;
   font-display: swap;
-  src: url("../assets/fonts/instrument-serif-latin-ext.woff2") format("woff2");
+  src: url("../assets/fonts/space-grotesk-latin-ext-500.woff2") format("woff2");
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
     U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
     U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-@font-face {
-  font-family: "Instrument Serif";
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../assets/fonts/instrument-serif-italic-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
-    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
-    U+2212, U+2215, U+FEFF, U+FFFD;
 }

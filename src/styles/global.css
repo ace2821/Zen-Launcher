@@ -22,7 +22,12 @@ body {
   font-family: var(--font-ui);
   font-size: var(--fs-md);
   line-height: 1.5;
+  letter-spacing: var(--ui-tracking);
   font-synthesis-weight: none;
+  /* Maple Mono is a coding face: its ligatures (`->`, `!=`, `]]` …) help in an
+     editor and only add noise to prose, paths and table columns. The mono
+     utility has always opted out; now the whole UI does. */
+  font-variant-ligatures: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -73,23 +78,17 @@ svg {
 
 /* -------------------------------------------------------------- rhythm --- */
 
-/* One soft jade glow anchored top-left: depth without a visible "gradient". */
+/* One soft accent glow anchored top-left plus a cooler counter-glow on the far
+   corner: depth without a visible "gradient". Both tints follow the accent
+   preset (see `--glow-*` in tokens.css). */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(
-      120% 80% at 8% -10%,
-      rgba(92, 179, 137, 0.09) 0%,
-      rgba(92, 179, 137, 0) 55%
-    ),
-    radial-gradient(
-      90% 60% at 100% 0%,
-      rgba(127, 168, 196, 0.05) 0%,
-      rgba(127, 168, 196, 0) 60%
-    );
+    radial-gradient(120% 80% at 8% -10%, var(--glow-primary) 0%, transparent 55%),
+    radial-gradient(90% 60% at 100% 0%, var(--glow-secondary) 0%, transparent 60%);
 }
 
 /* Fine grain keeps large flat surfaces from looking like dead pixels. */
@@ -184,8 +183,8 @@ body::after {
 .sectionTitle {
   font-family: var(--font-display);
   font-size: var(--fs-xl);
-  font-weight: 400;
-  letter-spacing: 0.01em;
+  font-weight: 500;
+  letter-spacing: var(--display-tracking);
 }
 
 .sectionHint {

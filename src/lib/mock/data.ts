@@ -8,6 +8,53 @@ import type { Candidate, Game, Session, Settings, Source } from "../types";
  */
 export const SEED_NOW = "2026-10-17T12:00:00Z";
 
+/** The documented defaults, exactly as the contract lists them. */
+export const DEFAULT_SETTINGS: Settings = {
+  language: "en",
+  closeToTray: true,
+  hideOnLaunch: true,
+  font: "maple-mono",
+  accent: "jade",
+  onboardingCompleted: false,
+};
+
+/**
+ * Mirrors how the core reads `config.toml`.
+ *
+ * A key that is absent — every file written before the appearance milestone —
+ * or that cannot be used loads as its default instead of failing the whole
+ * read, which is what keeps an existing install opening on current defaults.
+ * Well-formed but unknown `font`/`accent` ids are passed through on purpose: the
+ * UI is the layer that degrades them (see `lib/appearance.ts`).
+ */
+export function loadSettings(seed: Partial<Settings> = {}): Settings {
+  const pick = <T extends string>(
+    value: unknown,
+    allowed: readonly T[],
+    fallback: T,
+  ): T => (typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : fallback);
+  const pickId = (value: unknown, fallback: string): string =>
+    typeof value === "string" && value.trim().length > 0 ? value.trim() : fallback;
+
+  return {
+    language: pick(seed.language, ["en", "pl"], DEFAULT_SETTINGS.language),
+    closeToTray:
+      typeof seed.closeToTray === "boolean"
+        ? seed.closeToTray
+        : DEFAULT_SETTINGS.closeToTray,
+    hideOnLaunch:
+      typeof seed.hideOnLaunch === "boolean"
+        ? seed.hideOnLaunch
+        : DEFAULT_SETTINGS.hideOnLaunch,
+    font: pickId(seed.font, DEFAULT_SETTINGS.font),
+    accent: pickId(seed.accent, DEFAULT_SETTINGS.accent),
+    onboardingCompleted:
+      typeof seed.onboardingCompleted === "boolean"
+        ? seed.onboardingCompleted
+        : DEFAULT_SETTINGS.onboardingCompleted,
+  };
+}
+
 const SEED_DAY = Date.UTC(2026, 9, 17, 0, 0, 0);
 
 /** ISO timestamp `dayOffset` days before the seed day, at `hour:minute` UTC. */
@@ -613,7 +660,7 @@ const PICKABLE_PATHS = [
   "/home/oliwier/Downloads/games",
 ];
 
-export function createSeedState(): MockState {
+export function createSeedState(settings?: Partial<Settings>): MockState {
   return {
     sources: SOURCES.map((source) => ({ ...source })),
     candidates: CANDIDATES.map((candidate) => ({
@@ -627,7 +674,7 @@ export function createSeedState(): MockState {
       tags: [...game.tags],
     })),
     sessions: buildSessions(),
-    settings: { language: "en", closeToTray: true, hideOnLaunch: true },
+    settings: loadSettings(settings),
     nextSourceId: SOURCES.length + 1,
     nextCandidateId: 200,
     nextGameId: GAMES.length + 1,

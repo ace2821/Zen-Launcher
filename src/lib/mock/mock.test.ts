@@ -7,7 +7,6 @@ import type {
 } from "../types";
 import { SEED_NOW } from "./data";
 import { createMockApi, type MockApi } from "./index";
-
 /**
  * The mock adapter is the reference emulation of the frozen contract, so it is
  * tested as a contract: shapes, guarantees and refusal cases — not internals.
@@ -68,6 +67,46 @@ describe("mock adapter — seed", () => {
       language: "en",
       closeToTray: true,
       hideOnLaunch: true,
+      font: "maple-mono",
+      accent: "jade",
+      onboardingCompleted: false,
+    });
+  });
+
+  it("loads a config written before the appearance keys existed", async () => {
+    // Exactly what an install from the previous milestone has on disk.
+    const legacy = createMockApi({
+      settings: { language: "pl", closeToTray: false, hideOnLaunch: false },
+    });
+    await expect(legacy.getSettings()).resolves.toEqual({
+      language: "pl",
+      closeToTray: false,
+      hideOnLaunch: false,
+      font: "maple-mono",
+      accent: "jade",
+      onboardingCompleted: false,
+    });
+  });
+
+  it("keeps usable stored values and defaults the unusable ones", async () => {
+    const stored = createMockApi({
+      settings: {
+        // A file from a build that knew an id this one does not: handed to the
+        // UI unchanged on purpose, because *it* owns the graceful fallback.
+        font: "comic-neue",
+        // Nonsense in the file must not cost the user their other settings.
+        accent: "   ",
+        onboardingCompleted: true,
+        language: "de" as unknown as "en",
+      },
+    });
+    await expect(stored.getSettings()).resolves.toEqual({
+      language: "en",
+      closeToTray: true,
+      hideOnLaunch: true,
+      font: "comic-neue",
+      accent: "jade",
+      onboardingCompleted: true,
     });
   });
 });
@@ -307,6 +346,63 @@ describe("mock adapter — shell integration", () => {
       language: "en",
       closeToTray: false,
       hideOnLaunch: true,
+      font: "maple-mono",
+      accent: "jade",
+      onboardingCompleted: false,
+    });
+  });
+
+  it("applies appearance fields one at a time and keeps the rest", async () => {
+    const afterFont = await api.updateSettings({ font: "instrument-sans" });
+    expect(afterFont.font).toBe("instrument-sans");
+    expect(afterFont.accent).toBe("jade");
+
+    const afterAccent = await api.updateSettings({ accent: "plum" });
+    expect(afterAccent).toEqual({
+      language: "en",
+      closeToTray: true,
+      hideOnLaunch: true,
+      font: "instrument-sans",
+      accent: "plum",
+      onboardingCompleted: false,
+    });
+
+    // Finishing the tour is one more field, nothing else moves.
+    const finished = await api.updateSettings({ onboardingCompleted: true });
+    expect(finished.font).toBe("instrument-sans");
+    expect(finished.onboardingCompleted).toBe(true);
+  });
+
+  it("refuses appearance ids the core would refuse", async () => {
+    // Same rule as the core: trim, then reject empty / >32 chars / outside [a-z0-9-].
+    const rejected = [
+      "",
+      "   ",
+      "Jade",
+      "maple mono",
+      "jade!",
+      "a".repeat(33),
+    ];
+    for (const value of rejected) {
+      await expect(api.updateSettings({ font: value })).rejects.toMatchObject({
+        code: "VALIDATION",
+      });
+      await expect(api.updateSettings({ accent: value })).rejects.toMatchObject({
+        code: "VALIDATION",
+      });
+    }
+
+    // A stored value survives a refused patch.
+    await api.updateSettings({ accent: "rose" });
+    await expect(api.updateSettings({ accent: "Rose" })).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+    expect((await api.getSettings()).accent).toBe("rose");
+  });
+
+  it("trims an id that arrives with padding", async () => {
+    await expect(api.updateSettings({ font: "  system  " })).resolves.toMatchObject({
+      font: "system",
     });
   });
 
