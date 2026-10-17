@@ -354,6 +354,13 @@ pub fn get_settings(state: State<'_, AppState>) -> AppResult<Settings> {
 
 #[tauri::command]
 pub fn update_settings(state: State<'_, AppState>, patch: SettingsPatch) -> AppResult<Settings> {
+    let mut patch = patch;
+    if let Some(font) = patch.font.take() {
+        patch.font = Some(Settings::normalize_id("font", &font)?);
+    }
+    if let Some(accent) = patch.accent.take() {
+        patch.accent = Some(Settings::normalize_id("accent", &accent)?);
+    }
     let updated = {
         let mut settings = state.lock_settings()?;
         settings::apply_patch(&mut settings, patch);

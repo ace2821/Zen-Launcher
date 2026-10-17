@@ -232,12 +232,24 @@ impl std::fmt::Display for Language {
     }
 }
 
+/// Default UI font id; must match a font exposed by the frontend
+/// (`maple-mono`, `instrument-sans`, `system`).
+pub const DEFAULT_FONT_ID: &str = "maple-mono";
+/// Default accent preset id; the frontend owns the palette vocabulary.
+pub const DEFAULT_ACCENT_ID: &str = "jade";
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub language: Language,
     pub close_to_tray: bool,
     pub hide_on_launch: bool,
+    /// UI font id (free-form, frontend-owned vocabulary).
+    pub font: String,
+    /// Accent preset id (free-form, frontend-owned vocabulary).
+    pub accent: String,
+    /// `true` once the first-run wizard has been finished or skipped.
+    pub onboarding_completed: bool,
 }
 
 impl Default for Settings {
@@ -246,7 +258,30 @@ impl Default for Settings {
             language: Language::En,
             close_to_tray: true,
             hide_on_launch: true,
+            font: DEFAULT_FONT_ID.to_string(),
+            accent: DEFAULT_ACCENT_ID.to_string(),
+            onboarding_completed: false,
         }
+    }
+}
+
+impl Settings {
+    /// Normalize a free-form display preference id (`font`, `accent`):
+    /// trimmed, 1–32 chars from `[a-z0-9-]`. Unknown-but-valid ids are
+    /// accepted; the frontend falls back to defaults for ids it does not know.
+    pub fn normalize_id(field: &str, value: &str) -> AppResult<String> {
+        let trimmed = value.trim();
+        let valid = !trimmed.is_empty()
+            && trimmed.len() <= 32
+            && trimmed
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+        if !valid {
+            return Err(AppError::validation(format!(
+                "{field} must be 1-32 characters of a-z, 0-9 or '-'"
+            )));
+        }
+        Ok(trimmed.to_string())
     }
 }
 
@@ -257,6 +292,9 @@ pub struct SettingsPatch {
     pub language: Option<Language>,
     pub close_to_tray: Option<bool>,
     pub hide_on_launch: Option<bool>,
+    pub font: Option<String>,
+    pub accent: Option<String>,
+    pub onboarding_completed: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -381,5 +419,25 @@ mod tests {
 
         let set: GamePatch = serde_json::from_str(r#"{"workDir":"/tmp/games"}"#).unwrap();
         assert_eq!(set.work_dir, Some(Some("/tmp/games".to_string())));
+    }
+
+    #[test]
+    fn settings_defaults_cover_appearance_fields() {
+        let settings = Settings::default();
+        assert_eq!(settings.font, DEFAULT_FONT_ID);
+        assert_eq!(settings.accent, DEFAULT_ACCENT_ID);
+        assert!(!settings.onboarding_completed);
+    }
+
+    #[test]
+    fn normalize_id_trims_and_rejects_invalid_ids() {
+        assert_eq!(
+            Settings::normalize_id("font", "  maple-mono ").unwrap(),
+            "maple-mono"
+        );
+        assert!(Settings::normalize_id("accent", "   ").is_err());
+        assert!(Settings::normalize_id("accent", "Jade").is_err());
+        assert!(Settings::normalize_id("accent", "a_b").is_err());
+        assert!(Settings::normalize_id("accent", &"a".repeat(33)).is_err());
     }
 }

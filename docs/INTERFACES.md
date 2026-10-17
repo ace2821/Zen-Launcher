@@ -75,8 +75,11 @@ interface Session {
 
 interface Settings {
   language: "en" | "pl";
-  closeToTray: boolean;       // default true
-  hideOnLaunch: boolean;      // default true
+  closeToTray: boolean;         // default true
+  hideOnLaunch: boolean;        // default true
+  font: string;                 // UI font id; default "maple-mono"
+  accent: string;               // accent preset id; default "jade"
+  onboardingCompleted: boolean; // default false; set by the first-run wizard
 }
 
 interface ScanSummary {
@@ -117,6 +120,12 @@ Patch semantics: an omitted field keeps its stored value; an explicit `null`
 clears the nullable fields (`sortTitle`, `workDir`, `notes`, `coverPath`).
 Empty `title`/`executable` are rejected with `VALIDATION`.
 
+`update_settings` patch semantics: every field is optional; an omitted field
+keeps its stored value. `font`/`accent` are trimmed and must be 1–32 chars of
+`[a-z0-9-]` (else `VALIDATION`); unknown-but-valid ids are accepted — the UI
+falls back to its defaults (`maple-mono`, `jade`). A config file that predates
+these fields loads them as defaults.
+
 ## Events (Rust → UI)
 
 | Event | Payload |
@@ -144,6 +153,18 @@ Empty `title`/`executable` are rejected with `VALIDATION`.
   tray Quit is the real exit.
 - On `launch_game` with `settings.hideOnLaunch` (default true) the window hides
   immediately; the session keeps running in the background.
+
+## First-run onboarding
+
+- The UI shows the wizard while `settings.onboardingCompleted` is false;
+  finishing or skipping sets it to true. The wizard is re-runnable from
+  Settings.
+- Wizard choices persist through `update_settings`: `language`, `font`,
+  `accent`, `closeToTray`, `hideOnLaunch`.
+- Default library view (grid/list) stays UI-local (existing persisted layout
+  store) — not part of the IPC contract.
+- Default UI font is `maple-mono`; display/serif headings stay Instrument
+  Serif. Light theme is deferred; accents are dark-theme presets.
 
 ## Scanner heuristics (M1 minimum)
 

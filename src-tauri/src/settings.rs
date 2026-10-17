@@ -17,6 +17,9 @@ struct SettingsFile {
     language: Language,
     close_to_tray: bool,
     hide_on_launch: bool,
+    font: String,
+    accent: String,
+    onboarding_completed: bool,
 }
 
 impl Default for SettingsFile {
@@ -32,6 +35,9 @@ impl From<Settings> for SettingsFile {
             language: settings.language,
             close_to_tray: settings.close_to_tray,
             hide_on_launch: settings.hide_on_launch,
+            font: settings.font,
+            accent: settings.accent,
+            onboarding_completed: settings.onboarding_completed,
         }
     }
 }
@@ -42,6 +48,9 @@ impl From<SettingsFile> for Settings {
             language: file.language,
             close_to_tray: file.close_to_tray,
             hide_on_launch: file.hide_on_launch,
+            font: file.font,
+            accent: file.accent,
+            onboarding_completed: file.onboarding_completed,
         }
     }
 }
@@ -92,7 +101,8 @@ pub fn save(settings: &Settings) -> AppResult<()> {
     save_to(&path, settings)
 }
 
-/// Apply a partial patch on top of the current settings.
+/// Apply a partial patch on top of the current settings. `font`/`accent`
+/// values are expected to be pre-normalized (see `Settings::normalize_id`).
 pub fn apply_patch(settings: &mut Settings, patch: SettingsPatch) {
     if let Some(language) = patch.language {
         settings.language = language;
@@ -102,6 +112,15 @@ pub fn apply_patch(settings: &mut Settings, patch: SettingsPatch) {
     }
     if let Some(hide_on_launch) = patch.hide_on_launch {
         settings.hide_on_launch = hide_on_launch;
+    }
+    if let Some(font) = patch.font {
+        settings.font = font;
+    }
+    if let Some(accent) = patch.accent {
+        settings.accent = accent;
+    }
+    if let Some(onboarding_completed) = patch.onboarding_completed {
+        settings.onboarding_completed = onboarding_completed;
     }
 }
 
@@ -118,6 +137,9 @@ mod tests {
             language: Language::Pl,
             close_to_tray: false,
             hide_on_launch: false,
+            font: "instrument-sans".to_string(),
+            accent: "ember".to_string(),
+            onboarding_completed: true,
         };
         save_to(&path, &settings).unwrap();
         assert_eq!(load_from(&path), settings);
@@ -139,5 +161,23 @@ mod tests {
         assert_eq!(settings.language, Language::Pl);
         assert!(settings.close_to_tray);
         assert!(settings.hide_on_launch);
+        assert_eq!(settings.font, "maple-mono");
+        assert_eq!(settings.accent, "jade");
+        assert!(!settings.onboarding_completed);
+    }
+
+    #[test]
+    fn hand_edited_appearance_keys_load() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(
+            &path,
+            "font = \"instrument-sans\"\naccent = \"plum\"\nonboardingCompleted = true\n",
+        )
+        .unwrap();
+        let settings = load_from(&path);
+        assert_eq!(settings.font, "instrument-sans");
+        assert_eq!(settings.accent, "plum");
+        assert!(settings.onboarding_completed);
     }
 }
