@@ -296,9 +296,13 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
   - Godot: `*.pck` next to an executable
   - Unreal: `*/Binaries/Linux/` or `Engine/` directory
   - GameMaker / Ren'Py: known file patterns (`*.yyp`, `renpy/`)
-- Generic fallback: executable bit + ELF magic, `.sh`, `.AppImage`.
+- Generic fallback: executable bit + ELF magic, `.exe` (Windows builds such as
+  Electron games), `.sh`, `.AppImage`. Native ELF wins over `.exe` when both
+  are present; Windows `.exe` runs through Wine on approval.
 - Windows batch launchers: `.bat` files in generic folders (`launcher.bat`
   preferred over other names).
+- `.exe` choice: folder-name match first, then shorter name, then alphabetical
+  (shared with the ELF rule); `UnityPlayer*.exe` never wins.
 - Ignore pitfalls: `*setup*`, `*redist*`, `unins*`, `crash*`, `_CommonRedist`,
   `DirectX`, `dotnet`, `vc_redist`, `support/`, `docs/`.
 - Candidate = deepest folder that contains a plausible primary executable.

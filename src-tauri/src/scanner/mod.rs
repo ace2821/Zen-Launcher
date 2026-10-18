@@ -9,7 +9,8 @@
 //! - Godot: `*.pck` next to an executable
 //! - Unreal: `Engine/` or `Binaries/Linux/`
 //! - GameMaker (`*.yyp`, `*.win`) / Ren'Py (`renpy/`)
-//! - generic fallback: ELF magic + executable bit, `.sh`, `.AppImage`, `.bat` (Windows batch launchers)
+//! - generic fallback: ELF magic + executable bit, `.exe` (Windows builds such
+//!   as Electron games), `.sh`, `.AppImage`, `.bat` (Windows batch launchers)
 //! - ignore `*setup*`, `*redist*`, `unins*`, `crash*`, `_CommonRedist`,
 //!   `DirectX`, `dotnet`, `vc_redist`, `support/`, `docs/`
 //! - candidate = deepest folder that contains a plausible primary executable
@@ -195,6 +196,7 @@ fn is_library_name(name: &str) -> bool {
 }
 
 fn first_exe_in(dir: &Path) -> Option<PathBuf> {
+    let base_key = normalize_key(&base_name(dir));
     let mut found: Vec<PathBuf> = read_entries(dir)
         .into_iter()
         .filter(|entry| !entry.is_dir)
@@ -202,7 +204,27 @@ fn first_exe_in(dir: &Path) -> Option<PathBuf> {
         .filter(|entry| !entry.name.to_ascii_lowercase().starts_with("unityplayer"))
         .map(|entry| entry.path)
         .collect();
-    found.sort();
+
+    // Folder-name match first, then shorter name, then alphabetical — the
+    // same "primary executable" ordering as the ELF rule.
+    found.sort_by(|a, b| {
+        let a_name = a
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_lowercase();
+        let b_name = b
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_lowercase();
+        let a_match = u8::from(!base_key.is_empty() && a_name.contains(&base_key));
+        let b_match = u8::from(!base_key.is_empty() && b_name.contains(&base_key));
+        b_match
+            .cmp(&a_match)
+            .then(a_name.len().cmp(&b_name.len()))
+            .then(a_name.cmp(&b_name))
+    });
     found.into_iter().next()
 }
 
@@ -456,6 +478,26 @@ fn detect_dir(dir: &Path) -> Option<RawCandidate> {
                 "executable bit set".to_string(),
             ],
             executable: Some(elf),
+        });
+    }
+
+    // Windows-only build (e.g. Electron games: `*.pak`/DLLs/`*.exe`, no ELF,
+    // no engine signature). Approval infers `GameType::Windows` and Wine
+    // carries the launch.
+    if let Some(exe) = first_exe_in(dir) {
+        return Some(RawCandidate {
+            path: dir.to_path_buf(),
+            engine: EngineKind::Unknown,
+            suggested_title: title,
+            confidence: 0.5,
+            evidence: vec![
+                format!(
+                    "{} (Windows executable)",
+                    exe.file_name().unwrap().to_string_lossy()
+                ),
+                "runs through Wine".to_string(),
+            ],
+            executable: Some(exe),
         });
     }
 
@@ -786,5 +828,81 @@ mod tests {
         assert!(!is_version_token("2"));
         assert!(!is_version_token("beta"));
         assert!(!is_version_token(""));
+    }
+
+    fn write_elf(path: &Path) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(path, [0x7f, b'E', b'L', b'F', 2, 1, 1, 0]).unwrap();
+        let mut perms = std::fs::metadata(path).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(path, perms).unwrap();
+    }
+
+    /// Electron-style Windows-only folder (`sop.exe` + Chromium paks + DLLs):
+    /// no engine signature, so the generic `.exe` rule must carry it.
+    #[test]
+    fn windows_only_folder_yields_exe_candidate() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_dir = dir.path().join("States Of Power");
+        std::fs::create_dir(&game_dir).unwrap();
+        std::fs::write(game_dir.join("sop.exe"), b"MZ\x90\x00fake").unwrap();
+        std::fs::write(game_dir.join("ffmpeg.dll"), b"dll").unwrap();
+        std::fs::write(game_dir.join("chrome_100_percent.pak"), b"pak").unwrap();
+        std::fs::write(game_dir.join("resources.pak"), b"pak").unwrap();
+        std::fs::write(game_dir.join("icudtl.dat"), b"dat").unwrap();
+        std::fs::write(game_dir.join("version"), b"1.0.0").unwrap();
+        std::fs::create_dir(game_dir.join("locales")).unwrap();
+        std::fs::create_dir(game_dir.join("resources")).unwrap();
+
+        let candidate = detect_dir(&game_dir).expect("Windows-only folder must be detected");
+        assert_eq!(candidate.engine, EngineKind::Unknown);
+        assert_eq!(candidate.suggested_title, "States Of Power");
+        let exe_name = candidate.executable.unwrap().file_name().unwrap().to_string_lossy().into_owned();
+        assert_eq!(exe_name, "sop.exe");
+        assert!(candidate.evidence[0].contains("Windows executable"));
+    }
+
+    /// `.exe` preference: folder-name match beats shorter name; then shorter
+    /// name beats alphabetical.
+    #[test]
+    fn exe_choice_prefers_folder_match_then_shorter_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_dir = dir.path().join("Sop Game");
+        std::fs::create_dir(&game_dir).unwrap();
+        let short = game_dir.join("sop.exe");
+        let matched = game_dir.join("SopGameRework.exe");
+        let longer = game_dir.join("awholelongername.exe");
+        std::fs::write(&short, b"a").unwrap();
+        std::fs::write(&matched, b"b").unwrap();
+        std::fs::write(&longer, b"c").unwrap();
+
+        assert_eq!(first_exe_in(&game_dir), Some(matched));
+
+        let dir2 = tempfile::tempdir().unwrap();
+        std::fs::write(dir2.path().join("zzz.exe"), b"a").unwrap();
+        let long2 = dir2.path().join("awholelongername.exe");
+        std::fs::write(&long2, b"b").unwrap();
+        assert_eq!(
+            first_exe_in(dir2.path()),
+            Some(dir2.path().join("zzz.exe"))
+        );
+    }
+
+    /// Mixed folder (native ELF + Windows `.exe`) stays native: the ELF rule
+    /// runs before the generic `.exe` rule.
+    #[test]
+    fn native_elf_beats_windows_exe() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_dir = dir.path().join("Hybrid");
+        std::fs::create_dir(&game_dir).unwrap();
+        write_elf(&game_dir.join("hybrid"));
+        std::fs::write(game_dir.join("hybrid.exe"), b"MZ\x90\x00fake").unwrap();
+
+        let candidate = detect_dir(&game_dir).expect("mixed folder must be detected");
+        assert_eq!(
+            candidate.executable.unwrap().file_name().unwrap().to_string_lossy(),
+            "hybrid"
+        );
+        assert!(candidate.evidence[0].contains("ELF"));
     }
 }
