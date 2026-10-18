@@ -387,4 +387,94 @@ export const pl: TranslationShape = {
   toasts: {
     libraryChanged: "Biblioteka zaktualizowana",
   },
+
+  covers: {
+    change: "Pobierz okładkę",
+    chooseFile: "Wybierz plik…",
+    fileDialogTitle: "Wybierz obraz okładki",
+    fileFilter: "Obrazy",
+    fileNote:
+      "Obraz zostanie skopiowany do folderu Zen Launcher — wybrany plik zostaje tam, gdzie jest.",
+    fileFailed: "Nie udało się użyć tego obrazu",
+    dialogTitle: "Okładka",
+    searchLabel: "Szukaj w sklepie Steam",
+    searchHint:
+      "Tytuł gry jest już wpisany — popraw go, jeśli sklep zna ją pod inną nazwą.",
+    searchPlaceholder: "Tytuł gry",
+    search: "Szukaj",
+    retry: "Spróbuj ponownie",
+    provider: "Steam",
+    matchCount: "Wyniki: {{count}}",
+    searchFailed: "Nie udało się połączyć ze sklepem",
+    emptyTitle: "Brak wyników w sklepie",
+    emptyBody:
+      "Sklep nie ma nic dla „{{query}}”. Krótszy tytuł działa lepiej — możesz też wybrać obraz z tego komputera.",
+    downloadFailed: "Nie udało się zapisać okładki",
+    updated: "Okładka zaktualizowana",
+    updatedBody: "„{{title}}” używa teraz wybranej grafiki.",
+  },
+
+  mods: {
+    title: "Mody",
+    hint: "Jaki loader jest w grze, gdzie trzyma mody i co już się tam znajduje.",
+    factLoader: "Loader",
+    factEngine: "Silnik",
+    factModsDir: "Folder modów",
+    noModsDir: "Jeszcze go nie ma",
+    suggested: "Dla tego silnika pasuje {{loader}}",
+    installed: "Zainstalowane",
+    installedEmpty: "Nic tu jeszcze nie ma.",
+    installedMore: "+{{count}} więcej",
+    refresh: "Odczytaj folder gry ponownie",
+    statusFailed: "Nie udało się odczytać folderu gry",
+    retry: "Spróbuj ponownie",
+
+    installIntro: "Ta gra nie ma jeszcze loadera.",
+    installWarn:
+      "Zen Launcher pobierze {{loader}} i rozpakuje go do {{path}} — folder gry zostanie zapisany.",
+    install: "Zainstaluj {{loader}}",
+    installTitle: "Zainstalować {{loader}} w folderze gry?",
+    installBody:
+      "Najnowsze wydanie {{loader}} zostanie pobrane z GitHuba i rozpakowane do „{{path}}”. Pliki, które już tam są, zostaną zachowane, ale folder gry zostanie zapisany.",
+    installConfirm: "Zainstaluj {{loader}}",
+    installNote:
+      "Nic poza folderem gry nie zostanie ruszone, a wpis w bibliotece się nie zmieni.",
+    installedToast: "{{loader}} zainstalowany",
+    installFailed: "Nie udało się zainstalować loadera",
+
+    dropLabel: "Przeciągnij tutaj archiwa z modami",
+    dropHint:
+      ".zip, .7z i .rar — każde zostanie rozpakowane do folderu modów, a potem przeniesione do kosza.",
+    dropActive: "Puść, żeby zainstalować",
+    dropBusy: "Instaluję {{name}}",
+    dropNeedsDir:
+      "Bez folderu modów nie ma gdzie rozpakować — najpierw zainstaluj loader.",
+    dropIgnored: "Nie ma czego instalować",
+    dropIgnoredBody: "Pominięte: {{count}} — instaluję tylko archiwa .zip, .7z i .rar.",
+    chooseArchive: "Wybierz archiwum…",
+    archiveDialogTitle: "Wybierz archiwum z modem",
+    archiveFilter: "Archiwa modów",
+    pickFailed: "Nie udało się otworzyć okna wyboru pliku",
+    archiveInstalled: "Zainstalowano {{name}}",
+    archiveInstalledBody: "Dodane wpisy w {{dir}}: {{count}}",
+    archiveFailed: "Nie udało się zainstalować {{name}}",
+    dropSummary: "Zainstalowane: {{ok}}, błędy: {{failed}}, pominięte: {{skipped}}",
+    trashKept: "Nie udało się przenieść archiwum do kosza — zostało tam, gdzie było.",
+
+    loader: {
+      bepinex: "BepInEx",
+      melonloader: "MelonLoader",
+      doorstop: "Doorstop",
+      none: "Brak",
+    },
+    engine: {
+      "unity-mono": "Unity · Mono",
+      "unity-il2cpp": "Unity · IL2CPP",
+      unknown: "Nieznany silnik",
+    },
+    suggestedLoader: {
+      bepinex5: "BepInEx 5",
+      melonloader: "MelonLoader",
+    },
+  },
 };

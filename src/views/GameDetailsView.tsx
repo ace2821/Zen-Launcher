@@ -1,15 +1,19 @@
 import {
   Clock,
   FolderOpen,
+  ImageDown,
   Play,
   Star,
   Timer,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CoverPicker, useCoverFilePicker } from "../components/details/CoverPicker";
 import { FactsPanel } from "../components/details/FactsPanel";
 import { LaunchOptionsPanel } from "../components/details/LaunchOptionsPanel";
+import { ModsPanel } from "../components/details/ModsPanel";
 import { NotesPanel } from "../components/details/NotesPanel";
 import { SessionHistory } from "../components/details/SessionHistory";
 import styles from "../components/details/details.module.css";
@@ -53,18 +57,54 @@ function DetailsHero({ game }: { game: Game }) {
   const launching = useLibraryStore(
     (state) => state.busy[`game:launch:${game.id}`] === true,
   );
+  const file = useCoverFilePicker(game);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const favoriteLabel = game.favorite
     ? t("library.favoriteRemove")
     : t("library.favoriteAdd");
 
   return (
-    <div className={styles.hero}>
-      <div className={styles.heroArt}>
-        <GameCover title={game.title} coverPath={game.coverPath} />
-      </div>
+    <>
+      <div className={styles.hero}>
+        <div
+          className={[
+            styles.heroArt,
+            game.coverPath === null ? styles.heroArtEmpty : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <GameCover title={game.title} coverPath={game.coverPath} />
+          {/*
+           * The cover actions sit on the cover itself, because that is the thing
+           * they change. They fade in on hover or focus so the artwork stays
+           * clean — except when there is no artwork, where the invitation is the
+           * most useful thing on screen.
+           */}
+          <div className={styles.coverActions}>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={ImageDown}
+              block
+              onClick={() => setPickerOpen(true)}
+            >
+              {t("covers.change")}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              block
+              loading={file.picking}
+              onClick={() => void file.pick()}
+            >
+              {t("covers.chooseFile")}
+            </Button>
+          </div>
+        </div>
 
-      <div className={styles.heroBody}>
+        <div className={styles.heroBody}>
         <div className={styles.heroFlags}>
           <Badge tone="info">{labels.type(game.type)}</Badge>
           <Badge tone={game.status === "missing" ? "warn" : "quiet"}>
@@ -124,13 +164,20 @@ function DetailsHero({ game }: { game: Game }) {
         </div>
       </div>
     </div>
+
+      <CoverPicker
+        game={game}
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+      />
+    </>
   );
 }
 
 /**
- * Game details. The hero is identity, the left column is everything writable in
- * M1 (launch options, notes), the right column is what the core knows about the
- * entry (facts, session history).
+ * Game details. The hero is identity, the left column is everything writable
+ * (launch options, mods, notes), the right column is what the core knows about
+ * the entry (facts, session history).
  */
 export function GameDetailsView() {
   const { t } = useTranslation();
@@ -179,6 +226,12 @@ export function GameDetailsView() {
         <div className={styles.columns}>
           <div className={styles.col}>
             <LaunchOptionsPanel game={game} />
+            {/*
+             * Mods are a Windows-only concern: every mods command resolves the
+             * game folder through the same gate and refuses other entry types,
+             * so there is nothing honest to show for them.
+             */}
+            {game.type === "windows" ? <ModsPanel game={game} /> : null}
             <NotesPanel game={game} />
           </div>
 

@@ -1,5 +1,6 @@
 import { initI18n, setLanguage } from "../i18n";
 import { api, isMockApi } from "../lib/api";
+import type { MockApi } from "../lib/mock";
 import type { Language } from "../lib/types";
 import { resetConfirm } from "../store/confirm";
 import { useLibraryStore } from "../store/library";
@@ -65,4 +66,17 @@ export function resetStores(): void {
   useLibraryStore.getState().reset();
   useShellStore.setState({ ...INITIAL_SHELL });
   useOnboardingStore.setState({ requested: false });
+}
+
+/**
+ * The adapter's harness-only observables (`downloadedCoverUrls`, `trashFails`
+ * effects, …). They exist to make "what did the UI actually ask for?" assertable,
+ * and they are deliberately *not* part of `LauncherApi` — nothing in `src/`
+ * outside tests may depend on them.
+ */
+export function mockApi(): MockApi {
+  if (!isMockApi(api)) {
+    throw new Error("This suite needs the mock adapter, not the Tauri bridge.");
+  }
+  return api;
 }

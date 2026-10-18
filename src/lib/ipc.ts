@@ -1,14 +1,17 @@
-import type { LauncherApi } from "./api";
+import type { FilePickerOptions, LauncherApi } from "./api";
 import { toUiError } from "./errors";
 import type {
   Candidate,
   CandidatePatch,
   CandidateStatus,
+  CoverCandidate,
   EventMap,
   EventName,
   Game,
   GamePatch,
   LaunchInfo,
+  ModInstallResult,
+  ModsStatus,
   ScanSummary,
   Session,
   Settings,
@@ -33,6 +36,27 @@ async function invoke<T>(
     return await tauriInvoke<T>(command, args);
   } catch (error) {
     throw toUiError(error, `IPC command failed: ${command}`);
+  }
+}
+
+/**
+ * Thin wrapper over `tauri-plugin-dialog`'s `open`, shared by the directory and
+ * file pickers: both take the same options and both must normalise the plugin's
+ * single-or-array answer and turn a rejection into a `UiAppError`.
+ */
+async function pickPath(
+  options: FilePickerOptions & { directory: boolean },
+): Promise<string | null> {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  try {
+    const picked: unknown = await open({ multiple: false, ...options });
+    if (typeof picked === "string") return picked;
+    if (Array.isArray(picked) && typeof picked[0] === "string") {
+      return picked[0];
+    }
+    return null;
+  } catch (error) {
+    throw toUiError(error, "File picker failed");
   }
 }
 
@@ -100,22 +124,43 @@ export function createTauriApi(): LauncherApi {
       return invoke<Settings>("update_settings", { patch });
     },
 
+    fetchCoverCandidates(query) {
+      return invoke<CoverCandidate[]>("fetch_cover_candidates", { query });
+    },
+
+    downloadCover(gameId, url) {
+      return invoke<Game>("download_cover", { gameId, url });
+    },
+
+    setCoverFromFile(gameId, sourcePath) {
+      return invoke<Game>("set_cover_from_file", { gameId, sourcePath });
+    },
+
+    modsStatus(gameId) {
+      return invoke<ModsStatus>("mods_status", { gameId });
+    },
+
+    installModLoader(gameId) {
+      return invoke<ModsStatus>("install_mod_loader", { gameId });
+    },
+
+    installModArchive(gameId, archivePath) {
+      return invoke<ModInstallResult>("install_mod_archive", { gameId, archivePath });
+    },
+
     async pickDirectory(options) {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      try {
-        const picked: unknown = await open({
-          directory: true,
-          multiple: false,
-          ...(options?.title ? { title: options.title } : {}),
-        });
-        if (typeof picked === "string") return picked;
-        if (Array.isArray(picked) && typeof picked[0] === "string") {
-          return picked[0];
-        }
-        return null;
-      } catch (error) {
-        throw toUiError(error, "Directory picker failed");
-      }
+      return pickPath({
+        directory: true,
+        ...(options?.title ? { title: options.title } : {}),
+      });
+    },
+
+    async pickFile(options) {
+      return pickPath({
+        directory: false,
+        ...(options?.title ? { title: options.title } : {}),
+        ...(options?.filters ? { filters: options.filters } : {}),
+      });
     },
 
     async revealItemInDir(path) {

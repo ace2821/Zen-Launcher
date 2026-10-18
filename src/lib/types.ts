@@ -147,6 +147,56 @@ export interface SettingsPatch {
 }
 
 /* ---------------------------------------------------------------------------
+ * Covers (artwork)
+ * ------------------------------------------------------------------------- */
+
+/** One Steam store search hit. */
+export interface CoverCandidate {
+  provider: "steam";
+  /** Store app id, as a string. */
+  id: string;
+  name: string;
+  /** Always present: the small capsule the store returns for every app. */
+  thumbUrl: string;
+  /** 600×900 library art — `null` when the app id has no store page. */
+  portraitUrl: string | null;
+  /** 460×215 header art — `null` when the app id has no store page. */
+  landscapeUrl: string | null;
+}
+
+/* ---------------------------------------------------------------------------
+ * Mods (loaders & installs)
+ * ------------------------------------------------------------------------- */
+
+export type ModLoader = "bepinex" | "melonloader" | "doorstop" | "none";
+export type ModsDirKind = "bepinex-plugins" | "mods" | "none";
+export type ModEngine = "unity-mono" | "unity-il2cpp" | "unknown";
+export type SuggestedLoader = "bepinex5" | "melonloader";
+
+export interface ModsStatus {
+  loader: ModLoader;
+  /** Absolute path — `null` when no mods folder exists yet. */
+  modsDir: string | null;
+  modsDirKind: ModsDirKind;
+  engine: ModEngine;
+  /** `null` when the engine is not a supported Unity flavour. */
+  suggestedLoader: SuggestedLoader | null;
+  /** Top-level entries of `modsDir`, capped at 50 by the core. */
+  installed: string[];
+}
+
+export interface ModInstallResult {
+  /** Entries the archive added to `modsDir`. */
+  installed: string[];
+  modsDir: string;
+  /**
+   * Whether the archive reached the system trash. `false` means it could not be
+   * moved and is still where it was — nothing is ever deleted outright.
+   */
+  trashed: boolean;
+}
+
+/* ---------------------------------------------------------------------------
  * Errors
  * ------------------------------------------------------------------------- */
 

@@ -1,4 +1,16 @@
-import type { Candidate, Game, Session, Settings, Source } from "../types";
+import { coverPalette, hashString, titleInitials } from "../cover";
+import type {
+  Candidate,
+  CoverCandidate,
+  Game,
+  ModEngine,
+  ModLoader,
+  ModsDirKind,
+  Session,
+  Settings,
+  Source,
+  SuggestedLoader,
+} from "../types";
 
 /**
  * Deterministic seed for the in-memory adapter.
@@ -89,6 +101,26 @@ export interface MockState {
   discoveries: Map<number, DiscoverySeed[]>;
   /** Canned answers for the directory picker. */
   pickablePaths: string[];
+  /** Canned answers for the file picker (cover images). */
+  pickableFiles: string[];
+  /** Emulated per-game mod state: loaders this machine "detected". */
+  mods: Map<number, ModsSeed>;
+}
+
+/**
+ * What the mock pretends to have found in a game folder.
+ *
+ * `modsDir` is stored relative to the game's install path so the returned status
+ * carries a real absolute path, exactly as the core's detection would produce.
+ */
+export interface ModsSeed {
+  loader: ModLoader;
+  /** e.g. `BepInEx/plugins`; `null` when the folder does not exist. */
+  modsDir: string | null;
+  modsDirKind: ModsDirKind;
+  engine: ModEngine;
+  suggestedLoader: SuggestedLoader | null;
+  installed: string[];
 }
 
 const SOURCES: Source[] = [
@@ -117,6 +149,48 @@ const SOURCES: Source[] = [
 
 const G = "/home/oliwier/Games";
 
+/* --------------------------------------------------------------- artwork --- */
+
+/**
+ * Deterministic stand-in artwork for the mock adapter.
+ *
+ * The core stores a downloaded JPEG/PNG in `<dataDir>/covers/` and the webview
+ * reaches it through the asset protocol. The mock has no filesystem and must not
+ * touch the network, so it hands out an inline SVG poster instead: a `data:` URL
+ * the webview renders directly. That keeps `bun run dev` honest — covers really
+ * are images here, so the "has artwork" path is exercised rather than faked.
+ *
+ * The palette comes from the same hashed set as the fallback tile, so mock art
+ * sits in the app's colours rather than fighting them.
+ */
+/**
+ * A stand-in poster, drawn inline: a duotone field seeded from `seed` with
+ * `label`'s initials set into it.
+ *
+ * Two arguments because the two uses differ: a stored cover seeds *and* labels
+ * with the game title, while a store candidate seeds with the variant
+ * (`poster:`, `capsule:`, `header:`) so the five results for one query are not
+ * five identical swatches — but still labels with the game's own name, which is
+ * what a real cover shows.
+ */
+export function coverArtUri(seed: string, label = seed): string {
+  const palette = coverPalette(seed);
+  const hash = hashString(seed);
+  const circle = { cx: 22 + (hash % 56), cy: 28 + ((hash >>> 8) % 38), r: 24 + ((hash >>> 16) % 16) };
+  const bar = 14 + ((hash >>> 24) % 16);
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140" width="600" height="840">` +
+    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+    `<stop offset="0" stop-color="${palette.from}"/><stop offset="1" stop-color="${palette.to}"/>` +
+    `</linearGradient></defs>` +
+    `<rect width="100" height="140" fill="url(#g)"/>` +
+    `<circle cx="${circle.cx}" cy="${circle.cy}" r="${circle.r}" fill="${palette.tint}" opacity="0.13"/>` +
+    `<rect x="-10" y="${104 - bar}" width="120" height="${bar}" fill="${palette.tint}" opacity="0.09" transform="rotate(-11 50 104)"/>` +
+    `<text x="50" y="126" text-anchor="middle" font-family="monospace" font-size="15" fill="${palette.tint}" opacity="0.92">${titleInitials(label)}</text>` +
+    `</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 const GAMES: Game[] = [
   {
     id: 1,
@@ -132,7 +206,7 @@ const GAMES: Game[] = [
     favorite: true,
     hidden: false,
     notes: "Steel Soul run still going. Pantheon 4 next.",
-    coverPath: null,
+    coverPath: coverArtUri("Hollow Knight"),
     status: "ready",
     createdAt: at(44, 19, 2),
     updatedAt: at(1, 20, 40),
@@ -322,7 +396,7 @@ const GAMES: Game[] = [
     favorite: false,
     hidden: false,
     notes: "RetroArch runner is an M2 item.",
-    coverPath: null,
+    coverPath: coverArtUri("Sonic the Hedgehog 2"),
     status: "ready",
     createdAt: at(16, 12, 20),
     updatedAt: at(16, 12, 20),
@@ -349,6 +423,55 @@ const GAMES: Game[] = [
     updatedAt: at(38, 15, 0),
     lastPlayedAt: at(59, 23, 40),
     totalSeconds: 54_000,
+  },
+  /*
+   * The two Unity/Windows entries exist for the mods panel: one IL2CPP game with
+   * nothing installed (so the MelonLoader suggestion is on screen) and one Mono
+   * game that already has BepInEx (so the "installed" state is on screen). Both
+   * are real Unity titles whose community loaders are the ones the core would
+   * suggest.
+   */
+  {
+    id: 12,
+    title: "Vampire Survivors",
+    sortTitle: null,
+    type: "windows",
+    installPath: `${G}/Vampire Survivors`,
+    executable: `${G}/Vampire Survivors/VampireSurvivors.exe`,
+    args: [],
+    env: {},
+    workDir: `${G}/Vampire Survivors`,
+    tags: ["roguelite", "bullet-heaven"],
+    favorite: false,
+    hidden: false,
+    notes: null,
+    coverPath: coverArtUri("Vampire Survivors"),
+    status: "ready",
+    createdAt: at(2, 19, 40),
+    updatedAt: at(2, 20, 55),
+    lastPlayedAt: at(2, 20, 30),
+    totalSeconds: 9_600,
+  },
+  {
+    id: 13,
+    title: "ULTRAKILL",
+    sortTitle: null,
+    type: "windows",
+    installPath: `${G}/ULTRAKILL`,
+    executable: `${G}/ULTRAKILL/ULTRAKILL.exe`,
+    args: [],
+    env: {},
+    workDir: `${G}/ULTRAKILL`,
+    tags: ["shooter", "speedrun"],
+    favorite: true,
+    hidden: false,
+    notes: "BepInEx is already in place; plugins live in BepInEx/plugins.",
+    coverPath: coverArtUri("ULTRAKILL"),
+    status: "ready",
+    createdAt: at(5, 18, 5),
+    updatedAt: at(4, 21, 30),
+    lastPlayedAt: at(4, 21, 5),
+    totalSeconds: 14_400,
   },
 ];
 
@@ -545,6 +668,9 @@ const SESSION_SEEDS: SessionSeed[] = [
   { gameId: 8, dayOffset: 24, hour: 19, minute: 8, durationSeconds: 2_760, exitCode: 0 },
   { gameId: 9, dayOffset: 28, hour: 22, minute: 15, durationSeconds: 5_100, exitCode: 0 },
   { gameId: 11, dayOffset: 59, hour: 23, minute: 40, durationSeconds: 2_880, exitCode: 0 },
+  { gameId: 12, dayOffset: 2, hour: 20, minute: 30, durationSeconds: 3_600, exitCode: 0 },
+  { gameId: 13, dayOffset: 4, hour: 21, minute: 5, durationSeconds: 5_400, exitCode: 0 },
+  { gameId: 13, dayOffset: 9, hour: 22, minute: 40, durationSeconds: 7_200, exitCode: 0 },
 ];
 
 function buildSessions(): Session[] {
@@ -564,11 +690,138 @@ function buildSessions(): Session[] {
   });
 }
 
+/* ------------------------------------------------------------------ mods --- */
+
+/**
+ * Mod state the mock "detects" per game.
+ *
+ * The core walks the game folder; the mock cannot, so detection is a table. All
+ * three loader states the panel can render appear here, plus a Windows game where
+ * nothing is installed and nothing is suggested — the empty case is the one that
+ * decides whether the panel reads as informative or as noise.
+ *
+ * Morrowind's script extender injects through a proxy DLL at the game root, which
+ * is exactly what `doorstop` describes; its mods sit in `Mods/`.
+ */
+const MODS_SEED: Record<number, ModsSeed> = {
+  9: {
+    loader: "doorstop",
+    modsDir: "Mods",
+    modsDirKind: "mods",
+    engine: "unknown",
+    suggestedLoader: null,
+    installed: ["MWSE", "MGE-XE", "Patch for Purists", "Tamriel Rebuilt"],
+  },
+  12: {
+    loader: "none",
+    modsDir: null,
+    modsDirKind: "none",
+    engine: "unity-il2cpp",
+    suggestedLoader: "melonloader",
+    installed: [],
+  },
+  13: {
+    loader: "bepinex",
+    modsDir: "BepInEx/plugins",
+    modsDirKind: "bepinex-plugins",
+    engine: "unity-mono",
+    suggestedLoader: "bepinex5",
+    installed: ["CustomWeapons.dll", "UltraQoL", "config"],
+  },
+};
+
+export function modsSeeds(): Array<[number, ModsSeed]> {
+  return Object.entries(MODS_SEED).map(([gameId, seed]) => [
+    Number(gameId),
+    { ...seed, installed: [...seed.installed] },
+  ]);
+}
+
+/* ---------------------------------------------------------------- covers --- */
+
+/** Store entries the mock "finds", with their real app ids. */
+const COVER_CATALOGUE: { id: string; name: string }[] = [
+  { id: "367520", name: "Hollow Knight" },
+  { id: "504230", name: "Celeste" },
+  { id: "1942280", name: "Brotato" },
+  { id: "975370", name: "Dwarf Fortress" },
+  { id: "1536610", name: "Vampire Survivors" },
+  { id: "1229490", name: "ULTRAKILL" },
+  { id: "312520", name: "Rain World" },
+];
+
+/** Store entries are never alone: there is always an edition or two alongside. */
+const COVER_EDITIONS = [
+  "",
+  " — Deluxe Edition",
+  " (Classic)",
+  ": Definitive Edition",
+  " — Anniversary Edition",
+];
+
+/**
+ * Deterministic search results: catalogue matches first, then editions of the
+ * query itself, so a search for a title that is not in the catalogue still shows
+ * a realistic list rather than a dead end.
+ *
+ * One candidate deliberately has no portrait art (`portraitUrl: null`), because
+ * plenty of store entries do not — the UI has to fall back to the capsule
+ * instead of leaving a gap.
+ */
+export function coverCandidates(query: string): CoverCandidate[] {
+  const trimmed = query.trim();
+  // Total-function guard only: `fetch_cover_candidates` refuses an empty query
+  // before it gets here (the core does the same), and the dialog disables its
+  // button for one.
+  if (trimmed.length === 0) return [];
+
+  const needle = trimmed.toLowerCase();
+  const entries = [
+    ...COVER_CATALOGUE.filter((entry) => entry.name.toLowerCase().includes(needle)),
+    // Synthetic ids sit in a range above every real app id in the catalogue, so
+    // a synthesized edition can never collide with a matched one.
+    ...COVER_EDITIONS.map((suffix) => ({
+      id: String(2_000_000 + (hashString(`${trimmed}${suffix}`) % 999_999)),
+      name: `${trimmed}${suffix}`,
+    })),
+  ];
+
+  const seen = new Set<string>();
+  const unique: { id: string; name: string }[] = [];
+  for (const entry of entries) {
+    if (seen.has(entry.name)) continue;
+    seen.add(entry.name);
+    unique.push(entry);
+  }
+
+  return unique.slice(0, 8).map((entry, index) => ({
+    provider: "steam",
+    id: entry.id,
+    name: entry.name,
+    thumbUrl: coverArtUri(`capsule:${entry.name}`, entry.name),
+    // One result deliberately has no portrait art: the contract allows `null`,
+    // and the picker has to fall back to the capsule.
+    portraitUrl: index === 2 ? null : coverArtUri(`poster:${entry.name}`, entry.name),
+    landscapeUrl: index === 3 ? null : coverArtUri(`header:${entry.name}`, entry.name),
+  }));
+}
+
+/** Files the emulated file picker hands back, in order. */
+const PICKABLE_FILES = [
+  "/home/oliwier/Pictures/covers/hollow-knight-alt.png",
+  "/home/oliwier/Pictures/covers/celeste-poster.jpg",
+  "/home/oliwier/Downloads/steamgriddb-ultrakill.webp",
+  "/home/oliwier/Downloads/CoolMod-2.1.zip",
+  "/home/oliwier/Downloads/TexturePack.7z",
+];
+
+/** Archive names a real drop would carry — used by the mock's own tests. */
+export const ARCHIVE_NAME_HINT = "CoolMod-2.1.zip";
+
 /**
  * Folders the emulated scanner still has to discover, per source. Re-scanning a
  * source drains its pool, so a second scan honestly reports "nothing new".
- */
-const DISCOVERIES: Record<number, DiscoverySeed[]> = {
+ */const DISCOVERIES: Record<number, DiscoverySeed[]> = {
   1: [
     {
       folder: "The Messenger",
@@ -687,6 +940,8 @@ export function createSeedState(settings?: Partial<Settings>): MockState {
       ]),
     ),
     pickablePaths: [...PICKABLE_PATHS],
+    pickableFiles: [...PICKABLE_FILES],
+    mods: new Map(modsSeeds()),
   };
 }
 

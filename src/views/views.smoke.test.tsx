@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import App from "../App";
@@ -27,7 +27,7 @@ describe("app shell", () => {
 
     expect(screen.getByRole("heading", { name: "Library" })).toBeInTheDocument();
     expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
-    expect(screen.getByText("Shown: 11 / 11")).toBeInTheDocument();
+    expect(screen.getByText("Shown: 13 / 13")).toBeInTheDocument();
   });
 
   it("navigates to the pending candidates badge target", async () => {
@@ -85,6 +85,39 @@ describe("GameDetailsView", () => {
     const sessionLabels = await screen.findAllByText(/\d{4}/);
     expect(sessionLabels.length).toBeGreaterThan(0);
     expect(useLibraryStore.getState().sessions).toHaveLength(10);
+  });
+
+  it("opens the cover picker from the poster and stores what is picked", async () => {
+    await setupMockApp();
+    await useLibraryStore.getState().openGame(2);
+    const user = userEvent.setup();
+    render(<GameDetailsView />);
+
+    await user.click(await screen.findByRole("button", { name: "Get cover art" }));
+    const dialog = await screen.findByRole("dialog", { name: "Cover art" });
+    await user.click(within(dialog).getByRole("button", { name: "Celeste" }));
+
+    await waitFor(() => {
+      expect(useLibraryStore.getState().currentGame?.coverPath).toMatch(/^data:image\//);
+    });
+  });
+
+  it("keeps the mods panel to the entries mods apply to", async () => {
+    await setupMockApp();
+
+    // Hollow Knight is a native entry, and every mods command refuses those.
+    await useLibraryStore.getState().openGame(1);
+    const native = render(<GameDetailsView />);
+    expect(
+      await screen.findByRole("heading", { name: "Hollow Knight" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Mods" })).toBeNull();
+    native.unmount();
+
+    await useLibraryStore.getState().openGame(13);
+    render(<GameDetailsView />);
+    expect(await screen.findByRole("heading", { name: "Mods" })).toBeInTheDocument();
+    expect(await screen.findByText("BepInEx")).toBeInTheDocument();
   });
 
   it("disables Play for an entry whose files are missing", async () => {

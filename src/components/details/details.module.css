@@ -189,11 +189,354 @@
   color: var(--warn);
 }
 
+/* ------------------------------------------------------------- covers --- */
+
+/* The actions live on the artwork they change. They are revealed on hover or
+   keyboard focus so the art stays clean — but always visible when there is no
+   art, because then the invitation is the most useful thing on the poster. */
+.coverActions {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-2);
+  background: linear-gradient(
+    180deg,
+    rgba(8, 10, 9, 0) 0%,
+    rgba(8, 10, 9, 0.55) 45%,
+    rgba(8, 10, 9, 0.9) 100%
+  );
+  opacity: 0;
+  transition: opacity var(--t-base) var(--ease);
+}
+
+.heroArt:hover .coverActions,
+.heroArt:focus-within .coverActions,
+.heroArtEmpty .coverActions {
+  opacity: 1;
+}
+
+/* -------------------------------------------------------- cover picker --- */
+
+.coverSearch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--s-3);
+}
+
+/* The dialog footer is right-aligned; this note takes the room it is given so the
+   reassurance sits beside the Close button instead of crowding it. */
+.footerNote {
+  flex: 1;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  text-align: left;
+}
+
+.coverResults {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.coverResultsHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.candidateGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: var(--s-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.candidate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.candidateArt {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: linear-gradient(160deg, var(--surface-raised), var(--ink-900));
+  transition:
+    border-color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+
+.candidate:hover .candidateArt {
+  border-color: var(--accent-line);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.candidate:focus-visible .candidateArt {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.candidate:disabled {
+  cursor: progress;
+}
+
+.candidate:disabled .candidateArt {
+  opacity: 0.55;
+}
+
+.candidateImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A capsule is 460×215 — contained, it reads as a poster's cover strip rather
+   than a stretched smear. */
+.candidateThumb {
+  width: 100%;
+  object-fit: contain;
+  padding: 0 6%;
+}
+
+.candidateBusy {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 10, 9, 0.6);
+  color: var(--accent);
+}
+
+.candidateName {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+}
+
+.candidate:hover .candidateName {
+  color: var(--text);
+}
+
+.candidateSkeleton {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+}
+
+.spinner {
+  animation: zen-spin 900ms linear infinite;
+}
+
+/* ---------------------------------------------------------------- mods --- */
+
+.subTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.factBadges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--fs-sm);
+}
+
+.panelError {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid rgba(217, 173, 100, 0.32);
+  border-radius: var(--r-md);
+  background: var(--warn-soft);
+}
+
+.panelErrorText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.panelErrorTitle {
+  color: var(--warn);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.panelErrorBody {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+
+/* The loader is the one action here that writes into a folder the user owns, so
+   it is phrased as an offer with its consequence spelled out, not as a button
+   floating on its own. */
+.loaderOffer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+}
+
+.loaderOfferText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+
+.loaderOfferWarn {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+
+.installedList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-5) var(--s-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent);
+  color: var(--text-faint);
+  text-align: center;
+  transition:
+    border-color var(--t-base) var(--ease),
+    background-color var(--t-base) var(--ease),
+    box-shadow var(--t-base) var(--ease),
+    color var(--t-base) var(--ease);
+}
+
+/* Two corner ticks — enough to read as a tray without turning into decoration. */
+.dropzone::before,
+.dropzone::after {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: var(--border-strong);
+  border-style: solid;
+  content: "";
+  transition: border-color var(--t-base) var(--ease);
+}
+
+.dropzone::before {
+  top: 6px;
+  left: 6px;
+  border-width: 1px 0 0 1px;
+}
+
+.dropzone::after {
+  right: 6px;
+  bottom: 6px;
+  border-width: 0 1px 1px 0;
+}
+
+.dropzoneActive {
+  border-style: solid;
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  color: var(--text);
+}
+
+.dropzoneActive::before,
+.dropzoneActive::after {
+  border-color: var(--accent);
+}
+
+.dropzoneBusy {
+  border-style: solid;
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+}
+
+/* A dashed border is the affordance for "drop here"; the same tray drawn with a
+   solid one is a tray that has nowhere to put anything — it stays mute and the
+   hint underneath says why, instead of accepting a drop it would have to refuse. */
+.dropzoneDisabled {
+  border-style: solid;
+  border-color: var(--border);
+}
+
+.dropzoneIcon {
+  color: var(--text-faint);
+}
+
+.dropzoneActive .dropzoneIcon {
+  color: var(--accent);
+}
+
+.dropzoneTitle {
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.dropzoneHint {
+  max-width: 46ch;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+.dropzoneWarn {
+  color: var(--warn);
+}
+
 /* --------------------------------------------------------- responsive --- */
 
 @media (max-width: 980px) {
   .columns {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .loaderOffer {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
@@ -205,5 +548,9 @@
   .heroArt {
     width: 100%;
     max-width: 220px;
+  }
+
+  .coverSearch {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

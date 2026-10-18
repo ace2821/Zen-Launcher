@@ -443,3 +443,167 @@ describe("mock adapter — shell integration", () => {
     expect(hits).toBe(1);
   });
 });
+
+describe("mock adapter — covers", () => {
+  it("refuses an empty query the way the core does", async () => {
+    await expect(api.fetchCoverCandidates("   ")).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+  });
+
+  it("answers a search with poster-ready candidates, deterministically", async () => {
+    const found = await api.fetchCoverCandidates("Hollow Knight");
+
+    expect(found.length).toBeGreaterThan(0);
+    expect(found.length).toBeLessThanOrEqual(8);
+    expect(found[0]).toMatchObject({ provider: "steam", name: "Hollow Knight" });
+    // The mock never touches the network: every URL is inline.
+    expect(
+      found.every(
+        (entry) =>
+          entry.thumbUrl.startsWith("data:image/") &&
+          (entry.portraitUrl === null || entry.portraitUrl.startsWith("data:image/")),
+      ),
+    ).toBe(true);
+    // Some store entries have no library art; the UI has to fall back.
+    expect(found.some((entry) => entry.portraitUrl === null)).toBe(true);
+    await expect(api.fetchCoverCandidates("Hollow Knight")).resolves.toEqual(found);
+  });
+
+  it("stores a picked cover and announces the library change", async () => {
+    const changes: number[] = [];
+    await api.on("library-changed", () => changes.push(1));
+
+    const [candidate] = await api.fetchCoverCandidates("Celeste");
+    const url = candidate.portraitUrl ?? candidate.thumbUrl;
+    const updated = await api.downloadCover(2, url);
+
+    expect(updated.id).toBe(2);
+    expect(updated.coverPath).toMatch(/^data:image\//);
+    expect(api.downloadedCoverUrls).toEqual([url]);
+    expect(changes).toHaveLength(1);
+    await expect(api.getGame(2)).resolves.toMatchObject({
+      coverPath: updated.coverPath,
+    });
+  });
+
+  it("refuses a cover URL that is not an image source", async () => {
+    await expect(api.downloadCover(1, "file:///etc/passwd")).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+    await expect(api.downloadCover(999, "https://example.test/a.png")).rejects.toMatchObject(
+      { code: "NOT_FOUND" },
+    );
+  });
+
+  it("copies a local image in, leaving the source untouched", async () => {
+    const updated = await api.setCoverFromFile(1, "/home/oliwier/art/hollow-alt.png");
+
+    expect(updated.coverPath).toMatch(/^data:image\//);
+    expect(api.coverSources).toEqual(["/home/oliwier/art/hollow-alt.png"]);
+    await expect(api.setCoverFromFile(1, "/home/oliwier/notes.txt")).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+  });
+});
+
+describe("mock adapter — mods", () => {
+  it("refuses mods for anything that is not a Windows entry", async () => {
+    // The core resolves the game folder for every mods command and rejects
+    // non-Windows entries there, so the mock does the same.
+    await expect(api.modsStatus(1)).rejects.toMatchObject({ code: "VALIDATION" });
+    await expect(api.installModLoader(1)).rejects.toMatchObject({ code: "VALIDATION" });
+  });
+
+  it("reports the loader, the mods folder and what is installed", async () => {
+    const bepinex = await api.modsStatus(13);
+    expect(bepinex).toMatchObject({
+      loader: "bepinex",
+      modsDir: "/home/oliwier/Games/ULTRAKILL/BepInEx/plugins",
+      modsDirKind: "bepinex-plugins",
+      engine: "unity-mono",
+      suggestedLoader: "bepinex5",
+    });
+    // Sorted, as the core's directory listing is.
+    expect(bepinex.installed).toEqual(["CustomWeapons.dll", "UltraQoL", "config"]);
+
+    await expect(api.modsStatus(12)).resolves.toMatchObject({
+      loader: "none",
+      modsDir: null,
+      modsDirKind: "none",
+      engine: "unity-il2cpp",
+      suggestedLoader: "melonloader",
+      installed: [],
+    });
+
+    // A community doorstop loader files its mods under `Mods/`.
+    await expect(api.modsStatus(9)).resolves.toMatchObject({
+      loader: "doorstop",
+      modsDir: "/home/oliwier/Games/Morrowind/Mods",
+      modsDirKind: "mods",
+      suggestedLoader: null,
+    });
+  });
+
+  it("refuses a second loader, or one the engine gives no reason for", async () => {
+    await expect(api.installModLoader(13)).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+    await expect(api.installModLoader(9)).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+  });
+
+  it("installs the suggested loader and reports the new layout", async () => {
+    const after = await api.installModLoader(12);
+
+    expect(after).toMatchObject({
+      loader: "melonloader",
+      modsDir: "/home/oliwier/Games/Vampire Survivors/MelonLoader/Mods",
+      modsDirKind: "mods",
+    });
+    // Installing twice is refused rather than silently repeated.
+    await expect(api.installModLoader(12)).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+  });
+
+  it("installs an archive into the mods folder and trashes it", async () => {
+    const result = await api.installModArchive(13, "/tmp/CoolMod-2.1.zip");
+
+    expect(result).toMatchObject({
+      modsDir: "/home/oliwier/Games/ULTRAKILL/BepInEx/plugins",
+      trashed: true,
+    });
+    expect(result.installed).toEqual(["CoolMod-2.1"]);
+    expect(api.trashedArchives).toEqual(["/tmp/CoolMod-2.1.zip"]);
+    await expect(api.modsStatus(13)).resolves.toMatchObject({
+      installed: ["CoolMod-2.1", "CustomWeapons.dll", "UltraQoL", "config"],
+    });
+  });
+
+  it("keeps the archive when the move to the trash fails", async () => {
+    const failing = createMockApi({
+      trashFails: true,
+      now: () => new Date(SEED_NOW),
+    });
+
+    const result = await failing.installModArchive(13, "/tmp/CoolMod.zip");
+
+    expect(result.trashed).toBe(false);
+    expect(failing.trashedArchives).toEqual([]);
+  });
+
+  it("refuses an archive with nowhere to extract to, or the wrong type", async () => {
+    // Vampire Survivors has no mods folder yet.
+    await expect(api.installModArchive(12, "/tmp/CoolMod.zip")).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+    await expect(api.installModArchive(13, "/tmp/CoolMod.tar.gz")).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+    await expect(api.installModArchive(13, "/tmp/CoolMod.7z")).resolves.toMatchObject({
+      trashed: true,
+    });
+  });
+});

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { currentLanguage, setLanguage, translate } from "../i18n";
 import { api } from "../lib/api";
 import { applyAppearance } from "../lib/appearance";
+import { primeAssetProtocol } from "../lib/assets";
 import { toUiError, type UiAppError } from "../lib/errors";
 import { formatClockDuration } from "../lib/format";
 import type {
@@ -34,6 +35,11 @@ interface UpdateGameOptions {
   /** Toast title used when the patch is rejected. */
   failureTitle?: string;
 }
+
+/** Where a new cover comes from: provider artwork, or a file on this machine. */
+export type CoverSource =
+  | { kind: "url"; url: string }
+  | { kind: "file"; path: string };
 
 interface UpdateSettingsOptions {
   /**
@@ -78,6 +84,8 @@ interface LibraryState {
     patch: GamePatch,
     options?: UpdateGameOptions,
   ): Promise<Game | null>;
+  /** Replaces the game's cover, either from provider art or from a local file. */
+  updateCover(id: number, source: CoverSource): Promise<Game | null>;
   toggleFavorite(game: Game): Promise<void>;
   removeGame(id: number): Promise<void>;
   launchGame(id: number): Promise<void>;
@@ -173,6 +181,9 @@ export const useLibraryStore = create<LibraryState>()((set, get) => {
       initializing = (async () => {
         set({ status: "loading", error: null });
         try {
+          // Covers are converted through the asset protocol on first render; the
+          // converter is loaded here so the grid does not wait for it mid-paint.
+          void primeAssetProtocol();
           const settings = await api.getSettings();
           set({ settings });
           // The stylesheet already defaults to Maple Mono + jade, so this only
@@ -451,6 +462,36 @@ export const useLibraryStore = create<LibraryState>()((set, get) => {
         } catch (error) {
           toastError(
             options?.failureTitle ?? translate("details.optionsSaveFailed"),
+            toUiError(error),
+          );
+          updated = null;
+        }
+      });
+      return updated;
+    },
+
+    async updateCover(id, source) {
+      let updated: Game | null = null;
+      await run(`cover:${source.kind}:${id}`, async () => {
+        try {
+          const result =
+            source.kind === "url"
+              ? await api.downloadCover(id, source.url)
+              : await api.setCoverFromFile(id, source.path);
+          updated = result;
+          set((state) => ({
+            games: state.games.map((game) => (game.id === id ? result : game)),
+            currentGame: state.currentGame?.id === id ? result : state.currentGame,
+          }));
+          toastSuccess(
+            translate("covers.updated"),
+            translate("covers.updatedBody", { title: result.title }),
+          );
+        } catch (error) {
+          toastError(
+            translate(
+              source.kind === "url" ? "covers.downloadFailed" : "covers.fileFailed",
+            ),
             toUiError(error),
           );
           updated = null;

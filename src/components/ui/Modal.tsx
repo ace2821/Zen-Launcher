@@ -15,6 +15,11 @@ export interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   closeLabel: string;
+  /**
+   * `lg` widens the panel for content that is a grid rather than a form — the
+   * cover picker's poster wall. Everything else about the dialog is identical.
+   */
+  size?: "md" | "lg";
 }
 
 /**
@@ -28,6 +33,7 @@ export function Modal({
   children,
   footer,
   closeLabel,
+  size = "md",
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
@@ -86,7 +92,12 @@ export function Modal({
             aria-modal="true"
             aria-labelledby={titleId}
             tabIndex={-1}
-            className={styles.modalPanel}
+            className={[
+              styles.modalPanel,
+              size === "lg" ? styles.modalPanelLg : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             initial={{ opacity: 0, y: 10, scale: 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.99 }}

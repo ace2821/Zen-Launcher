@@ -242,6 +242,11 @@
   overflow: hidden;
 }
 
+/* A poster wall needs room; a form does not. */
+.modalPanelLg {
+  max-width: 720px;
+}
+
 .modalHeader {
   display: flex;
   align-items: flex-start;

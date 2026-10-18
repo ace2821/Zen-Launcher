@@ -4,11 +4,14 @@ import type {
   Candidate,
   CandidatePatch,
   CandidateStatus,
+  CoverCandidate,
   EventMap,
   EventName,
   Game,
   GamePatch,
   LaunchInfo,
+  ModInstallResult,
+  ModsStatus,
   ScanSummary,
   Session,
   Settings,
@@ -18,6 +21,19 @@ import type {
 } from "./types";
 
 export type ApiKind = "tauri" | "mock";
+
+/** One entry of the native file dialog's filter menu. */
+export interface FileFilter {
+  /** Shown verbatim by the dialog — localized by the caller, never here. */
+  name: string;
+  /** Extensions without the dot, e.g. `["png", "jpg"]`. */
+  extensions: string[];
+}
+
+export interface FilePickerOptions {
+  title?: string;
+  filters?: FileFilter[];
+}
 
 /**
  * The single surface the UI talks to. `ipc.ts` implements it against Tauri,
@@ -46,8 +62,28 @@ export interface LauncherApi {
   getSettings(): Promise<Settings>;
   updateSettings(patch: SettingsPatch): Promise<Settings>;
 
+  /* -------------------------------------------------------------- artwork */
+
+  /** Keyless Steam store search; an empty query returns no candidates. */
+  fetchCoverCandidates(query: string): Promise<CoverCandidate[]>;
+  /** Downloads provider artwork, stores it and points `coverPath` at it. */
+  downloadCover(gameId: number, url: string): Promise<Game>;
+  /** Copies a local raster image in as the cover. The source file is not touched. */
+  setCoverFromFile(gameId: number, sourcePath: string): Promise<Game>;
+
+  /* ----------------------------------------------------------------- mods */
+
+  /** Detection only: it reads the game folder, it never writes to it. */
+  modsStatus(gameId: number): Promise<ModsStatus>;
+  /** Downloads and extracts a loader into the game folder. */
+  installModLoader(gameId: number): Promise<ModsStatus>;
+  /** Extracts one mod archive into the mods folder and trashes the archive. */
+  installModArchive(gameId: number, archivePath: string): Promise<ModInstallResult>;
+
   /** `tauri-plugin-dialog` `open({ directory: true })`, or a canned path in mock mode. */
   pickDirectory(options?: { title?: string }): Promise<string | null>;
+  /** The same dialog for files, e.g. a cover image. */
+  pickFile(options?: FilePickerOptions): Promise<string | null>;
   /** `tauri-plugin-opener` `revealItemInDir`; the UI hides the action in mock mode. */
   revealItemInDir(path: string): Promise<void>;
 

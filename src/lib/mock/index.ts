@@ -9,6 +9,7 @@ import type {
   Game,
   GamePatch,
   LaunchInfo,
+  ModsStatus,
   ScanSummary,
   Session,
   Settings,
@@ -16,7 +17,14 @@ import type {
   Source,
   UnlistenFn,
 } from "../types";
-import { createSeedState, genericDiscoveries, type MockState } from "./data";
+import {
+  coverArtUri,
+  coverCandidates,
+  createSeedState,
+  genericDiscoveries,
+  type MockState,
+  type ModsSeed,
+} from "./data";
 
 type AnyListener = (payload: unknown) => void;
 
@@ -32,6 +40,14 @@ export interface MockOptions {
    * file without the appearance keys loads as defaults (see `loadSettings`).
    */
   settings?: Partial<Settings>;
+  /**
+   * Simulated latency for the provider calls (searching the store, downloading
+   * artwork, installing mods). Zero by default so tests stay deterministic; a
+   * test that asserts a spinner passes something small instead.
+   */
+  networkMs?: number;
+  /** Forces the "could not move the archive to the trash" path. */
+  trashFails?: boolean;
 }
 
 /**
@@ -43,10 +59,28 @@ export interface MockApi extends LauncherApi {
   reset(): void;
   /** Paths handed to the opener plugin; always empty in a real build. */
   readonly revealedPaths: string[];
+  /** Cover URLs the UI asked for, in order. */
+  readonly downloadedCoverUrls: string[];
+  /** Source images copied in as covers — the originals are never touched. */
+  readonly coverSources: string[];
+  /** Archives that reached the trash (the ones that failed are simply absent). */
+  readonly trashedArchives: string[];
 }
 
 function nowString(clock: () => Date): string {
   return clock().toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+/** The contract caps the reported mod list; the mock honours the same cap. */
+const INSTALLED_CAP = 50;
+
+const ARCHIVE_PATTERN = /\.(?:zip|7z|rar)$/i;
+const IMAGE_PATTERN = /\.(?:png|jpe?g|webp)$/i;
+
+/** `BepInEx/plugins/CoolMod.dll` → `CoolMod.dll`. */
+function baseName(path: string): string {
+  const parts = path.split("/").filter((part) => part.length > 0);
+  return parts[parts.length - 1] ?? path;
 }
 
 const SETTINGS_ID_MAX = 32;
@@ -103,12 +137,21 @@ export function createMockApi(options: MockOptions = {}): MockApi {
   const scanStepMs = options.scanStepMs ?? 220;
   const sessionMs = options.sessionMs ?? 15_000;
   const clock = options.now ?? (() => new Date());
+  /**
+   * Provider latency. Zero by default: tests must not wait on invented timers,
+   * and a local mock answering instantly is the honest reading of "no network".
+   */
+  const networkMs = options.networkMs ?? 0;
+  const trashFails = options.trashFails ?? false;
 
   let state: MockState = createSeedState(options.settings);
   let epoch = 0;
   const listeners = new Map<EventName, Set<AnyListener>>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const revealedPaths: string[] = [];
+  const downloadedCoverUrls: string[] = [];
+  const coverSources: string[] = [];
+  const trashedArchives: string[] = [];
 
   function emit<K extends EventName>(event: K, payload: EventMap[K]): void {
     const registered = listeners.get(event);
@@ -149,6 +192,40 @@ export function createMockApi(options: MockOptions = {}): MockApi {
     return state.missingExecutables.has(executable) ? "missing" : "ready";
   }
 
+  /** What the mock pretends to have found in a game folder. */
+  function modsSeedFor(gameId: number): ModsSeed {
+    return (
+      state.mods.get(gameId) ?? {
+        loader: "none",
+        modsDir: null,
+        modsDirKind: "none",
+        engine: "unknown",
+        suggestedLoader: null,
+        installed: [],
+      }
+    );
+  }
+
+  /**
+   * Mirrors `mods::status` — including the gate every mods command shares: the
+   * core resolves the game folder first and refuses anything that is not a
+   * Windows entry. The UI has to live with that answer, so the mock gives it.
+   */
+  function modsStatusOf(game: Game): ModsStatus {
+    if (game.type !== "windows") {
+      throw uiError("VALIDATION", "mod loading is only supported for Windows games");
+    }
+    const seed = modsSeedFor(game.id);
+    return {
+      loader: seed.loader,
+      modsDir: seed.modsDir === null ? null : `${game.installPath}/${seed.modsDir}`,
+      modsDirKind: seed.modsDirKind,
+      engine: seed.engine,
+      suggestedLoader: seed.suggestedLoader,
+      installed: [...seed.installed].sort().slice(0, INSTALLED_CAP),
+    };
+  }
+
   function endSession(sessionId: number): void {
     const session = state.sessions.find((entry) => entry.id === sessionId);
     if (!session || session.endedAt !== null) return;
@@ -177,6 +254,9 @@ export function createMockApi(options: MockOptions = {}): MockApi {
   return {
     kind: "mock",
     revealedPaths,
+    downloadedCoverUrls,
+    coverSources,
+    trashedArchives,
 
     reset() {
       epoch += 1;
@@ -184,6 +264,9 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       timers.clear();
       listeners.clear();
       revealedPaths.length = 0;
+      downloadedCoverUrls.length = 0;
+      coverSources.length = 0;
+      trashedArchives.length = 0;
       state = createSeedState(options.settings);
     },
 
@@ -498,12 +581,137 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       return { ...state.settings };
     },
 
+    /* -------------------------------------------------------- covers (artwork) */
+
+    async fetchCoverCandidates(query) {
+      const term = query.trim();
+      // The core refuses an empty query outright rather than searching for
+      // nothing, so the mock refuses it too.
+      if (term.length === 0) {
+        throw uiError("VALIDATION", "cover search query is empty");
+      }
+      await delay(networkMs);
+      return coverCandidates(term);
+    },
+
+    async downloadCover(gameId, url) {
+      const game = requireGame(gameId);
+      const source = url.trim();
+      // The core accepts http(s) only. The mock never touches the network, so its
+      // own candidates are inline `data:` posters — accepting those as well is the
+      // one place the mock is deliberately wider than the core, and it cannot
+      // leak into a real build.
+      if (!/^(?:https?:\/\/|data:image\/)/i.test(source)) {
+        throw uiError("VALIDATION", "cover URL must be http(s)");
+      }
+      await delay(networkMs);
+      // The stored "file" is another inline poster, labelled with the game so the
+      // grid looks like it does with real artwork behind it.
+      game.coverPath = coverArtUri(`downloaded:${source}`, game.title);
+      game.updatedAt = nowString(clock);
+      downloadedCoverUrls.push(source);
+      emit("library-changed", {});
+      return copyGame(game);
+    },
+
+    async setCoverFromFile(gameId, sourcePath) {
+      const game = requireGame(gameId);
+      const source = sourcePath.trim();
+      // The core sniffs magic bytes; the mock only ever sees a name, so it checks
+      // the extension and accepts exactly the same three formats.
+      if (!IMAGE_PATTERN.test(source)) {
+        throw uiError("VALIDATION", "cover file is not a PNG/JPEG/WebP image");
+      }
+      await delay(networkMs);
+      game.coverPath = coverArtUri(`file:${source}`, game.title);
+      game.updatedAt = nowString(clock);
+      coverSources.push(source);
+      emit("library-changed", {});
+      return copyGame(game);
+    },
+
+    /* ------------------------------------------------------------------- mods */
+
+    async modsStatus(gameId) {
+      return modsStatusOf(requireGame(gameId));
+    },
+
+    async installModLoader(gameId) {
+      const game = requireGame(gameId);
+      const pre = modsStatusOf(game);
+      if (pre.loader !== "none") {
+        throw uiError("VALIDATION", `a mod loader is already installed (${pre.loader})`);
+      }
+      if (pre.suggestedLoader === null) {
+        throw uiError("VALIDATION", "no known mod loader for this game's engine");
+      }
+      await delay(networkMs);
+
+      const bepinex = pre.suggestedLoader === "bepinex5";
+      const seed = modsSeedFor(game.id);
+      state.mods.set(gameId, {
+        ...seed,
+        loader: bepinex ? "bepinex" : "melonloader",
+        // BepInEx keeps plugins in `BepInEx/plugins`; MelonLoader keeps user mods
+        // in `MelonLoader/Mods`, which the contract files under the `mods` kind.
+        modsDir: bepinex ? "BepInEx/plugins" : "MelonLoader/Mods",
+        modsDirKind: bepinex ? "bepinex-plugins" : "mods",
+      });
+      // The core answers with a fresh detection pass, not a delta.
+      return modsStatusOf(game);
+    },
+
+    async installModArchive(gameId, archivePath) {
+      const game = requireGame(gameId);
+      const status = modsStatusOf(game);
+      const archive = archivePath.trim();
+
+      if (status.modsDir === null) {
+        throw uiError("VALIDATION", "no mods folder found — install a mod loader first");
+      }
+      if (!ARCHIVE_PATTERN.test(archive)) {
+        throw uiError("VALIDATION", "unsupported archive type — use .zip, .7z or .rar");
+      }
+      await delay(networkMs);
+
+      // The core shells out to 7z and reports the top-level entries it moved into
+      // the mods folder. There is no archive to read here, so the mock reports the
+      // entry the archive is named after — which is what a well-packed mod looks
+      // like, and it keeps the reported shape (bare names, sorted) identical.
+      const folder = baseName(archive).replace(ARCHIVE_PATTERN, "");
+      const entries = folder.length > 0 ? [folder] : [];
+      const seed = modsSeedFor(game.id);
+      state.mods.set(gameId, {
+        ...seed,
+        installed: [...new Set([...seed.installed, ...entries])],
+      });
+
+      const trashed = !trashFails;
+      if (trashed) trashedArchives.push(archive);
+      return { installed: [...entries].sort(), modsDir: status.modsDir, trashed };
+    },
+
     /* ------------------------------------------------------- shell integration */
 
     async pickDirectory() {
       const taken = new Set(state.sources.map((source) => source.path));
       const available = state.pickablePaths.find((path) => !taken.has(path));
       return available ?? `/home/oliwier/Downloads/zen-games-${state.nextSourceId}`;
+    },
+
+    async pickFile(options) {
+      // The real dialog is filtered, so the emulated one only offers files the
+      // caller's filter would have let through.
+      const allowed = options?.filters?.[0]?.extensions;
+      const match = state.pickableFiles.find(
+        (path) =>
+          allowed === undefined ||
+          allowed.includes(path.split(".").pop()?.toLowerCase() ?? ""),
+      );
+      if (match !== undefined) return match;
+      return allowed === undefined
+        ? "/home/oliwier/Pictures/covers/cover.png"
+        : `/home/oliwier/Downloads/picked.${allowed[0]}`;
     },
 
     async revealItemInDir(path) {

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
+import { assetUrlSync, toAssetUrl } from "./assets";
 import {
   formatAbsoluteDate,
   formatPlaytime,
@@ -12,6 +13,9 @@ import type {
   Game,
   GameStatus,
   GameType,
+  ModEngine,
+  ModLoader,
+  SuggestedLoader,
 } from "./types";
 
 /** Debounces a value — used for the notes autosave and the search field. */
@@ -118,6 +122,63 @@ export function useGameLabels(): GameLabels {
       status: (status: GameStatus) => t(`gameStatus.${status}`),
       candidateStatus: (status: CandidateStatus) => t(`candidateStatus.${status}`),
       engine: (engine: EngineKind) => t(`engine.${engine}`),
+    }),
+    [t],
+  );
+}
+
+/**
+ * Resolves a stored cover path into something `<img src>` may load.
+ *
+ * Under Tauri that means the asset protocol; in mock mode the path is already a
+ * `data:` URL and comes back untouched. The resolution runs in a *layout* effect
+ * against a synchronously available converter (boot primes it), so the URL is
+ * known before the browser paints — a card with artwork never flashes its
+ * initials first. Only a cover that arrives before priming finishes takes the
+ * async path, and that resolves on the next frame.
+ */
+export function useAssetUrl(path: string | null): string | null {
+  const [url, setUrl] = useState<string | null>(() =>
+    path === null ? null : assetUrlSync(path),
+  );
+
+  useLayoutEffect(() => {
+    if (path === null || path.length === 0) {
+      setUrl(null);
+      return;
+    }
+    const known = assetUrlSync(path);
+    if (known !== null) {
+      setUrl(known);
+      return;
+    }
+    let live = true;
+    void toAssetUrl(path).then((resolved) => {
+      if (live) setUrl(resolved);
+    });
+    return () => {
+      live = false;
+    };
+  }, [path]);
+
+  return url;
+}
+
+export interface ModLabels {
+  loader(loader: ModLoader): string;
+  engine(engine: ModEngine): string;
+  /** The product name a suggestion installs, e.g. "BepInEx 5". */
+  suggested(loader: SuggestedLoader): string;
+}
+
+/** Localized labels for the mods contract enums. */
+export function useModLabels(): ModLabels {
+  const { t } = useTranslation();
+  return useMemo(
+    () => ({
+      loader: (loader: ModLoader) => t(`mods.loader.${loader}`),
+      engine: (engine: ModEngine) => t(`mods.engine.${engine}`),
+      suggested: (loader: SuggestedLoader) => t(`mods.suggestedLoader.${loader}`),
     }),
     [t],
   );

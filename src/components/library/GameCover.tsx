@@ -1,20 +1,24 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { coverPalette, titleInitials } from "../../lib/cover";
+import { useAssetUrl } from "../../lib/hooks";
 import styles from "./library.module.css";
 
 export interface GameCoverProps {
   title: string;
   coverPath: string | null;
-  /** `initials` scales the fallback down for compact covers (table rows). */
+  /** `compact` scales the fallback down for small covers (table rows). */
   variant?: "poster" | "compact";
   className?: string;
   children?: ReactNode;
 }
 
 /**
- * Cover art, or the deterministic fallback tile. Providers start filling
- * `coverPath` in M3; until then every entry gets a stable duotone + its
- * initials, so the grid never shows a gap or a broken image.
+ * Cover art, or the deterministic fallback tile.
+ *
+ * The core stores artwork outside the bundle, so `coverPath` is a path on disk
+ * until the asset protocol turns it into a URL. Until that resolves — and if the
+ * image turns out to be unreadable — the tile falls back to the palette and the
+ * title's initials, so the grid never shows a gap or a broken image.
  */
 export function GameCover({
   title,
@@ -25,12 +29,13 @@ export function GameCover({
 }: GameCoverProps) {
   const palette = useMemo(() => coverPalette(title), [title]);
   const [failed, setFailed] = useState(false);
+  const src = useAssetUrl(coverPath);
 
   useEffect(() => {
     setFailed(false);
   }, [coverPath]);
 
-  const showImage = coverPath !== null && coverPath !== "" && !failed;
+  const showImage = src !== null && !failed;
 
   return (
     <span
@@ -44,9 +49,10 @@ export function GameCover({
       {showImage ? (
         <img
           className={styles.coverImage}
-          src={coverPath}
+          src={src}
           alt=""
           loading="lazy"
+          draggable={false}
           onError={() => setFailed(true)}
         />
       ) : (
