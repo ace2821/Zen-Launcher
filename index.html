@@ -190,8 +190,6 @@ footer .sign{display:block;text-align:right;margin-top:10px;font-style:italic;co
 <script>
 (function(){
   var html = document.documentElement;
-  html.classList.remove('no-js');
-  html.classList.add('js');
 
   var ANCHOR_OFFSET = 72; // hand-placed by eye; nudge until it lands where it looks right
 
@@ -215,13 +213,25 @@ footer .sign{display:block;text-align:right;margin-top:10px;font-style:italic;co
     });
   }
 
-  var observer = new IntersectionObserver(function(entries){
-    entries.forEach(function(entry){
-      if(entry.isIntersecting){ reveal(entry.target); observer.unobserve(entry.target); }
-    });
-  },{rootMargin:'-10% 0 -10% 0',threshold:0.05});
+  // Progressive enhancement: the hidden-by-default state only engages
+  // after the observer is actually alive; a failure reveals everything.
+  if(!('IntersectionObserver' in window)) return;
+  var observer;
+  try{
+    observer = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){ reveal(entry.target); observer.unobserve(entry.target); }
+      });
+    },{rootMargin:'-10% 0px -10% 0px',threshold:0.05});
+  }catch(err){
+    return; // no-js fallback keeps the page fully visible
+  }
 
   document.querySelectorAll('[data-reveal]').forEach(function(el){ observer.observe(el); });
+
+  // Everything survived setup — now the reveal-on-scroll state may engage.
+  html.classList.remove('no-js');
+  html.classList.add('js');
 })();
 </script>
 </body>
