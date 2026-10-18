@@ -542,7 +542,9 @@ pub async fn install_mod_archive(
     )
 }
 
+/// Connected pads for `list_gamepads` — contract shape: `{ pads: [...] }`.
 #[tauri::command]
-pub fn list_gamepads() -> AppResult<Vec<crate::input::GamepadInfo>> {
-    Ok(crate::input::list_gamepads())
+pub fn list_gamepads() -> AppResult<serde_json::Value> {
+    let pads = crate::input::list_gamepads();
+    Ok(serde_json::json!({ "pads": pads }))
 }

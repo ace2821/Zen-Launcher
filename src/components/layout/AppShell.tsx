@@ -5,6 +5,7 @@ import { useShellStore } from "../../store/shell";
 import { OnboardingWizard } from "../onboarding/OnboardingWizard";
 import { ConfirmHost } from "../ui/ConfirmHost";
 import { Toaster } from "../ui/Toaster";
+import { BigPictureView } from "../../views/BigPictureView";
 import { GameDetailsView } from "../../views/GameDetailsView";
 import { ImportView } from "../../views/ImportView";
 import { LibraryView } from "../../views/LibraryView";
@@ -25,6 +26,24 @@ export function AppShell() {
   useEffect(() => {
     void init();
   }, [init]);
+
+  /*
+   * Big Picture is a takeover, not a page: it brings its own frame, its own
+   * header and its own hints, because the sidebar and the library header are
+   * both things a couch cannot see across the room. Everything *behind* it —
+   * the toaster, the confirmation host, the tour — still mounts, so a failure
+   * that happens while it is open is still announced.
+   */
+  if (view === "bigPicture") {
+    return (
+      <>
+        <BigPictureView />
+        <ConfirmHost />
+        <Toaster />
+        <OnboardingWizard />
+      </>
+    );
+  }
 
   return (
     <div className={styles.shell}>

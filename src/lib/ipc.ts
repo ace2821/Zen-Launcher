@@ -1,5 +1,6 @@
 import type { FilePickerOptions, LauncherApi } from "./api";
 import { toUiError } from "./errors";
+import { normalizeGamepadList } from "./gamepad";
 import type {
   Candidate,
   CandidatePatch,
@@ -9,6 +10,7 @@ import type {
   EventName,
   Game,
   GamePatch,
+  GamepadList,
   LaunchInfo,
   ModInstallResult,
   ModsStatus,
@@ -140,12 +142,22 @@ export function createTauriApi(): LauncherApi {
       return invoke<ModsStatus>("mods_status", { gameId });
     },
 
-    installModLoader(gameId) {
-      return invoke<ModsStatus>("install_mod_loader", { gameId });
+    installModLoader(gameId, loaderId?: string) {
+      // The core's `loader_id` is optional: `null` means "the suggestion".
+      return invoke<ModsStatus>("install_mod_loader", {
+        gameId,
+        loaderId: loaderId ?? null,
+      });
     },
 
     installModArchive(gameId, archivePath) {
       return invoke<ModInstallResult>("install_mod_archive", { gameId, archivePath });
+    },
+
+    async listGamepads(): Promise<GamepadList> {
+      // The command answers with a bare array today; the contract reads
+      // `{ pads }`. Both are accepted here so the UI survives either.
+      return normalizeGamepadList(await invoke<unknown>("list_gamepads"));
     },
 
     async pickDirectory(options) {

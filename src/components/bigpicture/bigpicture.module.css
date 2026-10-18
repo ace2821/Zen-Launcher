@@ -1,0 +1,532 @@
+/*
+ * Big Picture — the couch view.
+ *
+ * It is a takeover of the whole window (see AppShell), so it owns its own
+ * backdrop: the same ink the rest of the app sits on, lit by the active accent.
+ * The rail is one row that never wraps; moving the focus slides it, and the
+ * focused poster is the only thing that is allowed to be loud.
+ */
+
+.view {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  background: var(--ink-1000);
+  color: var(--text);
+}
+
+/* ------------------------------------------------------------- backdrop --- */
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 78% at 50% -12%, var(--glow-primary), transparent 62%),
+    radial-gradient(90% 70% at 8% 112%, var(--glow-secondary), transparent 62%),
+    linear-gradient(180deg, var(--ink-950) 0%, var(--ink-1000) 68%, var(--ink-1000) 100%);
+}
+
+/* A pool of accent light under the rail: the row reads as lit from below rather
+   than pasted on a flat panel. */
+.backdrop::after {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(46% 40% at 50% 52%, var(--accent-soft), transparent 72%);
+  content: "";
+}
+
+/* --------------------------------------------------------------- topbar --- */
+
+.topbar {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-5);
+  padding: var(--s-4) var(--s-6);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.brandMark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.brandName {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: var(--display-tracking);
+}
+
+.brandMeta {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex: none;
+}
+
+.count {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------- rail --- */
+
+.railViewport {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  overflow: hidden;
+  /* The fades are children of the viewport, so they stay put while the rail
+     slides under them. */
+  --bp-fade: 96px;
+}
+
+.railViewport::before,
+.railViewport::after {
+  position: absolute;
+  inset-block: 0;
+  z-index: 2;
+  width: var(--bp-fade);
+  pointer-events: none;
+  content: "";
+}
+
+.railViewport::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--ink-1000) 12%, rgba(8, 10, 9, 0) 100%);
+}
+
+.railViewport::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--ink-1000) 12%, rgba(8, 10, 9, 0) 100%);
+}
+
+.rail {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bp-gap);
+  margin: 0;
+  padding: 0 var(--bp-edge);
+  list-style: none;
+  will-change: transform;
+  transition: transform 380ms var(--ease-out);
+}
+
+.tileSlot {
+  flex: none;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  width: var(--bp-tile);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.tileArt {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  transform: scale(0.94);
+  transition:
+    transform 260ms var(--ease-out),
+    border-color var(--t-base) var(--ease),
+    box-shadow 260ms var(--ease-out);
+}
+
+/* A hairline around the artwork: without it a dark poster melts into the
+   backdrop on a large screen. */
+.tileArt::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  content: "";
+  pointer-events: none;
+}
+
+.tile[data-focused="true"] .tileArt {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--accent-soft),
+    0 28px 64px -22px rgba(0, 0, 0, 0.92),
+    0 0 58px -6px var(--accent-line);
+  transform: translateY(-10px) scale(1.06);
+}
+
+.tile:focus-visible {
+  outline: none;
+}
+
+.tileLabel {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--text-faint);
+  font-size: var(--fs-md);
+  line-height: 1.35;
+  text-align: center;
+  transition: color var(--t-base) var(--ease);
+}
+
+.tile[data-focused="true"] .tileLabel {
+  color: var(--text);
+}
+
+/* The entry type rides on the artwork and only appears on the focused tile: the
+   rail stays a wall of covers, and the one you are on tells you what it is. */
+.tileFlag {
+  position: absolute;
+  bottom: var(--s-2);
+  left: var(--s-2);
+}
+
+/* ---------------------------------------------------------------- hints --- */
+
+.hints {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3) var(--s-7);
+  padding: var(--s-4) var(--s-6) var(--s-5);
+}
+
+.hintGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.hintGroupLabel {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+}
+
+.glyphRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.legendLabel {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* --------------------------------------------------------- glyph prompts --- */
+
+.glyph {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: rgba(8, 10, 9, 0.55);
+  color: var(--ink-050);
+  font-family: var(--font-system);
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+/*
+ * Face-button colours. Both sets follow what the vendor actually paints on the
+ * buttons: Xbox letters (A green, B red, X blue, Y amber) and the Sony face
+ * symbols — ✕ blue, ○ red, □ pink/magenta, △ green — which is the assignment
+ * every DualShock/DualSense controller carries.
+ */
+.glyph[data-theme="xbox"][data-button="south"] {
+  color: #8fd07c;
+}
+
+.glyph[data-theme="xbox"][data-button="east"] {
+  color: var(--danger);
+}
+
+.glyph[data-theme="xbox"][data-button="west"] {
+  color: var(--info);
+}
+
+.glyph[data-theme="xbox"][data-button="north"] {
+  color: var(--warn);
+}
+
+.glyph[data-theme="playstation"][data-button="south"] {
+  color: var(--info);
+}
+
+.glyph[data-theme="playstation"][data-button="east"] {
+  color: var(--danger);
+}
+
+.glyph[data-theme="playstation"][data-button="west"] {
+  color: #d888d8;
+}
+
+.glyph[data-theme="playstation"][data-button="north"] {
+  color: #8fd07c;
+}
+
+.glyph[data-theme="xbox"][data-button="start"],
+.glyph[data-theme="playstation"][data-button="start"] {
+  color: var(--ink-150);
+}
+
+.keycap {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 var(--s-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xs);
+  background: var(--surface-active);
+  color: var(--ink-150);
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs);
+  line-height: 1;
+}
+
+/* ---------------------------------------------------------------- panel --- */
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: rgba(8, 10, 9, 0.74);
+  backdrop-filter: blur(10px);
+}
+
+.panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  gap: var(--s-6);
+  width: min(880px, calc(100% - 2 * var(--s-6)));
+  padding: var(--s-6);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  transform: translate(-50%, -50%);
+}
+
+.panelArt {
+  position: relative;
+  flex: none;
+  width: 232px;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+}
+
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+  flex: 1;
+}
+
+.panelFlags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.panelTitle {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xl);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: var(--display-tracking);
+  overflow-wrap: anywhere;
+}
+
+.panelMeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.panelMetaRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  font-size: var(--fs-sm);
+}
+
+.panelMetaKey {
+  flex: none;
+  min-width: 8ch;
+  color: var(--text-faint);
+}
+
+.panelMetaValue {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: auto;
+  padding-top: var(--s-3);
+}
+
+.panelNote {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------------------- states --- */
+
+.center {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: var(--s-6);
+}
+
+/* Skeletons wear the same geometry as the real tiles, so nothing jumps when the
+   library arrives. */
+.railSkeleton {
+  display: flex;
+  gap: var(--bp-gap);
+  padding: 0 var(--bp-edge);
+}
+
+.skeletonTile {
+  flex: none;
+  width: var(--bp-tile);
+  aspect-ratio: 3 / 4;
+  border-radius: var(--r-lg);
+}
+
+/* ----------------------------------------------------------- responsive --- */
+
+@media (max-aspect-ratio: 1/1) {
+  .panel {
+    flex-direction: column;
+    align-items: center;
+    width: min(520px, calc(100% - 2 * var(--s-5)));
+    max-height: calc(100% - 2 * var(--s-4));
+    overflow-y: auto;
+  }
+
+  .panelArt {
+    width: 160px;
+  }
+
+  .panelActions {
+    margin-top: var(--s-2);
+  }
+}
+
+@media (max-width: 720px) {
+  .railViewport {
+    --bp-fade: 48px;
+  }
+
+  .topbar,
+  .hints {
+    padding-inline: var(--s-4);
+  }
+
+  .hints {
+    gap: var(--s-2) var(--s-4);
+  }
+}
+
+/*
+ * Reduced motion: the rail still has to follow the focus — that is navigation,
+ * not decoration — so the jump stays instant instead of gliding.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .rail,
+  .tileArt,
+  .tileLabel {
+    transition: none;
+  }
+
+  .tile[data-focused="true"] .tileArt {
+    transform: scale(1.04);
+  }
+}

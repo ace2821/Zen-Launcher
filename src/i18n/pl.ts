@@ -197,6 +197,10 @@ export const pl: TranslationShape = {
     playBlockedType: "Uruchamianie wpisów typu {{type}} nie jest jeszcze obsługiwane.",
     playBlockedMissing:
       "Brakuje pliku wykonywalnego. Popraw ścieżkę w opcjach uruchamiania.",
+    /** Markers beside Play, one per launch wrapper that is switched on. */
+    extrasHint: "Opakowuje proces, który uruchamia tę grę.",
+    gameModeBadge: "GameMode",
+    mangoHudBadge: "MangoHud",
     launchOptions: "Opcje uruchamiania",
     launchOptionsDescription:
       "Trafiają wprost do procesu — argumenty jako tablica, nigdy jako ciąg powłoki.",
@@ -267,6 +271,45 @@ export const pl: TranslationShape = {
       "Zamknięcie okna ukrywa je w zasobniku. Aby całkiem zamknąć program, wybierz „Zakończ” w menu zasobnika.",
     hideOnLaunch: "Ukryj okno przy starcie gry",
     hideOnLaunchHint: "Launcher schodzi z drogi, a sesja działa dalej.",
+    gamingTitle: "Sesja gamingowa",
+    gamingDescription:
+      "Dodatki do procesu, który startuje z grą. Oba są best-effort: bez zainstalowanego narzędzia gra po prostu startuje jak zwykle.",
+    useGameMode: "GameMode",
+    useGameModeHint:
+      "Uruchamia grę przez gamemoderun, gdy jest w PATH — governor CPU przełącza się na performance na czas grania.",
+    useMangoHud: "Nakładka MangoHud",
+    useMangoHudHint:
+      "Startuje grę z MANGOHUD=1, dzięki czemu nakładka może pokazać klatki, czasy klatek i temperatury.",
+    modsTitle: "Mody",
+    modsDescription:
+      "Co jest przyjmowane, gdy archiwum z modem trafia do folderu gry.",
+    modsLenient: "Leniwy tryb walidacji archiwów",
+    modsLenientHint:
+      "Przyjmuje każdy typ, który odczyta 7z, a wpisy będące symlinkami pomija. Wyłącz dla trybu ścisłego: tylko .zip, .7z i .rar, a archiwum z symlinkiem jest odrzucane w całości.",
+    modsModeLenient: "Leniwy",
+    modsModeStrict: "Ścisły",
+    modsMaxMb: "Limit wielkości archiwum (MB)",
+    modsMaxMbHint: "Pełne megabajty, od 1 do 8192.",
+    modsMaxMbInvalid: "Wpisz pełną liczbę od 1 do 8192.",
+    modsScopeNote:
+      "Obowiązuje wszędzie tam, gdzie instalowane jest archiwum — panel Mody danej gry pokazuje tryb, któremu podlega.",
+    coversTitle: "Okładki",
+    coversDescription: "Co dzieje się z grafiką świeżo zatwierdzonej gry.",
+    autoCovers: "Pobieraj okładkę przy zatwierdzeniu gry",
+    autoCoversHint:
+      "Tytuł jest wyszukiwany w sklepie Steam, a najlepsze trafienie zapisywane obok biblioteki. Nic więcej się nie zmienia, a błąd zostawia po prostu pustą okładkę.",
+    bigPictureTitle: "Tryb konsolowy",
+    bigPictureDescription:
+      "Big Picture to pełnoekranowy widok biblioteki prowadzony padem, otwierany z nagłówka Biblioteki.",
+    bigPictureLayout: "Symbole przycisków",
+    bigPictureLayoutHint:
+      "Jakimi literami opisane są przyciski akcji. Auto idzie za podłączonym padem.",
+    layoutAuto: "Auto",
+    layoutXbox: "Xbox",
+    layoutPlaystation: "PlayStation",
+    glyphPreview: "Podgląd",
+    glyphDetectedPad: "Zgodnie z „{{pad}}”.",
+    glyphNoPad: "Brak podłączonego pada — pokazane są symbole Xbox.",
     storageTitle: "Dane",
     storageDescription:
       "Tylko do odczytu w M1 — ścieżki są ustalone przez dokument projektowy.",
@@ -421,7 +464,6 @@ export const pl: TranslationShape = {
     factEngine: "Silnik",
     factModsDir: "Folder modów",
     noModsDir: "Jeszcze go nie ma",
-    suggested: "Dla tego silnika pasuje {{loader}}",
     installed: "Zainstalowane",
     installedEmpty: "Nic tu jeszcze nie ma.",
     installedMore: "+{{count}} więcej",
@@ -429,10 +471,26 @@ export const pl: TranslationShape = {
     statusFailed: "Nie udało się odczytać folderu gry",
     retry: "Spróbuj ponownie",
 
-    installIntro: "Ta gra nie ma jeszcze loadera.",
-    installWarn:
-      "Zen Launcher pobierze {{loader}} i rozpakuje go do {{path}} — folder gry zostanie zapisany.",
-    install: "Zainstaluj {{loader}}",
+    unsupportedTitle: "Brak znanego wsparcia modów",
+    unsupportedBody:
+      "Nie udało się rozpoznać silnika tej gry, więc nie ma loadera do zainstalowania i ten panel nie zapisze nic w folderze gry. Mod z własnym instalatorem to inna sprawa — to już kwestia gry, nie launchera.",
+
+    loadersTitle: "Loadery do zainstalowania",
+    loadersHint:
+      "Loadery, które ten silnik obsłuży, od najpopularniejszego. Każdy jest pobierany z własnego wydania na GitHubie i rozpakowywany do folderu gry.",
+    loadersWriteNote:
+      "Którykolwiek wybierzesz, zostanie pobrany z GitHuba i rozpakowany do {{path}} — to zapis w folderze gry, potwierdzany przed rozpoczęciem.",
+    recommended: "Zalecany",
+    installLoader: "Zainstaluj {{loader}}",
+
+    validationLabel: "Walidacja archiwów",
+    validationLenient: "Leniwy",
+    validationLenientDetail: "każdy typ czytelny dla 7z · symlinki pomijane",
+    validationStrict: "Ścisły",
+    validationStrictDetail: "tylko .zip, .7z, .rar · symlinki odrzucane",
+    validationLimit: "maks. {{mb}} MB",
+    validationNoteToast: "Obowiązuje walidacja: {{mode}} — {{detail}}, archiwa do {{mb}} MB.",
+
     installTitle: "Zainstalować {{loader}} w folderze gry?",
     installBody:
       "Najnowsze wydanie {{loader}} zostanie pobrane z GitHuba i rozpakowane do „{{path}}”. Pliki, które już tam są, zostaną zachowane, ale folder gry zostanie zapisany.",
@@ -443,14 +501,17 @@ export const pl: TranslationShape = {
     installFailed: "Nie udało się zainstalować loadera",
 
     dropLabel: "Przeciągnij tutaj archiwa z modami",
-    dropHint:
-      ".zip, .7z i .rar — każde zostanie rozpakowane do folderu modów, a potem przeniesione do kosza.",
+    dropHintLenient:
+      "Rdzeń czyta łagodnie: każdy typ archiwum zrozumiały dla 7z, a wpisy będące symlinkami są pomijane. Ta strefa przyjmuje tylko pliki nazwane .zip, .7z lub .rar — każde archiwum trafia do folderu modów, a potem do kosza.",
+    dropHintStrict:
+      "Rdzeń czyta ściśle: tylko .zip, .7z i .rar, a archiwum z symlinkiem jest odrzucane w całości. Każde trafia do folderu modów, a potem do kosza.",
     dropActive: "Puść, żeby zainstalować",
     dropBusy: "Instaluję {{name}}",
     dropNeedsDir:
       "Bez folderu modów nie ma gdzie rozpakować — najpierw zainstaluj loader.",
     dropIgnored: "Nie ma czego instalować",
-    dropIgnoredBody: "Pominięte: {{count}} — instaluję tylko archiwa .zip, .7z i .rar.",
+    dropIgnoredBody:
+      "Pominięte: {{count}} — ta strefa przekazuje rdzeniowi tylko pliki .zip, .7z i .rar.",
     chooseArchive: "Wybierz archiwum…",
     archiveDialogTitle: "Wybierz archiwum z modem",
     archiveFilter: "Archiwa modów",
@@ -472,9 +533,29 @@ export const pl: TranslationShape = {
       "unity-il2cpp": "Unity · IL2CPP",
       unknown: "Nieznany silnik",
     },
-    suggestedLoader: {
-      bepinex5: "BepInEx 5",
-      melonloader: "MelonLoader",
-    },
+  },
+
+  bigPicture: {
+    title: "Tryb konsolowy",
+    enter: "Tryb konsolowy",
+    exit: "Powrót do biblioteki",
+    railLabel: "Gry",
+    tileLabel: "Otwórz {{title}}",
+    emptyTitle: "Nie ma czego uruchomić",
+    emptyBody:
+      "Biblioteka jest pusta. Najpierw dodaj folder w Źródłach i imporcie i zatwierdź grę.",
+    hintNavigate: "Nawigacja",
+    hintSelect: "Szczegóły",
+    hintBack: "Wstecz",
+    hintMenu: "Biblioteka",
+    gamepadLabel: "Pad",
+    keyboardLabel: "Klawiatura",
+    panelLastSession: "Ostatnia sesja",
+    panelPlaytime: "Granie",
+    panelNever: "Nigdy nie grano",
+    panelPlay: "Graj",
+    panelLaunching: "Uruchamiam…",
+    panelHintPlay: "Graj",
+    panelHintBack: "Wstecz",
   },
 };

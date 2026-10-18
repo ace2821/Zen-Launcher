@@ -8,6 +8,9 @@ import type {
   EventName,
   Game,
   GamePatch,
+  GamepadEvent,
+  GamepadInfo,
+  GamepadList,
   LaunchInfo,
   ModsStatus,
   ScanSummary,
@@ -21,7 +24,9 @@ import {
   coverArtUri,
   coverCandidates,
   createSeedState,
+  DEFAULT_GAMEPADS,
   genericDiscoveries,
+  loadersFor,
   type MockState,
   type ModsSeed,
 } from "./data";
@@ -48,6 +53,8 @@ export interface MockOptions {
   networkMs?: number;
   /** Forces the "could not move the archive to the trash" path. */
   trashFails?: boolean;
+  /** Pads `list_gamepads` reports. Defaults to one Xbox pad (see `DEFAULT_GAMEPADS`). */
+  gamepads?: GamepadInfo[];
 }
 
 /**
@@ -65,6 +72,12 @@ export interface MockApi extends LauncherApi {
   readonly coverSources: string[];
   /** Archives that reached the trash (the ones that failed are simply absent). */
   readonly trashedArchives: string[];
+  /**
+   * Pushes one `gamepad-event` through the bus, so a test can drive Big Picture
+   * the way a controller would. The real bus is written by the core's `gilrs`
+   * thread; there is nothing for a mock to poll.
+   */
+  sendGamepadEvent(event: GamepadEvent): void;
 }
 
 function nowString(clock: () => Date): string {
@@ -75,7 +88,11 @@ function nowString(clock: () => Date): string {
 const INSTALLED_CAP = 50;
 
 const ARCHIVE_PATTERN = /\.(?:zip|7z|rar)$/i;
+/** The last extension of a file name, whatever it is (`CoolMod.tar.gz` → `.gz`). */
+const TRAILING_EXTENSION = /\.[a-z0-9]+$/i;
 const IMAGE_PATTERN = /\.(?:png|jpe?g|webp)$/i;
+/** The bounds `Settings::normalize_mods_max_mb` enforces on a patch. */
+const MODS_MAX_MB_RANGE = { min: 1, max: 8192 } as const;
 
 /** `BepInEx/plugins/CoolMod.dll` → `CoolMod.dll`. */
 function baseName(path: string): string {
@@ -131,7 +148,8 @@ function copySession(session: Session): Session {
  * It mirrors the contract, not the implementation: what we cannot emulate
  * (a real filesystem, real processes) is modelled explicitly — approved games
  * whose executable is missing stay `status: "missing"`, launching is refused for
- * anything but native entries, and sessions are closed with a timer.
+ * entries whose runner does not exist yet (retro/mod), and sessions are closed
+ * with a timer.
  */
 export function createMockApi(options: MockOptions = {}): MockApi {
   const scanStepMs = options.scanStepMs ?? 220;
@@ -143,6 +161,7 @@ export function createMockApi(options: MockOptions = {}): MockApi {
    */
   const networkMs = options.networkMs ?? 0;
   const trashFails = options.trashFails ?? false;
+  const gamepads = options.gamepads ?? DEFAULT_GAMEPADS;
 
   let state: MockState = createSeedState(options.settings);
   let epoch = 0;
@@ -200,7 +219,6 @@ export function createMockApi(options: MockOptions = {}): MockApi {
         modsDir: null,
         modsDirKind: "none",
         engine: "unknown",
-        suggestedLoader: null,
         installed: [],
       }
     );
@@ -210,20 +228,39 @@ export function createMockApi(options: MockOptions = {}): MockApi {
    * Mirrors `mods::status` — including the gate every mods command shares: the
    * core resolves the game folder first and refuses anything that is not a
    * Windows entry. The UI has to live with that answer, so the mock gives it.
+   *
+   * The catalog half (`supported`, `suggestedLoader`, `loaders`) is derived from
+   * the detected engine, exactly as the core does it: an engine the catalog
+   * knows nothing about is `supported: false`, which is an answer rather than an
+   * error, and the UI renders it as "no known mod support".
    */
   function modsStatusOf(game: Game): ModsStatus {
     if (game.type !== "windows") {
       throw uiError("VALIDATION", "mod loading is only supported for Windows games");
     }
     const seed = modsSeedFor(game.id);
+    const loaders = loadersFor(seed.engine);
     return {
       loader: seed.loader,
       modsDir: seed.modsDir === null ? null : `${game.installPath}/${seed.modsDir}`,
       modsDirKind: seed.modsDirKind,
       engine: seed.engine,
-      suggestedLoader: seed.suggestedLoader,
+      supported: loaders.length > 0,
+      suggestedLoader: loaders[0]?.id ?? null,
+      loaders,
       installed: [...seed.installed].sort().slice(0, INSTALLED_CAP),
     };
+  }
+
+  /**
+   * Where a freshly installed loader keeps its mods — `ensure_loader_dirs` in the
+   * core, which is also what makes the drop zone work right after installing.
+   */
+  function loaderLayout(loaderId: string): Pick<ModsSeed, "loader" | "modsDir" | "modsDirKind"> {
+    if (loaderId === "melonloader") {
+      return { loader: "melonloader", modsDir: "MelonLoader/Mods", modsDirKind: "mods" };
+    }
+    return { loader: "bepinex", modsDir: "BepInEx/plugins", modsDirKind: "bepinex-plugins" };
   }
 
   function endSession(sessionId: number): void {
@@ -268,6 +305,10 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       coverSources.length = 0;
       trashedArchives.length = 0;
       state = createSeedState(options.settings);
+    },
+
+    sendGamepadEvent(event: GamepadEvent) {
+      emit("gamepad-event", { ...event });
     },
 
     /* ---------------------------------------------------------------- sources */
@@ -501,7 +542,13 @@ export function createMockApi(options: MockOptions = {}): MockApi {
 
     async launchGame(id) {
       const game = requireGame(id);
-      if (game.type !== "native") {
+      /*
+       * The core launches native entries directly and Windows entries through
+       * Wine, so both produce a session. A retro or mod entry still needs a
+       * runner that has not landed yet, and is the one case the mock refuses —
+       * matching the contract rather than inventing a process.
+       */
+      if (game.type !== "native" && game.type !== "windows") {
         throw uiError(
           "UNSUPPORTED",
           `Launching ${game.type} entries needs a runner that arrives after M1.`,
@@ -562,6 +609,28 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       ) {
         throw uiError("VALIDATION", `Unsupported language: ${patch.language}`);
       }
+      if (patch.modsMaxMb !== undefined) {
+        const mb = patch.modsMaxMb;
+        if (
+          !Number.isInteger(mb) ||
+          mb < MODS_MAX_MB_RANGE.min ||
+          mb > MODS_MAX_MB_RANGE.max
+        ) {
+          throw uiError(
+            "VALIDATION",
+            `modsMaxMb must be between ${MODS_MAX_MB_RANGE.min} and ${MODS_MAX_MB_RANGE.max}`,
+          );
+        }
+      }
+      if (
+        patch.bigPictureLayout !== undefined &&
+        !["auto", "xbox", "playstation"].includes(patch.bigPictureLayout)
+      ) {
+        throw uiError(
+          "VALIDATION",
+          "bigPictureLayout must be auto, xbox or playstation",
+        );
+      }
       // Applied field by field so an absent key in the patch can never overwrite
       // a stored value with `undefined`.
       const next: Settings = { ...state.settings };
@@ -576,6 +645,14 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       }
       if (patch.onboardingCompleted !== undefined) {
         next.onboardingCompleted = patch.onboardingCompleted;
+      }
+      if (patch.autoCovers !== undefined) next.autoCovers = patch.autoCovers;
+      if (patch.modsLenient !== undefined) next.modsLenient = patch.modsLenient;
+      if (patch.modsMaxMb !== undefined) next.modsMaxMb = patch.modsMaxMb;
+      if (patch.useGameMode !== undefined) next.useGameMode = patch.useGameMode;
+      if (patch.useMangoHud !== undefined) next.useMangoHud = patch.useMangoHud;
+      if (patch.bigPictureLayout !== undefined) {
+        next.bigPictureLayout = patch.bigPictureLayout;
       }
       state.settings = next;
       return { ...state.settings };
@@ -636,27 +713,26 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       return modsStatusOf(requireGame(gameId));
     },
 
-    async installModLoader(gameId) {
+    async installModLoader(gameId, loaderId?: string) {
       const game = requireGame(gameId);
       const pre = modsStatusOf(game);
       if (pre.loader !== "none") {
         throw uiError("VALIDATION", `a mod loader is already installed (${pre.loader})`);
       }
-      if (pre.suggestedLoader === null) {
-        throw uiError("VALIDATION", "no known mod loader for this game's engine");
+      // Same resolution as the core: an explicit id has to be a catalog entry
+      // that supports this engine, an omitted one is the suggestion. Either way
+      // an impossible choice is one message, not two.
+      const chosen =
+        loaderId === undefined
+          ? pre.suggestedLoader
+          : (pre.loaders.find((entry) => entry.id === loaderId)?.id ?? null);
+      if (chosen === null) {
+        throw uiError("VALIDATION", "no known mod loader supports this game's engine");
       }
       await delay(networkMs);
 
-      const bepinex = pre.suggestedLoader === "bepinex5";
       const seed = modsSeedFor(game.id);
-      state.mods.set(gameId, {
-        ...seed,
-        loader: bepinex ? "bepinex" : "melonloader",
-        // BepInEx keeps plugins in `BepInEx/plugins`; MelonLoader keeps user mods
-        // in `MelonLoader/Mods`, which the contract files under the `mods` kind.
-        modsDir: bepinex ? "BepInEx/plugins" : "MelonLoader/Mods",
-        modsDirKind: bepinex ? "bepinex-plugins" : "mods",
-      });
+      state.mods.set(gameId, { ...seed, ...loaderLayout(chosen) });
       // The core answers with a fresh detection pass, not a delta.
       return modsStatusOf(game);
     },
@@ -665,20 +741,30 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       const game = requireGame(gameId);
       const status = modsStatusOf(game);
       const archive = archivePath.trim();
+      // The validation rules are settings-driven, so the mock reads them per
+      // call — a user who switches to strict mode mid-session gets strict mode.
+      const lenient = state.settings.modsLenient;
 
       if (status.modsDir === null) {
         throw uiError("VALIDATION", "no mods folder found — install a mod loader first");
       }
-      if (!ARCHIVE_PATTERN.test(archive)) {
+      if (!lenient && !ARCHIVE_PATTERN.test(archive)) {
         throw uiError("VALIDATION", "unsupported archive type — use .zip, .7z or .rar");
       }
+      /**
+       * Two rules need a real archive on disk and are therefore *not* emulated
+       * here: the `modsMaxMb` size cap and the symlink policy. The core reads the
+       * file through `7z`; the mock has no file, and inventing a size would be
+       * exactly the kind of pretend answer the UI must not be built on.
+       */
       await delay(networkMs);
 
       // The core shells out to 7z and reports the top-level entries it moved into
       // the mods folder. There is no archive to read here, so the mock reports the
-      // entry the archive is named after — which is what a well-packed mod looks
-      // like, and it keeps the reported shape (bare names, sorted) identical.
-      const folder = baseName(archive).replace(ARCHIVE_PATTERN, "");
+      // entry the archive is named after, minus its extension — which is what a
+      // well-packed mod looks like, and it keeps the reported shape (bare names,
+      // sorted) identical.
+      const folder = baseName(archive).replace(TRAILING_EXTENSION, "");
       const entries = folder.length > 0 ? [folder] : [];
       const seed = modsSeedFor(game.id);
       state.mods.set(gameId, {
@@ -689,6 +775,14 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       const trashed = !trashFails;
       if (trashed) trashedArchives.push(archive);
       return { installed: [...entries].sort(), modsDir: status.modsDir, trashed };
+    },
+
+    /* -------------------------------------------------------------- gamepad */
+
+    async listGamepads(): Promise<GamepadList> {
+      // One pad by default, so `bigPictureLayout: "auto"` resolves to a real
+      // answer instead of falling through to the fallback.
+      return { pads: gamepads.map((pad) => ({ ...pad })) };
     },
 
     /* ------------------------------------------------------- shell integration */

@@ -97,6 +97,21 @@ interface LibraryState {
 let unlisteners: UnlistenFn[] = [];
 let initializing: Promise<void> | null = null;
 
+/**
+ * Drops keys explicitly set to `undefined`.
+ *
+ * A patch is allowed to carry them (they are optional in the type), and a spread
+ * would turn `{ ...stored, ...patch }` into a field erased before the core ever
+ * had a chance to keep it.
+ */
+function stripUndefined<T extends object>(patch: T): Partial<T> {
+  const kept: Partial<T> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined) kept[key as keyof T] = value as T[keyof T];
+  }
+  return kept;
+}
+
 const EMPTY = {
   status: "idle" as LoadStatus,
   error: null,
@@ -584,19 +599,31 @@ export const useLibraryStore = create<LibraryState>()((set, get) => {
 
     async updateSettings(patch, options) {
       await run("settings:update", async () => {
+        const previous = get().settings;
+        /**
+         * Optimistic: a switch has to move the moment it is clicked, and a
+         * refused patch rolls the whole frame back — settings are applied from
+         * one writer, so a half-applied look is not possible.
+         */
+        const applyStored = async (settings: Settings): Promise<void> => {
+          set({ settings });
+          applyAppearance(settings);
+          if (settings.language !== currentLanguage()) {
+            await setLanguage(settings.language);
+          }
+        };
+
+        if (previous !== null) {
+          await applyStored({ ...previous, ...stripUndefined(patch) });
+        }
         try {
           const settings = await api.updateSettings(patch);
-          set({ settings });
-          // Appearance follows the stored settings, not the patch: one writer,
-          // and a refused patch can never repaint the UI.
-          applyAppearance(settings);
-          if (patch.language !== undefined && patch.language !== currentLanguage()) {
-            await setLanguage(patch.language);
-          }
+          await applyStored(settings);
           if (options?.silent !== true) {
             toastSuccess(translate("settings.settingsSaved"));
           }
         } catch (error) {
+          if (previous !== null) await applyStored(previous);
           toastError(translate("settings.settingsSaveFailed"), toUiError(error));
         }
       });

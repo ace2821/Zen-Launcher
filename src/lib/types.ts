@@ -25,6 +25,15 @@ export type GameStatus = "ready" | "missing";
 
 export type Language = "en" | "pl";
 
+/**
+ * Big Picture face-button glyph theme. `auto` follows the first connected pad's
+ * detected family (see `lib/gamepad.ts`).
+ */
+export type BigPictureLayout = "auto" | "xbox" | "playstation";
+
+/** Device family a connected pad is read as, inferred by the core from its name. */
+export type GamepadKind = "xbox" | "playstation" | "unknown";
+
 export interface Source {
   id: number;
   path: string;
@@ -101,6 +110,28 @@ export interface Settings {
   accent: string;
   /** Default false: the first-run wizard has not been finished or skipped yet. */
   onboardingCompleted: boolean;
+  /**
+   * Default true: approving a candidate fetches a Steam cover in the background
+   * (best-effort — a failure leaves the cover empty).
+   */
+  autoCovers: boolean;
+  /**
+   * Default true: mod archives are validated leniently — anything `7z` can list
+   * is accepted and symlinked entries are skipped. `false` is strict: only
+   * `.zip/.7z/.rar`, and a symlink refuses the whole archive.
+   */
+  modsLenient: boolean;
+  /** Largest accepted mod archive, in MB. Default 1024; the core takes 1..8192. */
+  modsMaxMb: number;
+  /**
+   * Default true: launches are wrapped with `gamemoderun` when the binary is on
+   * PATH (best-effort — without it the launch is unchanged).
+   */
+  useGameMode: boolean;
+  /** Default false: launches gain `MANGOHUD=1` (+ `MANGOHUD_DLSYM=1`). */
+  useMangoHud: boolean;
+  /** Default `"auto"`; the preserved value is one of the three glyph themes. */
+  bigPictureLayout: BigPictureLayout;
 }
 
 export interface ScanSummary {
@@ -144,6 +175,13 @@ export interface SettingsPatch {
   font?: string;
   accent?: string;
   onboardingCompleted?: boolean;
+  autoCovers?: boolean;
+  modsLenient?: boolean;
+  /** 1..8192; anything else is refused with `VALIDATION`. */
+  modsMaxMb?: number;
+  useGameMode?: boolean;
+  useMangoHud?: boolean;
+  bigPictureLayout?: BigPictureLayout;
 }
 
 /* ---------------------------------------------------------------------------
@@ -171,7 +209,17 @@ export interface CoverCandidate {
 export type ModLoader = "bepinex" | "melonloader" | "doorstop" | "none";
 export type ModsDirKind = "bepinex-plugins" | "mods" | "none";
 export type ModEngine = "unity-mono" | "unity-il2cpp" | "unknown";
-export type SuggestedLoader = "bepinex5" | "melonloader";
+
+/**
+ * One installable loader from the core's catalog, ranked by popularity. The
+ * `name` is the product name (a brand — never localized) and `engines` lists the
+ * game engines it applies to.
+ */
+export interface ModLoaderInfo {
+  id: string;
+  name: string;
+  engines: string[];
+}
 
 export interface ModsStatus {
   loader: ModLoader;
@@ -179,8 +227,15 @@ export interface ModsStatus {
   modsDir: string | null;
   modsDirKind: ModsDirKind;
   engine: ModEngine;
-  /** `null` when the engine is not a supported Unity flavour. */
-  suggestedLoader: SuggestedLoader | null;
+  /**
+   * Whether the core catalog has a loader for this game's engine. `false` is an
+   * answer, not an error: the UI shows "no known mod support" and offers nothing.
+   */
+  supported: boolean;
+  /** Top-ranked catalog entry id — `null` when nothing matches the engine. */
+  suggestedLoader: string | null;
+  /** Catalog entries matching the engine, most popular first. */
+  loaders: ModLoaderInfo[];
   /** Top-level entries of `modsDir`, capped at 50 by the core. */
   installed: string[];
 }
@@ -194,6 +249,39 @@ export interface ModInstallResult {
    * moved and is still where it was — nothing is ever deleted outright.
    */
   trashed: boolean;
+}
+
+/* ---------------------------------------------------------------------------
+ * Gamepad (Big Picture)
+ * ------------------------------------------------------------------------- */
+
+/** One connected pad, for glyph auto-detection. */
+export interface GamepadInfo {
+  id: number;
+  name: string;
+  kind: GamepadKind;
+}
+
+/** `list_gamepads` answer: the connected pads, ordered by id. */
+export interface GamepadList {
+  pads: GamepadInfo[];
+}
+
+/** What produced a `gamepad-event`. */
+export type GamepadEventKind = "button-press" | "button-release" | "axis";
+
+/**
+ * One navigation event from the core's `gilrs` thread.
+ *
+ * `code` is a gilrs button name (`South`, `East`, `DPadUp`, `Start`, …) or one of
+ * the synthetic stick directions (`AxisUp`, `AxisDown`, `AxisLeft`, `AxisRight`),
+ * which the core repeats at a ~120 ms cadence while the stick is held.
+ */
+export interface GamepadEvent {
+  kind: GamepadEventKind;
+  pad: number;
+  name: string | null;
+  code: string;
 }
 
 /* ---------------------------------------------------------------------------
@@ -243,6 +331,7 @@ export interface EventMap {
   "session-started": SessionStartedEvent;
   "session-ended": SessionEndedEvent;
   "library-changed": Record<string, never>;
+  "gamepad-event": GamepadEvent;
 }
 
 export type EventName = keyof EventMap;

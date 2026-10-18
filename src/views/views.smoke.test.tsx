@@ -42,6 +42,26 @@ describe("app shell", () => {
     ).toBeInTheDocument();
     expect(useShellStore.getState().view).toBe("import");
   });
+
+  it("opens Big Picture from the library header as a takeover", async () => {
+    await setupMockApp();
+    const user = userEvent.setup();
+    render(<App />);
+
+    await screen.findByText("Hollow Knight");
+    await user.click(screen.getByRole("button", { name: "Big Picture" }));
+
+    expect(useShellStore.getState().view).toBe("bigPicture");
+    expect(await screen.findByRole("listbox", { name: "Games" })).toBeInTheDocument();
+    // No sidebar, no library header: across a room neither is readable, and the
+    // rail is the whole screen.
+    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(screen.queryByRole("searchbox")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Back to the library" }));
+    expect(await screen.findByRole("navigation")).toBeInTheDocument();
+    expect(useShellStore.getState().view).toBe("library");
+  });
 });
 
 describe("LibraryView", () => {
@@ -168,6 +188,37 @@ describe("GameDetailsView", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/quote/i);
     expect(screen.getByRole("button", { name: "Save options" })).toBeDisabled();
   });
+
+  it("marks the wrappers a launch would use, and only when they are on", async () => {
+    await setupMockApp();
+    // The seed has GameMode on and MangoHud off.
+    await useLibraryStore.getState().openGame(2);
+    render(<GameDetailsView />);
+
+    await screen.findByRole("heading", { name: "Celeste" });
+    expect(screen.getByText("GameMode")).toBeInTheDocument();
+    expect(screen.queryByText("MangoHud")).toBeNull();
+
+    await useLibraryStore.getState().updateSettings({ useMangoHud: true });
+    expect(await screen.findByText("MangoHud")).toBeInTheDocument();
+
+    await useLibraryStore.getState().updateSettings({ useGameMode: false });
+    await waitFor(() => {
+      expect(screen.queryByText("GameMode")).toBeNull();
+    });
+  });
+
+  it("keeps the wrapper badges off an entry that cannot start", async () => {
+    await setupMockApp();
+    await useLibraryStore.getState().openGame(11);
+    render(<GameDetailsView />);
+
+    await screen.findByRole("heading", { name: "Rogue Legacy" });
+    // GameMode is on in the settings, but talking about extras next to a Play
+    // button that is disabled is noise: the reason it is blocked comes first.
+    expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
+    expect(screen.queryByText("GameMode")).toBeNull();
+  });
 });
 
 describe("SettingsView", () => {
@@ -210,10 +261,65 @@ describe("SettingsView", () => {
     expect(screen.getByText("~/.local/share/zen-launcher/")).toBeInTheDocument();
     expect(screen.getByText("Mock (in-memory)")).toBeInTheDocument();
   });
+
+  it("switches the console-mode glyph family and previews it", async () => {
+    await setupMockApp();
+    const user = userEvent.setup();
+    render(<SettingsView />);
+
+    const family = await screen.findByRole("radiogroup", { name: "Button glyphs" });
+    // `auto` with the mock's Xbox pad: the preview shows Xbox letters and says why.
+    expect(document.querySelector('[data-button="south"]')).toHaveTextContent("A");
+    expect(
+      await screen.findByText("Following “Xbox Wireless Controller”."),
+    ).toBeInTheDocument();
+
+    await user.click(within(family).getByRole("radio", { name: "PlayStation" }));
+
+    await waitFor(() => {
+      expect(useLibraryStore.getState().settings?.bigPictureLayout).toBe("playstation");
+    });
+    expect(document.querySelector('[data-button="south"]')).toHaveTextContent("✕");
+    // An explicit choice needs no explanation.
+    expect(screen.queryByText(/Following/)).toBeNull();
+  });
+
+  it("saves the archive rules and refuses a limit the core would reject", async () => {
+    await setupMockApp();
+    const user = userEvent.setup();
+    render(<SettingsView />);
+
+    // Lenient and 1024 MB are the contract defaults, said twice: as a badge and
+    // as the number the field holds.
+    await screen.findByText("Lenient");
+    const limit = screen.getByLabelText("Archive size limit (MB)") as HTMLInputElement;
+    expect(limit.value).toBe("1024");
+
+    await user.click(screen.getByRole("switch", { name: /lenient archive validation/i }));
+    await waitFor(() => {
+      expect(useLibraryStore.getState().settings?.modsLenient).toBe(false);
+    });
+    expect(await screen.findByText("Strict")).toBeInTheDocument();
+
+    // A limit the core normalizes away must never leave the UI.
+    await user.clear(limit);
+    await user.type(limit, "0");
+    await user.tab();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Enter a whole number between 1 and 8192.",
+    );
+    expect(useLibraryStore.getState().settings?.modsMaxMb).toBe(1024);
+
+    await user.clear(limit);
+    await user.type(limit, "2048{Enter}");
+    await waitFor(() => {
+      expect(useLibraryStore.getState().settings?.modsMaxMb).toBe(2048);
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });
 
-describe("ImportView", () => {
-  it("renders the roots, the notes and the pending tab", async () => {
+describe("ImportView", () => {  it("renders the roots, the notes and the pending tab", async () => {
     await setupMockApp();
     render(<ImportView />);
 

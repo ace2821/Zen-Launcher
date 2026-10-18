@@ -1,4 +1,4 @@
-import { ChevronLeft, LayoutGrid, List, Search, X } from "lucide-react";
+import { ChevronLeft, LayoutGrid, List, Search, Tv, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { GameSort } from "../../lib/filter";
 import { useLibraryStore } from "../../store/library";
@@ -27,6 +27,7 @@ export function Header() {
   const layout = useShellStore((state) => state.layout);
   const setLayout = useShellStore((state) => state.setLayout);
   const goToLibrary = useShellStore((state) => state.goToLibrary);
+  const goToBigPicture = useShellStore((state) => state.goToBigPicture);
   const currentGame = useLibraryStore((state) => state.currentGame);
   const total = useLibraryStore((state) => state.games.length);
   const shown = useFilteredGames().length;
@@ -81,6 +82,17 @@ export function Header() {
             <span className={styles.headerCount}>
               {t("library.showing", { count: shown, total })}
             </span>
+            {/*
+             * The way into Big Picture. It sits with the view controls rather
+             * than in the sidebar: it is another way to look at the same
+             * library, not another place to go.
+             */}
+            <IconButton
+              icon={Tv}
+              label={t("bigPicture.enter")}
+              iconSize={16}
+              onClick={goToBigPicture}
+            />
             <Segmented
               label={t("header.layoutGrid")}
               value={layout}

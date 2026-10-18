@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
+import { api } from "./api";
 import { assetUrlSync, toAssetUrl } from "./assets";
+import { resolveGlyphTheme, type GlyphTheme } from "./gamepad";
 import {
   formatAbsoluteDate,
   formatPlaytime,
@@ -8,14 +10,15 @@ import {
   type PlaytimeUnits,
 } from "./format";
 import type {
+  BigPictureLayout,
   CandidateStatus,
   EngineKind,
   Game,
+  GamepadInfo,
   GameStatus,
   GameType,
   ModEngine,
   ModLoader,
-  SuggestedLoader,
 } from "./types";
 
 /** Debounces a value — used for the notes autosave and the search field. */
@@ -167,21 +170,72 @@ export function useAssetUrl(path: string | null): string | null {
 export interface ModLabels {
   loader(loader: ModLoader): string;
   engine(engine: ModEngine): string;
-  /** The product name a suggestion installs, e.g. "BepInEx 5". */
-  suggested(loader: SuggestedLoader): string;
 }
 
-/** Localized labels for the mods contract enums. */
+/**
+ * Localized labels for the mods contract enums.
+ *
+ * The installable loaders are *not* here: their names come from the core's
+ * catalog (`ModsStatus.loaders[].name`), because a product name like "BepInEx 6
+ * (Mono)" is a brand that a new catalog entry brings with it — duplicating them
+ * as translation keys would only let the two lists drift apart.
+ */
 export function useModLabels(): ModLabels {
   const { t } = useTranslation();
   return useMemo(
     () => ({
       loader: (loader: ModLoader) => t(`mods.loader.${loader}`),
       engine: (engine: ModEngine) => t(`mods.engine.${engine}`),
-      suggested: (loader: SuggestedLoader) => t(`mods.suggestedLoader.${loader}`),
     }),
     [t],
   );
+}
+
+/**
+ * Connected pads, read once per mount.
+ *
+ * Failing to list them is not an error the user needs: a machine with no pad is
+ * the normal case, and the glyph theme falls back to Xbox. The list is therefore
+ * swallowed into an empty array instead of surfacing a toast for a query nobody
+ * asked for.
+ */
+export function useGamepads(): GamepadInfo[] {
+  const [pads, setPads] = useState<GamepadInfo[]>([]);
+
+  useEffect(() => {
+    let live = true;
+    void api
+      .listGamepads()
+      .then((list) => {
+        if (live) setPads(list.pads);
+      })
+      .catch(() => {
+        if (live) setPads([]);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  return pads;
+}
+
+export interface GlyphThemeInfo {
+  /** Which glyph set the face buttons are drawn with. */
+  theme: GlyphTheme;
+  /**
+   * The pads the decision was made from. Reported alongside the theme because
+   * the settings preview has to explain *why* `auto` landed where it did — and
+   * "no gamepad connected" only reads as an answer if the absence is visible.
+   */
+  pads: GamepadInfo[];
+}
+
+/** Which glyph set the face buttons are drawn with, given the stored layout. */
+export function useGlyphTheme(layout: BigPictureLayout): GlyphThemeInfo {
+  const pads = useGamepads();
+  const theme = useMemo(() => resolveGlyphTheme(layout, pads), [layout, pads]);
+  return useMemo(() => ({ theme, pads }), [theme, pads]);
 }
 
 export interface LaunchAvailability {

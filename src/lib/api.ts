@@ -9,6 +9,7 @@ import type {
   EventName,
   Game,
   GamePatch,
+  GamepadList,
   LaunchInfo,
   ModInstallResult,
   ModsStatus,
@@ -75,10 +76,18 @@ export interface LauncherApi {
 
   /** Detection only: it reads the game folder, it never writes to it. */
   modsStatus(gameId: number): Promise<ModsStatus>;
-  /** Downloads and extracts a loader into the game folder. */
-  installModLoader(gameId: number): Promise<ModsStatus>;
+  /**
+   * Downloads and extracts a loader into the game folder. `loaderId` picks a
+   * catalog entry from `ModsStatus.loaders`; omitting it installs the suggestion.
+   */
+  installModLoader(gameId: number, loaderId?: string): Promise<ModsStatus>;
   /** Extracts one mod archive into the mods folder and trashes the archive. */
   installModArchive(gameId: number, archivePath: string): Promise<ModInstallResult>;
+
+  /* -------------------------------------------------------------- gamepad */
+
+  /** Connected pads, used for the Big Picture glyph theme under `auto`. */
+  listGamepads(): Promise<GamepadList>;
 
   /** `tauri-plugin-dialog` `open({ directory: true })`, or a canned path in mock mode. */
   pickDirectory(options?: { title?: string }): Promise<string | null>;

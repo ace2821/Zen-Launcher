@@ -76,6 +76,16 @@
   margin-top: var(--s-2);
 }
 
+/* The launch-wrapper markers sit next to Play, which is the thing they describe
+   — quietly, and on the same line while there is room for it. */
+.heroExtras {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-1);
+  margin-right: var(--s-1);
+}
+
 /* ------------------------------------------------------------- columns --- */
 
 .columns {
@@ -399,32 +409,96 @@
   overflow-wrap: anywhere;
 }
 
-/* The loader is the one action here that writes into a folder the user owns, so
-   it is phrased as an offer with its consequence spelled out, not as a button
-   floating on its own. */
-.loaderOffer {
+/* The loader offer: a list of what this engine can run, each row an offer. */
+.loaders {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.loaderList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  list-style: none;
+  overflow: hidden;
+}
+
+.loaderRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+
+.loaderRow:last-child {
+  border-bottom: none;
+}
+
+.loaderRowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* The name and its badge travel together on one line. */
+.loaderName {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  font-weight: 600;
+}
+
+.loadersNote {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* The engine gate: an answer, not an error — so it reads as information and
+   never as a failure the user is expected to fix. */
+.unsupported {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
   padding: var(--s-3) var(--s-4);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface-raised);
 }
 
-.loaderOfferText {
+.unsupportedIcon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--text-faint);
+}
+
+.unsupportedText {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  font-size: var(--fs-sm);
 }
 
-.loaderOfferWarn {
-  color: var(--text-faint);
+.unsupportedTitle {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.unsupportedBody {
+  color: var(--text-muted);
   font-size: var(--fs-xs);
-  overflow-wrap: anywhere;
+  line-height: 1.5;
 }
 
 .installedList {
@@ -503,6 +577,40 @@
   border-color: var(--border);
 }
 
+/* The rules a drop is held to, stated on the tray itself: a mode that only lived
+   in Settings would have to be remembered at the exact moment a drop is refused. */
+.validation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  align-self: stretch;
+  margin-bottom: var(--s-1);
+  padding-bottom: var(--s-3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-xs);
+}
+
+.validationLabel {
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.validationDetail {
+  color: var(--text-muted);
+}
+
+.validationLimit {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.dropzoneActive .validation {
+  border-bottom-color: var(--accent-line);
+}
+
 .dropzoneIcon {
   color: var(--text-faint);
 }
@@ -534,9 +642,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .loaderOffer {
+  .loaderRow {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
+    gap: var(--s-2);
   }
 }
 

@@ -70,16 +70,24 @@ export function toastInfo(title: string, description?: string): void {
 /**
  * Surfaces an `AppError` from the core: localized title from the view, verbatim
  * message from the core, plus the contract code as a tag.
+ *
+ * `note` is the view's own context for a failure the core cannot know about —
+ * e.g. which validation rules were in force when a mod archive was refused. It is
+ * appended, so the core's message is never replaced or reworded.
  */
 export function toastError(
   title: string,
   error?: UiAppError,
   description?: string,
+  note?: string,
 ): void {
+  const body = [error?.message ?? description, note]
+    .filter((part): part is string => typeof part === "string" && part.length > 0)
+    .join(" — ");
   useToastStore.getState().push({
     tone: "error",
     title,
-    description: error?.message ?? description,
+    description: body.length > 0 ? body : undefined,
     code: error?.code,
   });
 }

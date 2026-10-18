@@ -86,7 +86,7 @@
   overflow-wrap: anywhere;
 }
 
-/* ---------------------------------------------------------------- hint --- */
+/* --------------------------------------------------------------- hint --- */
 
 .hint {
   color: var(--text-faint);
@@ -95,4 +95,21 @@
 
 .hintWarn {
   color: var(--warn);
+}
+
+/* -------------------------------------------------------------- preview --- */
+
+/* A read-only row inside a settings panel: a label and whatever it previews,
+   sitting on the same baseline as the facts beside them. */
+.preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  font-size: var(--fs-sm);
+}
+
+/* A short numeric field: wide enough for four digits, not for a sentence. */
+.numberField {
+  max-width: 168px;
 }

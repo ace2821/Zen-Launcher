@@ -198,6 +198,10 @@ export const en = {
     playBlockedType: "Launching {{type}} entries isn't supported yet.",
     playBlockedMissing:
       "The executable is missing. Fix the path in the launch options.",
+    /** Markers beside Play, one per launch wrapper that is switched on. */
+    extrasHint: "Wrapped around the process that starts this game.",
+    gameModeBadge: "GameMode",
+    mangoHudBadge: "MangoHud",
     launchOptions: "Launch options",
     launchOptionsDescription:
       "Passed straight to the process — arguments as an array, never a shell string.",
@@ -269,6 +273,45 @@ export const en = {
     hideOnLaunch: "Hide the window when a game starts",
     hideOnLaunchHint:
       "The launcher drops out of the way and the session keeps running.",
+    gamingTitle: "Gaming session",
+    gamingDescription:
+      "Extras for the process behind a launch. Both stay best-effort: without the tool installed the game simply starts as usual.",
+    useGameMode: "GameMode",
+    useGameModeHint:
+      "Runs the game through gamemoderun when it is on PATH — the CPU governor switches to performance while you play.",
+    useMangoHud: "MangoHud overlay",
+    useMangoHudHint:
+      "Starts the game with MANGOHUD=1, so the overlay can show frame rate, frame times and temperatures.",
+    modsTitle: "Mods",
+    modsDescription:
+      "What is accepted when a mod archive is installed into a game folder.",
+    modsLenient: "Lenient archive validation",
+    modsLenientHint:
+      "Accepts any archive type 7z can read and skips symlinked entries. Turn it off for strict: only .zip, .7z and .rar, and an archive carrying a symlink is refused whole.",
+    modsModeLenient: "Lenient",
+    modsModeStrict: "Strict",
+    modsMaxMb: "Archive size limit (MB)",
+    modsMaxMbHint: "Whole megabytes, between 1 and 8192.",
+    modsMaxMbInvalid: "Enter a whole number between 1 and 8192.",
+    modsScopeNote:
+      "In force wherever an archive is installed — the Mods panel of a game shows the mode it is currently held to.",
+    coversTitle: "Cover art",
+    coversDescription: "What happens to the artwork of a newly approved game.",
+    autoCovers: "Fetch a cover when a game is approved",
+    autoCoversHint:
+      "The title is looked up in the Steam store and the best match is stored next to the library. Nothing else changes, and a failure just leaves the cover empty.",
+    bigPictureTitle: "Console mode",
+    bigPictureDescription:
+      "Big Picture is a fullscreen, gamepad-first view of the library, opened from the header of the Library screen.",
+    bigPictureLayout: "Button glyphs",
+    bigPictureLayoutHint:
+      "Which letters the face buttons are labelled with. Auto follows the connected pad.",
+    layoutAuto: "Auto",
+    layoutXbox: "Xbox",
+    layoutPlaystation: "PlayStation",
+    glyphPreview: "Preview",
+    glyphDetectedPad: "Following “{{pad}}”.",
+    glyphNoPad: "No gamepad connected — Xbox glyphs are shown.",
     storageTitle: "Storage",
     storageDescription: "Read-only in M1 — paths are fixed by the design document.",
     configPath: "Config file",
@@ -419,7 +462,6 @@ export const en = {
     factEngine: "Engine",
     factModsDir: "Mods folder",
     noModsDir: "Not there yet",
-    suggested: "{{loader}} is the loader for this engine",
     installed: "Installed",
     installedEmpty: "Nothing installed here yet.",
     installedMore: "+{{count}} more",
@@ -427,9 +469,26 @@ export const en = {
     statusFailed: "Could not read the game folder",
     retry: "Try again",
 
-    installIntro: "This game has no loader yet.",
-    installWarn: "Zen Launcher will download {{loader}} and unpack it into {{path}} — the game folder is written to.",
-    install: "Install {{loader}}",
+    unsupportedTitle: "No known mod support",
+    unsupportedBody:
+      "Which engine this game runs could not be told apart, so there is no loader to install and this panel will not write into the game folder. A mod that ships its own installer is a different matter — that is between you and the game.",
+
+    loadersTitle: "Installable loaders",
+    loadersHint:
+      "The loaders this engine can run, most widely used first. Each one is downloaded from its own GitHub release and unpacked into the game folder.",
+    loadersWriteNote:
+      "Whichever you pick is fetched from GitHub and unpacked into {{path}} — a write into your game, and you are asked to confirm before anything happens.",
+    recommended: "Recommended",
+    installLoader: "Install {{loader}}",
+
+    validationLabel: "Archive validation",
+    validationLenient: "Lenient",
+    validationLenientDetail: "any type 7z can read · symlinks skipped",
+    validationStrict: "Strict",
+    validationStrictDetail: ".zip, .7z, .rar only · symlinks refused",
+    validationLimit: "max {{mb}} MB",
+    validationNoteToast: "Validation in force: {{mode}} — {{detail}}, archives up to {{mb}} MB.",
+
     installTitle: "Install {{loader}} into the game folder?",
     installBody:
       "The newest {{loader}} release is downloaded from GitHub and extracted into “{{path}}”. Files already there are kept, but this does write into the game folder.",
@@ -439,12 +498,16 @@ export const en = {
     installFailed: "Could not install the loader",
 
     dropLabel: "Drop mod archives here",
-    dropHint: ".zip, .7z and .rar — each one is extracted into the mods folder and then moved to the trash.",
+    dropHintLenient:
+      "The core reads leniently: any archive type 7z understands, and symlinked entries are skipped. This tray only picks up files named .zip, .7z or .rar — each one is extracted into the mods folder and then moved to the trash.",
+    dropHintStrict:
+      "The core reads strictly: only .zip, .7z and .rar, and an archive carrying a symlink is refused whole. Each one is extracted into the mods folder and then moved to the trash.",
     dropActive: "Release to install",
     dropBusy: "Installing {{name}}",
     dropNeedsDir: "Without a mods folder there is nowhere to extract to — install a loader first.",
     dropIgnored: "Nothing to install",
-    dropIgnoredBody: "Ignored: {{count}} — only .zip, .7z and .rar archives are installed.",
+    dropIgnoredBody:
+      "Ignored: {{count}} — this tray only hands .zip, .7z and .rar files to the core.",
     chooseArchive: "Choose an archive…",
     archiveDialogTitle: "Choose a mod archive",
     archiveFilter: "Mod archives",
@@ -466,10 +529,30 @@ export const en = {
       "unity-il2cpp": "Unity · IL2CPP",
       unknown: "Unknown engine",
     },
-    suggestedLoader: {
-      bepinex5: "BepInEx 5",
-      melonloader: "MelonLoader",
-    },
+  },
+
+  bigPicture: {
+    title: "Big Picture",
+    enter: "Big Picture",
+    exit: "Back to the library",
+    railLabel: "Games",
+    tileLabel: "Open {{title}}",
+    emptyTitle: "Nothing to launch",
+    emptyBody:
+      "The library is empty. Add a scan root in Sources & Import and approve a game first.",
+    hintNavigate: "Navigate",
+    hintSelect: "Details",
+    hintBack: "Back",
+    hintMenu: "Library",
+    gamepadLabel: "Gamepad",
+    keyboardLabel: "Keyboard",
+    panelLastSession: "Last session",
+    panelPlaytime: "Played",
+    panelNever: "Never played",
+    panelPlay: "Play",
+    panelLaunching: "Starting…",
+    panelHintPlay: "Play",
+    panelHintBack: "Back",
   },
 } as const;
 

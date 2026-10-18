@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { GameSort } from "../lib/filter";
 
-export type ViewName = "library" | "import" | "settings" | "game";
+export type ViewName = "library" | "import" | "settings" | "game" | "bigPicture";
 export type LayoutMode = "grid" | "list";
 
 interface ShellState {
@@ -16,6 +16,8 @@ interface ShellState {
   goToImport(): void;
   goToSettings(): void;
   goToGame(gameId: number): void;
+  /** Fullscreen couch view; `goToLibrary` (or Escape) is the way back. */
+  goToBigPicture(): void;
   setSearch(value: string): void;
   setSort(sort: GameSort): void;
   setLayout(layout: LayoutMode): void;
@@ -38,6 +40,7 @@ export const useShellStore = create<ShellState>()(
       goToImport: () => set({ view: "import", selectedGameId: null }),
       goToSettings: () => set({ view: "settings", selectedGameId: null }),
       goToGame: (gameId) => set({ view: "game", selectedGameId: gameId }),
+      goToBigPicture: () => set({ view: "bigPicture" }),
       setSearch: (search) => set({ search }),
       setSort: (sort) => set({ sort }),
       setLayout: (layout) => set({ layout }),

@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type {
+  GamepadEvent,
   ScanProgressEvent,
   ScanSummary,
   SessionEndedEvent,
   SessionStartedEvent,
 } from "../types";
-import { SEED_NOW } from "./data";
+import { DEFAULT_SETTINGS, SEED_NOW } from "./data";
 import { createMockApi, type MockApi } from "./index";
 /**
  * The mock adapter is the reference emulation of the frozen contract, so it is
@@ -63,14 +64,7 @@ describe("mock adapter — seed", () => {
   });
 
   it("keeps the documented settings defaults", async () => {
-    await expect(api.getSettings()).resolves.toEqual({
-      language: "en",
-      closeToTray: true,
-      hideOnLaunch: true,
-      font: "maple-mono",
-      accent: "jade",
-      onboardingCompleted: false,
-    });
+    await expect(api.getSettings()).resolves.toEqual(DEFAULT_SETTINGS);
   });
 
   it("loads a config written before the appearance keys existed", async () => {
@@ -79,12 +73,10 @@ describe("mock adapter — seed", () => {
       settings: { language: "pl", closeToTray: false, hideOnLaunch: false },
     });
     await expect(legacy.getSettings()).resolves.toEqual({
+      ...DEFAULT_SETTINGS,
       language: "pl",
       closeToTray: false,
       hideOnLaunch: false,
-      font: "maple-mono",
-      accent: "jade",
-      onboardingCompleted: false,
     });
   });
 
@@ -101,11 +93,8 @@ describe("mock adapter — seed", () => {
       },
     });
     await expect(stored.getSettings()).resolves.toEqual({
-      language: "en",
-      closeToTray: true,
-      hideOnLaunch: true,
+      ...DEFAULT_SETTINGS,
       font: "comic-neue",
-      accent: "jade",
       onboardingCompleted: true,
     });
   });
@@ -278,10 +267,26 @@ describe("mock adapter — games", () => {
     expect(reread.env).toEqual(updated.env);
   });
 
-  it("only launches native entries that are actually installed", async () => {
-    await expect(api.launchGame(9)).rejects.toMatchObject({ code: "UNSUPPORTED" });
+  it("refuses entries whose runner has not landed, and a missing executable", async () => {
+    // A mod (7) and a retro (10) entry still need a runner that arrives after
+    // M1; a native entry whose binary is gone (11) is an IO failure.
     await expect(api.launchGame(7)).rejects.toMatchObject({ code: "UNSUPPORTED" });
+    await expect(api.launchGame(10)).rejects.toMatchObject({ code: "UNSUPPORTED" });
     await expect(api.launchGame(11)).rejects.toMatchObject({ code: "IO" });
+  });
+
+  it("opens a session for a Windows entry, the same shape as a native one", async () => {
+    const started: SessionStartedEvent[] = [];
+    await api.on("session-started", (payload) => started.push(payload));
+
+    // Morrowind (9) is a Windows entry: the core runs it through Wine.
+    const info = await api.launchGame(9);
+    expect(started).toHaveLength(1);
+    expect(started[0].gameId).toBe(9);
+    expect(started[0].sessionId).toBe(info.sessionId);
+
+    const running = await api.listSessions(9, 1);
+    expect(running[0].endedAt).toBeNull();
   });
 
   it("opens and closes a session for a native entry", async () => {
@@ -343,13 +348,53 @@ describe("mock adapter — shell integration", () => {
     ).rejects.toMatchObject({ code: "VALIDATION" });
 
     await expect(api.updateSettings({ closeToTray: false })).resolves.toEqual({
-      language: "en",
+      ...DEFAULT_SETTINGS,
       closeToTray: false,
-      hideOnLaunch: true,
-      font: "maple-mono",
-      accent: "jade",
-      onboardingCompleted: false,
     });
+  });
+
+  it("refuses a size limit or a glyph theme the core would refuse", async () => {
+    for (const mb of [0, 8193, 1.5, Number.NaN]) {
+      await expect(api.updateSettings({ modsMaxMb: mb })).rejects.toMatchObject({
+        code: "VALIDATION",
+      });
+    }
+    await expect(
+      api.updateSettings({
+        bigPictureLayout: "switch" as unknown as "auto",
+      }),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+
+    // A refused patch leaves every stored value exactly where it was.
+    await expect(api.getSettings()).resolves.toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("round-trips all six fields this round added", async () => {
+    const patched = await api.updateSettings({
+      autoCovers: false,
+      modsLenient: false,
+      modsMaxMb: 4096,
+      useGameMode: false,
+      useMangoHud: true,
+      bigPictureLayout: "playstation",
+    });
+
+    expect(patched).toEqual({
+      ...DEFAULT_SETTINGS,
+      autoCovers: false,
+      modsLenient: false,
+      modsMaxMb: 4096,
+      useGameMode: false,
+      useMangoHud: true,
+      bigPictureLayout: "playstation",
+    });
+    await expect(api.getSettings()).resolves.toEqual(patched);
+
+    // And one field at a time, without dragging the others along.
+    const single = await api.updateSettings({ bigPictureLayout: "xbox" });
+    expect(single.bigPictureLayout).toBe("xbox");
+    expect(single.modsMaxMb).toBe(4096);
+    expect(single.useMangoHud).toBe(true);
   });
 
   it("applies appearance fields one at a time and keeps the rest", async () => {
@@ -359,12 +404,9 @@ describe("mock adapter — shell integration", () => {
 
     const afterAccent = await api.updateSettings({ accent: "plum" });
     expect(afterAccent).toEqual({
-      language: "en",
-      closeToTray: true,
-      hideOnLaunch: true,
+      ...DEFAULT_SETTINGS,
       font: "instrument-sans",
       accent: "plum",
-      onboardingCompleted: false,
     });
 
     // Finishing the tour is one more field, nothing else moves.
@@ -545,12 +587,47 @@ describe("mock adapter — mods", () => {
     });
   });
 
+  it("ranks the catalog for the engine, and says so when there is none", async () => {
+    const il2cpp = await api.modsStatus(12);
+    expect(il2cpp.supported).toBe(true);
+    expect(il2cpp.loaders.map((entry) => entry.id)).toEqual([
+      "melonloader",
+      "bepinex6il2cpp",
+    ]);
+    // The top of that ranking is the suggestion — never a separate list.
+    expect(il2cpp.suggestedLoader).toBe(il2cpp.loaders[0].id);
+    // The names are the products, not ids: the UI prints them verbatim.
+    expect(il2cpp.loaders[0].name).toBe("MelonLoader");
+
+    // Morrowind's engine could not be told apart, which is an answer: no loader
+    // to offer and nothing for the UI to write.
+    await expect(api.modsStatus(9)).resolves.toMatchObject({
+      supported: false,
+      suggestedLoader: null,
+      loaders: [],
+    });
+  });
+
   it("refuses a second loader, or one the engine gives no reason for", async () => {
     await expect(api.installModLoader(13)).rejects.toMatchObject({
       code: "VALIDATION",
     });
     await expect(api.installModLoader(9)).rejects.toMatchObject({
       code: "VALIDATION",
+    });
+    // An explicit id still has to be a catalog entry this engine can run.
+    await expect(api.installModLoader(12, "bepinex5")).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+  });
+
+  it("installs the loader the id names, not the suggestion", async () => {
+    const after = await api.installModLoader(12, "bepinex6il2cpp");
+
+    expect(after).toMatchObject({
+      loader: "bepinex",
+      modsDir: "/home/oliwier/Games/Vampire Survivors/BepInEx/plugins",
+      modsDirKind: "bepinex-plugins",
     });
   });
 
@@ -594,16 +671,63 @@ describe("mock adapter — mods", () => {
     expect(failing.trashedArchives).toEqual([]);
   });
 
-  it("refuses an archive with nowhere to extract to, or the wrong type", async () => {
-    // Vampire Survivors has no mods folder yet.
+  it("holds an archive to the validation mode the settings name", async () => {
+    // Vampire Survivors has no mods folder yet: refused whatever the rules say.
     await expect(api.installModArchive(12, "/tmp/CoolMod.zip")).rejects.toMatchObject({
       code: "VALIDATION",
     });
-    await expect(api.installModArchive(13, "/tmp/CoolMod.tar.gz")).rejects.toMatchObject({
+
+    // Lenient (the default) accepts any type, because that is what the core asks
+    // 7z to read. The limit and the symlink rule need a real archive on disk and
+    // are therefore not emulated here at all.
+    await expect(api.installModArchive(13, "/tmp/CoolMod.tar.gz")).resolves.toMatchObject({
+      modsDir: "/home/oliwier/Games/ULTRAKILL/BepInEx/plugins",
+      trashed: true,
+    });
+
+    // Strict: the three archive types and nothing else.
+    await api.updateSettings({ modsLenient: false });
+    await expect(api.installModArchive(13, "/tmp/Another.tar.gz")).rejects.toMatchObject({
       code: "VALIDATION",
     });
     await expect(api.installModArchive(13, "/tmp/CoolMod.7z")).resolves.toMatchObject({
       trashed: true,
     });
+  });
+});
+
+describe("mock adapter — gamepad", () => {
+  it("answers list_gamepads in the contract shape", async () => {
+    await expect(api.listGamepads()).resolves.toEqual({
+      pads: [{ id: 0, name: "Xbox Wireless Controller", kind: "xbox" }],
+    });
+  });
+
+  it("can be told there is no pad, or a different family", async () => {
+    const none = createMockApi({ gamepads: [] });
+    await expect(none.listGamepads()).resolves.toEqual({ pads: [] });
+
+    const dualsense = createMockApi({
+      gamepads: [{ id: 1, name: "DualSense Wireless Controller", kind: "playstation" }],
+    });
+    await expect(dualsense.listGamepads()).resolves.toEqual({
+      pads: [{ id: 1, name: "DualSense Wireless Controller", kind: "playstation" }],
+    });
+  });
+
+  it("pushes gamepad events through the bus a test can drive", async () => {
+    const seen: GamepadEvent[] = [];
+    await api.on("gamepad-event", (payload) => seen.push(payload));
+
+    api.sendGamepadEvent({
+      kind: "button-press",
+      pad: 0,
+      name: "South",
+      code: "South",
+    });
+
+    expect(seen).toEqual([
+      { kind: "button-press", pad: 0, name: "South", code: "South" },
+    ]);
   });
 });

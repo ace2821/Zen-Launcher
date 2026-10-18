@@ -1,4 +1,5 @@
 import {
+  Check,
   Clock,
   FolderOpen,
   ImageDown,
@@ -50,6 +51,7 @@ function DetailsHero({ game }: { game: Game }) {
   const labels = useGameLabels();
   const { playtime, relativeDate } = useFormatters();
   const launch = useLaunchAvailability(game);
+  const settings = useLibraryStore((state) => state.settings);
   const launchGame = useLibraryStore((state) => state.launchGame);
   const removeGame = useLibraryStore((state) => state.removeGame);
   const revealGame = useLibraryStore((state) => state.revealGame);
@@ -63,6 +65,23 @@ function DetailsHero({ game }: { game: Game }) {
   const favoriteLabel = game.favorite
     ? t("library.favoriteRemove")
     : t("library.favoriteAdd");
+
+  /*
+   * Markers for what the launch is wrapped with.
+   *
+   * They only mean something beside a Play button that can actually start
+   * something, so they are gated on both: the switch being on *and* this entry
+   * being launchable. A blocked entry says why it is blocked; listing the extras
+   * it would have had is noise on top of that.
+   */
+  const extras = [
+    settings?.useGameMode
+      ? { key: "gameMode", label: t("details.gameModeBadge"), hint: t("settings.useGameModeHint") }
+      : null,
+    settings?.useMangoHud
+      ? { key: "mangoHud", label: t("details.mangoHudBadge"), hint: t("settings.useMangoHudHint") }
+      : null,
+  ].filter((entry): entry is { key: string; label: string; hint: string } => entry !== null);
 
   return (
     <>
@@ -136,6 +155,16 @@ function DetailsHero({ game }: { game: Game }) {
           >
             {t("details.play")}
           </Button>
+
+          {launch.available && extras.length > 0 ? (
+            <span className={styles.heroExtras} title={t("details.extrasHint")}>
+              {extras.map((extra) => (
+                <Badge key={extra.key} tone="quiet" icon={Check} title={extra.hint}>
+                  {extra.label}
+                </Badge>
+              ))}
+            </span>
+          ) : null}
 
           <IconButton
             icon={Star}

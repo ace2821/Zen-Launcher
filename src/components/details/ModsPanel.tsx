@@ -1,12 +1,13 @@
-import { LoaderCircle, PackagePlus, RefreshCw } from "lucide-react";
+import { CircleSlash, LoaderCircle, PackagePlus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { ARCHIVE_EXTENSIONS, isArchivePath, useWindowDragDrop } from "../../lib/dnd";
 import { toUiError, type UiAppError } from "../../lib/errors";
 import { useModLabels } from "../../lib/hooks";
-import type { Game, ModsStatus } from "../../lib/types";
+import type { Game, ModLoaderInfo, ModsStatus } from "../../lib/types";
 import { confirmDialog } from "../../store/confirm";
+import { useLibraryStore } from "../../store/library";
 import { toastError, toastInfo, toastSuccess } from "../../store/toasts";
 import page from "../page/page.module.css";
 import { Badge, Chip, CountBadge } from "../ui/Badge";
@@ -17,6 +18,15 @@ import styles from "./details.module.css";
 /** Entries are capped at 50 by the contract; the panel shows the first few. */
 const INSTALLED_SHOWN = 12;
 
+/**
+ * What the contract's defaults say when the settings have not arrived yet.
+ *
+ * The core ships lenient at 1024 MB, so a panel that renders in the instant
+ * before `get_settings` resolves is describing the rules that are actually in
+ * force rather than guessing at them.
+ */
+const DEFAULT_VALIDATION = { lenient: true, maxMb: 1024 } as const;
+
 function fileName(path: string): string {
   const parts = path.split("/").filter((part) => part.length > 0);
   return parts[parts.length - 1] ?? path;
@@ -26,26 +36,35 @@ export interface ModsPanelProps {
   game: Game;
 }
 
-/**
- * What the loader situation is, and the two ways to change it.
- *
- * Two things here are deliberately *not* optimistic: the loader button asks for
- * confirmation first, because it writes into the game folder, and the drop zone
- * reports per file before summing up, because a drop of ten archives must not
- * hide which one failed. Both are the same principle — the user is told what
- * touched their disk.
- */
+/** The loader situation, and the ways to change it — for the engines that have one. */
 export function ModsPanel({ game }: ModsPanelProps) {
   const { t } = useTranslation();
   const labels = useModLabels();
+  const settings = useLibraryStore((state) => state.settings);
   const [status, setStatus] = useState<ModsStatus | null>(null);
   const [error, setError] = useState<UiAppError | null>(null);
   const [loading, setLoading] = useState(true);
   const [installing, setInstalling] = useState(false);
-  const [installingLoader, setInstallingLoader] = useState(false);
+  /** Catalog id whose loader is being downloaded right now, or `null`. */
+  const [installingLoader, setInstallingLoader] = useState<string | null>(null);
   /** Name of the archive being extracted right now. */
   const [current, setCurrent] = useState<string | null>(null);
   const [htmlDrag, setHtmlDrag] = useState(false);
+
+  /** The archive rules the core is currently holding this install to. */
+  const validation = {
+    lenient: settings?.modsLenient ?? DEFAULT_VALIDATION.lenient,
+    maxMb: settings?.modsMaxMb ?? DEFAULT_VALIDATION.maxMb,
+  };
+  const mode = validation.lenient
+    ? {
+        name: t("mods.validationLenient"),
+        detail: t("mods.validationLenientDetail"),
+      }
+    : {
+        name: t("mods.validationStrict"),
+        detail: t("mods.validationStrictDetail"),
+      };
 
   /**
    * Whether there is anywhere for an archive to go. Both the drop tray and the
@@ -110,9 +129,21 @@ export function ModsPanel({ game }: ModsPanelProps) {
           if (!result.trashed) toastInfo(t("mods.trashKept"), archive);
         } catch (failure) {
           failed += 1;
+          /*
+           * A refusal names the rules it was refused under: "unsupported
+           * archive type" only means something next to the mode and the size
+           * limit that were in force when it happened. The core's own message
+           * is kept verbatim and the note is appended to it.
+           */
           toastError(
             t("mods.archiveFailed", { name: fileName(archive) }),
             toUiError(failure),
+            undefined,
+            t("mods.validationNoteToast", {
+              mode: mode.name,
+              detail: mode.detail,
+              mb: validation.maxMb,
+            }),
           );
         }
       }
@@ -126,7 +157,7 @@ export function ModsPanel({ game }: ModsPanelProps) {
 
       await refresh();
     },
-    [game.id, refresh, t],
+    [game.id, mode.detail, mode.name, refresh, t, validation.maxMb],
   );
 
   // Native drops only exist inside Tauri; a plain browser goes through the
@@ -143,26 +174,35 @@ export function ModsPanel({ game }: ModsPanelProps) {
     canInstall &&
     ((windowDrag.dragging !== null && windowDrag.dragging.length > 0) || htmlDrag);
 
-  const installLoader = async () => {
-    if (status === null || status.suggestedLoader === null) return;
-    const loader = labels.suggested(status.suggestedLoader);
+  /**
+   * Installs one loader from the catalog.
+   *
+   * Two things here are deliberately *not* optimistic: the loader button asks
+   * for confirmation first, because it writes into the game folder, and the drop
+   * zone reports per file before summing up, because a drop of ten archives must
+   * not hide which one failed. Both are the same principle — the user is told
+   * what touched their disk.
+   */
+  const installLoader = async (loader: ModLoaderInfo) => {
     const confirmed = await confirmDialog({
-      title: t("mods.installTitle", { loader }),
-      body: t("mods.installBody", { loader, path: game.installPath }),
-      confirmLabel: t("mods.installConfirm", { loader }),
+      title: t("mods.installTitle", { loader: loader.name }),
+      body: t("mods.installBody", { loader: loader.name, path: game.installPath }),
+      confirmLabel: t("mods.installConfirm", { loader: loader.name }),
       cancelLabel: t("common.cancel"),
       note: t("mods.installNote"),
     });
     if (!confirmed) return;
 
-    setInstallingLoader(true);
+    setInstallingLoader(loader.id);
     try {
-      setStatus(await api.installModLoader(game.id));
-      toastSuccess(t("mods.installedToast", { loader }), game.installPath);
+      // The id is sent explicitly: the panel offers the whole catalog, and the
+      // core's own idea of "the suggestion" is not necessarily the row clicked.
+      setStatus(await api.installModLoader(game.id, loader.id));
+      toastSuccess(t("mods.installedToast", { loader: loader.name }), game.installPath);
     } catch (failure) {
       toastError(t("mods.installFailed"), toUiError(failure));
     } finally {
-      setInstallingLoader(false);
+      setInstallingLoader(null);
     }
   };
 
@@ -186,11 +226,6 @@ export function ModsPanel({ game }: ModsPanelProps) {
     await installArchives([path]);
   };
 
-  const suggested =
-    status !== null && status.loader === "none" && status.suggestedLoader !== null
-      ? labels.suggested(status.suggestedLoader)
-      : null;
-
   return (
     <section className={page.panel}>
       <div className={page.panelHead}>
@@ -202,7 +237,7 @@ export function ModsPanel({ game }: ModsPanelProps) {
           <IconButton
             icon={RefreshCw}
             label={t("mods.refresh")}
-            disabled={loading || installing}
+            disabled={loading || installing || installingLoader !== null}
             onClick={() => void refresh()}
           />
         </div>
@@ -228,11 +263,6 @@ export function ModsPanel({ game }: ModsPanelProps) {
               <Badge tone={status.loader === "none" ? "quiet" : "accent"}>
                 {labels.loader(status.loader)}
               </Badge>
-              {suggested !== null ? (
-                <span className={page.hint}>
-                  {t("mods.suggested", { loader: suggested })}
-                </span>
-              ) : null}
             </span>
 
             <span className={page.factKey}>{t("mods.factEngine")}</span>
@@ -248,25 +278,67 @@ export function ModsPanel({ game }: ModsPanelProps) {
             </span>
           </div>
 
-          {suggested !== null ? (
-            <div className={styles.loaderOffer}>
-              <div className={styles.loaderOfferText}>
-                <span>{t("mods.installIntro", { loader: suggested })}</span>
-                <span className={styles.loaderOfferWarn}>
-                  {t("mods.installWarn", {
-                    loader: suggested,
-                    path: game.installPath,
-                  })}
+          {/*
+           * The engine is the gate the whole panel turns on. When the catalog
+           * knows nothing about it there is no loader to offer and nothing
+           * honest for this panel to write, so it says exactly that and stops:
+           * no install button, no drop tray, no promise it cannot keep.
+           */}
+          {!status.supported ? (
+            <div className={styles.unsupported} role="status">
+              <span className={styles.unsupportedIcon} aria-hidden>
+                <CircleSlash size={18} />
+              </span>
+              <div className={styles.unsupportedText}>
+                <span className={styles.unsupportedTitle}>
+                  {t("mods.unsupportedTitle")}
+                </span>
+                <span className={styles.unsupportedBody}>
+                  {t("mods.unsupportedBody")}
                 </span>
               </div>
-              <Button
-                variant="secondary"
-                icon={PackagePlus}
-                loading={installingLoader}
-                onClick={() => void installLoader()}
-              >
-                {t("mods.install", { loader: suggested })}
-              </Button>
+            </div>
+          ) : null}
+
+          {status.supported && status.loader === "none" ? (
+            <div className={styles.loaders}>
+              <div className={page.panelText}>
+                <h3 className={styles.subTitle}>{t("mods.loadersTitle")}</h3>
+                <span className={page.hint}>{t("mods.loadersHint")}</span>
+              </div>
+
+              <ul className={styles.loaderList}>
+                {status.loaders.map((loader) => {
+                  const recommended = loader.id === status.suggestedLoader;
+                  return (
+                    <li className={styles.loaderRow} key={loader.id}>
+                      <span className={styles.loaderRowText}>
+                        <span className={styles.loaderName}>
+                          {loader.name}
+                          {recommended ? (
+                            <Badge tone="accent">{t("mods.recommended")}</Badge>
+                          ) : null}
+                        </span>
+                      </span>
+                      <Button
+                        size="sm"
+                        variant={recommended ? "secondary" : "ghost"}
+                        icon={PackagePlus}
+                        loading={installingLoader === loader.id}
+                        disabled={installingLoader !== null || installing}
+                        onClick={() => void installLoader(loader)}
+                      >
+                        {t("mods.installLoader", { loader: loader.name })}
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {/* Said once, under the whole list: every row writes the same place. */}
+              <p className={styles.loadersNote}>
+                {t("mods.loadersWriteNote", { path: game.installPath })}
+              </p>
             </div>
           ) : null}
 
@@ -295,65 +367,91 @@ export function ModsPanel({ game }: ModsPanelProps) {
             )}
           </div>
 
-          <div
-            className={[
-              styles.dropzone,
-              dragActive ? styles.dropzoneActive : "",
-              installing ? styles.dropzoneBusy : "",
-              canInstall ? "" : styles.dropzoneDisabled,
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            role="group"
-            aria-label={t("mods.dropLabel")}
-            onDragOver={(event) => {
-              if (!canInstall) return;
-              event.preventDefault();
-              setHtmlDrag(true);
-            }}
-            onDragLeave={() => setHtmlDrag(false)}
-            onDrop={(event) => {
-              event.preventDefault();
-              setHtmlDrag(false);
-              if (installing || !canInstall) return;
-              // A browser hands over `File`s without paths, and Tauri never
-              // forwards an HTML5 drop at all — the name is what is left.
-              const files = Array.from(event.dataTransfer?.files ?? []);
-              void installArchives(files.map((file) => file.name));
-            }}
-          >
-            <span className={styles.dropzoneIcon} aria-hidden>
-              {installing ? (
-                <LoaderCircle size={22} className={styles.spinner} />
-              ) : (
-                <PackagePlus size={22} />
-              )}
-            </span>
-
-            <span className={styles.dropzoneTitle}>
-              {installing && current !== null
-                ? t("mods.dropBusy", { name: current })
-                : dragActive
-                  ? t("mods.dropActive")
-                  : t("mods.dropLabel")}
-            </span>
-            <span className={styles.dropzoneHint}>{t("mods.dropHint")}</span>
-
-            {status.modsDir === null ? (
-              <span className={`${styles.dropzoneHint} ${styles.dropzoneWarn}`}>
-                {t("mods.dropNeedsDir")}
-              </span>
-            ) : null}
-
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={installing || installingLoader || !canInstall}
-              onClick={() => void chooseArchive()}
+          {/* The tray is a promise about what the core will accept — where there
+              is no core support there is nothing to promise, so it is gone. */}
+          {status.supported ? (
+            <div
+              className={[
+                styles.dropzone,
+                dragActive ? styles.dropzoneActive : "",
+                installing ? styles.dropzoneBusy : "",
+                canInstall ? "" : styles.dropzoneDisabled,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              role="group"
+              aria-label={t("mods.dropLabel")}
+              onDragOver={(event) => {
+                if (!canInstall) return;
+                event.preventDefault();
+                setHtmlDrag(true);
+              }}
+              onDragLeave={() => setHtmlDrag(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setHtmlDrag(false);
+                if (installing || !canInstall) return;
+                // A browser hands over `File`s without paths, and Tauri never
+                // forwards an HTML5 drop at all — the name is what is left.
+                const files = Array.from(event.dataTransfer?.files ?? []);
+                void installArchives(files.map((file) => file.name));
+              }}
             >
-              {t("mods.chooseArchive")}
-            </Button>
-          </div>
+              {/*
+               * The rules in force, on the thing they govern. A mode that only
+               * lived in Settings would have to be remembered at the exact
+               * moment a drop is refused.
+               */}
+              <span className={styles.validation}>
+                <span className={styles.validationLabel}>
+                  {t("mods.validationLabel")}
+                </span>
+                <Badge tone={validation.lenient ? "info" : "warn"}>
+                  {mode.name}
+                </Badge>
+                <span className={styles.validationDetail}>{mode.detail}</span>
+                <span className={styles.validationLimit}>
+                  {t("mods.validationLimit", { mb: validation.maxMb })}
+                </span>
+              </span>
+
+              <span className={styles.dropzoneIcon} aria-hidden>
+                {installing ? (
+                  <LoaderCircle size={22} className={styles.spinner} />
+                ) : (
+                  <PackagePlus size={22} />
+                )}
+              </span>
+
+              <span className={styles.dropzoneTitle}>
+                {installing && current !== null
+                  ? t("mods.dropBusy", { name: current })
+                  : dragActive
+                    ? t("mods.dropActive")
+                    : t("mods.dropLabel")}
+              </span>
+              <span className={styles.dropzoneHint}>
+                {validation.lenient
+                  ? t("mods.dropHintLenient")
+                  : t("mods.dropHintStrict")}
+              </span>
+
+              {status.modsDir === null ? (
+                <span className={`${styles.dropzoneHint} ${styles.dropzoneWarn}`}>
+                  {t("mods.dropNeedsDir")}
+                </span>
+              ) : null}
+
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={installing || installingLoader !== null || !canInstall}
+                onClick={() => void chooseArchive()}
+              >
+                {t("mods.chooseArchive")}
+              </Button>
+            </div>
+          ) : null}
         </>
       ) : null}
     </section>

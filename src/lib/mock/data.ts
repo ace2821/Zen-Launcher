@@ -1,15 +1,17 @@
 import { coverPalette, hashString, titleInitials } from "../cover";
 import type {
+  BigPictureLayout,
   Candidate,
   CoverCandidate,
   Game,
+  GamepadInfo,
   ModEngine,
   ModLoader,
+  ModLoaderInfo,
   ModsDirKind,
   Session,
   Settings,
   Source,
-  SuggestedLoader,
 } from "../types";
 
 /**
@@ -28,16 +30,30 @@ export const DEFAULT_SETTINGS: Settings = {
   font: "maple-mono",
   accent: "jade",
   onboardingCompleted: false,
+  autoCovers: true,
+  modsLenient: true,
+  modsMaxMb: 1024,
+  useGameMode: true,
+  useMangoHud: false,
+  bigPictureLayout: "auto",
 };
+
+/** The default pad the mock "sees" plugged in (see `MockOptions.gamepads`). */
+export const DEFAULT_GAMEPADS: GamepadInfo[] = [
+  { id: 0, name: "Xbox Wireless Controller", kind: "xbox" },
+];
 
 /**
  * Mirrors how the core reads `config.toml`.
  *
- * A key that is absent — every file written before the appearance milestone —
- * or that cannot be used loads as its default instead of failing the whole
- * read, which is what keeps an existing install opening on current defaults.
- * Well-formed but unknown `font`/`accent` ids are passed through on purpose: the
- * UI is the layer that degrades them (see `lib/appearance.ts`).
+ * A key that is absent — every file written before this milestone — or that
+ * cannot be used loads as its default instead of failing the whole read, which
+ * is what keeps an existing install opening on current defaults. Well-formed but
+ * unknown `font`/`accent` ids are passed through on purpose: the UI is the layer
+ * that degrades them (see `lib/appearance.ts`). `bigPictureLayout` is the same
+ * deal — the core stores a `String` and validates only patches, so the mock
+ * hands back whatever non-empty value it was given and the UI resolves it
+ * (`lib/gamepad.ts` falls back to `auto` for anything unrecognised).
  */
 export function loadSettings(seed: Partial<Settings> = {}): Settings {
   const pick = <T extends string>(
@@ -47,23 +63,34 @@ export function loadSettings(seed: Partial<Settings> = {}): Settings {
   ): T => (typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : fallback);
   const pickId = (value: unknown, fallback: string): string =>
     typeof value === "string" && value.trim().length > 0 ? value.trim() : fallback;
+  const pickBool = (value: unknown, fallback: boolean): boolean =>
+    typeof value === "boolean" ? value : fallback;
+  // The core does not clamp a stored value on read — `normalize_mods_max_mb`
+  // guards patches only — so neither does this: only a non-number falls back.
+  const pickNumber = (value: unknown, fallback: number): number =>
+    typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
   return {
     language: pick(seed.language, ["en", "pl"], DEFAULT_SETTINGS.language),
-    closeToTray:
-      typeof seed.closeToTray === "boolean"
-        ? seed.closeToTray
-        : DEFAULT_SETTINGS.closeToTray,
-    hideOnLaunch:
-      typeof seed.hideOnLaunch === "boolean"
-        ? seed.hideOnLaunch
-        : DEFAULT_SETTINGS.hideOnLaunch,
+    closeToTray: pickBool(seed.closeToTray, DEFAULT_SETTINGS.closeToTray),
+    hideOnLaunch: pickBool(seed.hideOnLaunch, DEFAULT_SETTINGS.hideOnLaunch),
     font: pickId(seed.font, DEFAULT_SETTINGS.font),
     accent: pickId(seed.accent, DEFAULT_SETTINGS.accent),
-    onboardingCompleted:
-      typeof seed.onboardingCompleted === "boolean"
-        ? seed.onboardingCompleted
-        : DEFAULT_SETTINGS.onboardingCompleted,
+    onboardingCompleted: pickBool(
+      seed.onboardingCompleted,
+      DEFAULT_SETTINGS.onboardingCompleted,
+    ),
+    autoCovers: pickBool(seed.autoCovers, DEFAULT_SETTINGS.autoCovers),
+    modsLenient: pickBool(seed.modsLenient, DEFAULT_SETTINGS.modsLenient),
+    modsMaxMb: pickNumber(seed.modsMaxMb, DEFAULT_SETTINGS.modsMaxMb),
+    useGameMode: pickBool(seed.useGameMode, DEFAULT_SETTINGS.useGameMode),
+    useMangoHud: pickBool(seed.useMangoHud, DEFAULT_SETTINGS.useMangoHud),
+    // Documented cast: an unrecognised stored string is possible (hand-edited
+    // file), and every consumer degrades instead of trusting the union.
+    bigPictureLayout: pickId(
+      seed.bigPictureLayout,
+      DEFAULT_SETTINGS.bigPictureLayout,
+    ) as BigPictureLayout,
   };
 }
 
@@ -112,6 +139,9 @@ export interface MockState {
  *
  * `modsDir` is stored relative to the game's install path so the returned status
  * carries a real absolute path, exactly as the core's detection would produce.
+ * Only *detected* facts live here: the installable catalog is derived from the
+ * engine (see `loadersFor`), which is how the core's `mods::status` splits the
+ * two as well.
  */
 export interface ModsSeed {
   loader: ModLoader;
@@ -119,8 +149,42 @@ export interface ModsSeed {
   modsDir: string | null;
   modsDirKind: ModsDirKind;
   engine: ModEngine;
-  suggestedLoader: SuggestedLoader | null;
   installed: string[];
+}
+
+/** One installable loader; mirrors the core's `mods::CATALOG` entry for entry. */
+export interface LoaderSpec {
+  id: string;
+  name: string;
+  engines: ModEngine[];
+}
+
+/**
+ * The loader catalog, in the core's popularity order — the first entry matching
+ * the game's engine becomes `suggestedLoader`. Kept literal (rather than derived)
+ * so a drift from `src-tauri/src/mods.rs` is visible here.
+ */
+export const LOADER_CATALOG: readonly LoaderSpec[] = [
+  { id: "bepinex5", name: "BepInEx 5", engines: ["unity-mono"] },
+  {
+    id: "melonloader",
+    name: "MelonLoader",
+    engines: ["unity-mono", "unity-il2cpp"],
+  },
+  { id: "bepinex6mono", name: "BepInEx 6 (Mono)", engines: ["unity-mono"] },
+  { id: "bepinex6il2cpp", name: "BepInEx 6 (IL2CPP)", engines: ["unity-il2cpp"] },
+];
+
+/** Catalog entries that apply to an engine, most popular first. */
+export function loadersFor(engine: ModEngine): ModLoaderInfo[] {
+  return LOADER_CATALOG.filter((spec) => spec.engines.includes(engine)).map(
+    (spec) => ({ id: spec.id, name: spec.name, engines: [...spec.engines] }),
+  );
+}
+
+/** The product name a loader id installs, or the id itself when unknown. */
+export function loaderName(id: string): string {
+  return LOADER_CATALOG.find((spec) => spec.id === id)?.name ?? id;
 }
 
 const SOURCES: Source[] = [
@@ -374,7 +438,7 @@ const GAMES: Game[] = [
     tags: ["rpg", "nostalgia"],
     favorite: false,
     hidden: false,
-    notes: "Wine runner arrives in M2 — the entry is bookmarked for now.",
+    notes: "Launches through Wine; saves and config live in the prefix.",
     coverPath: null,
     status: "ready",
     createdAt: at(28, 13, 20),
@@ -695,10 +759,12 @@ function buildSessions(): Session[] {
 /**
  * Mod state the mock "detects" per game.
  *
- * The core walks the game folder; the mock cannot, so detection is a table. All
- * three loader states the panel can render appear here, plus a Windows game where
- * nothing is installed and nothing is suggested — the empty case is the one that
- * decides whether the panel reads as informative or as noise.
+ * The core walks the game folder; the mock cannot, so detection is a table.
+ * Between them the three seeds cover every state the panel can render: a loader
+ * already installed (ULTRAKILL), a known engine with nothing installed yet
+ * (Vampire Survivors) and a game whose engine could not be told apart (Morrowind,
+ * `engine: "unknown"`) — which is the one case where the panel has to say "no
+ * known mod support" and offer no loader at all.
  *
  * Morrowind's script extender injects through a proxy DLL at the game root, which
  * is exactly what `doorstop` describes; its mods sit in `Mods/`.
@@ -709,7 +775,6 @@ const MODS_SEED: Record<number, ModsSeed> = {
     modsDir: "Mods",
     modsDirKind: "mods",
     engine: "unknown",
-    suggestedLoader: null,
     installed: ["MWSE", "MGE-XE", "Patch for Purists", "Tamriel Rebuilt"],
   },
   12: {
@@ -717,7 +782,6 @@ const MODS_SEED: Record<number, ModsSeed> = {
     modsDir: null,
     modsDirKind: "none",
     engine: "unity-il2cpp",
-    suggestedLoader: "melonloader",
     installed: [],
   },
   13: {
@@ -725,7 +789,6 @@ const MODS_SEED: Record<number, ModsSeed> = {
     modsDir: "BepInEx/plugins",
     modsDirKind: "bepinex-plugins",
     engine: "unity-mono",
-    suggestedLoader: "bepinex5",
     installed: ["CustomWeapons.dll", "UltraQoL", "config"],
   },
 };
