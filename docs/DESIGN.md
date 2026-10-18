@@ -237,7 +237,8 @@ usable for a desktop game-library project.
   persists across restarts.
 - **M2 — Launch power:** profiles (args/env/cwd + toggles), Wine per-game
   prefix (minimal system-wine runner already in) + umu/Proton-GE, RetroArch
-  runner, `.desktop` shortcuts, auto-scan.
+  runner, `.desktop` shortcuts, auto-scan, artwork (Steam covers), mods
+  (loader detection/install + drag-drop archive installs).
 - **M3 — Metadata and order:** Steam match + SteamGridDB + ScreenScraper,
   artwork cache, details view, search/filters, tags/collections,
   favorites/recents, export/import.

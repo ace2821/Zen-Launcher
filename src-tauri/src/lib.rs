@@ -4,10 +4,12 @@
 //! `docs/INTERFACES.md`; every module here implements a slice of it.
 
 pub mod commands;
+pub mod covers;
 pub mod db;
 pub mod error;
 pub mod launch;
 pub mod models;
+pub mod mods;
 pub mod paths;
 pub mod scanner;
 pub mod settings;
@@ -77,6 +79,16 @@ fn setup_app(app: &mut tauri::App) -> AppResult<()> {
     };
     app.manage(AppState::new(conn, settings, config_path));
 
+    // Covers are served to the webview through the asset protocol; the scope
+    // is limited to the covers directory (added at runtime — the config keeps
+    // an empty static scope).
+    if let Err(err) = app
+        .asset_protocol_scope()
+        .allow_directory(paths::covers_dir()?, true)
+    {
+        tracing::warn!("could not grant the webview access to covers: {err}");
+    }
+
     tray::init(app)?;
     tray::install_close_handler(app.handle());
 
@@ -113,6 +125,12 @@ pub fn run() {
             commands::list_sessions,
             commands::get_settings,
             commands::update_settings,
+            commands::fetch_cover_candidates,
+            commands::download_cover,
+            commands::set_cover_from_file,
+            commands::mods_status,
+            commands::install_mod_loader,
+            commands::install_mod_archive,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

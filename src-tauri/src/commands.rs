@@ -378,3 +378,105 @@ pub fn update_settings(state: State<'_, AppState>, patch: SettingsPatch) -> AppR
     settings::save_to(&state.config_path, &updated)?;
     Ok(updated)
 }
+
+// ---------------------------------------------------------------------------
+// Covers (artwork)
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn fetch_cover_candidates(
+    query: String,
+) -> AppResult<Vec<crate::covers::CoverCandidate>> {
+    crate::covers::fetch_candidates(&query)
+}
+
+#[tauri::command]
+pub async fn download_cover(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game_id: i64,
+    url: String,
+) -> AppResult<Game> {
+    let covers = crate::paths::covers_dir()?;
+    let path = crate::covers::download(&covers, game_id, &url)?;
+    apply_cover(app, state, game_id, path).await
+}
+
+#[tauri::command]
+pub async fn set_cover_from_file(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game_id: i64,
+    source_path: String,
+) -> AppResult<Game> {
+    let covers = crate::paths::covers_dir()?;
+    let path = crate::covers::set_from_file(&covers, game_id, Path::new(&source_path))?;
+    apply_cover(app, state, game_id, path).await
+}
+
+/// Persist a stored cover file as the game's coverPath, then notify the UI.
+async fn apply_cover(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    game_id: i64,
+    path: PathBuf,
+) -> AppResult<Game> {
+    let patch = GamePatch {
+        cover_path: Some(Some(path.to_string_lossy().into_owned())),
+        ..Default::default()
+    };
+    let conn = state.lock_db()?;
+    let game = db::update_game(&conn, game_id, &patch)?;
+    drop(conn);
+    emit_library_changed(&app);
+    Ok(game)
+}
+
+// ---------------------------------------------------------------------------
+// Mods (loaders & installs)
+// ---------------------------------------------------------------------------
+
+/// Resolve the game row without holding the DB lock, verifying the folder
+/// exists on disk (required by every mods operation).
+fn game_root_for(state: &State<'_, AppState>, game_id: i64) -> AppResult<PathBuf> {
+    let conn = state.lock_db()?;
+    let game = db::get_game(&conn, game_id)?;
+    drop(conn);
+
+    if !matches!(game.game_type, crate::models::GameType::Windows) {
+        return Err(AppError::validation(
+            "mod loading is only supported for Windows games",
+        ));
+    }
+    let root = PathBuf::from(&game.install_path);
+    if !root.is_dir() {
+        return Err(AppError::validation("game folder not found on disk"));
+    }
+    Ok(root)
+}
+
+#[tauri::command]
+pub fn mods_status(state: State<'_, AppState>, game_id: i64) -> AppResult<crate::mods::ModsStatus> {
+    let root = game_root_for(&state, game_id)?;
+    Ok(crate::mods::status(&root))
+}
+
+#[tauri::command]
+pub async fn install_mod_loader(
+    state: State<'_, AppState>,
+    game_id: i64,
+) -> AppResult<crate::mods::ModsStatus> {
+    let root = game_root_for(&state, game_id)?;
+    crate::mods::install_loader(&root)
+}
+
+#[tauri::command]
+pub async fn install_mod_archive(
+    state: State<'_, AppState>,
+    game_id: i64,
+    archive_path: String,
+) -> AppResult<crate::mods::ModInstallResult> {
+    let root = game_root_for(&state, game_id)?;
+    let staging = crate::paths::data_dir()?.join("staging");
+    crate::mods::install_archive(&root, Path::new(&archive_path), &staging)
+}

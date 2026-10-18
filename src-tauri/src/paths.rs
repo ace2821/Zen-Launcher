@@ -10,6 +10,7 @@ pub const APP_DIR: &str = "zen-launcher";
 pub const CONFIG_FILE: &str = "config.toml";
 pub const DB_FILE: &str = "library.db";
 pub const LOGS_DIR: &str = "logs";
+pub const COVERS_DIR: &str = "covers";
 
 pub fn config_dir() -> AppResult<PathBuf> {
     dirs::config_dir()
@@ -35,10 +36,16 @@ pub fn logs_dir() -> AppResult<PathBuf> {
     Ok(data_dir()?.join(LOGS_DIR))
 }
 
-/// Create the config and data directories (including `logs/`) if missing.
+pub fn covers_dir() -> AppResult<PathBuf> {
+    Ok(data_dir()?.join(COVERS_DIR))
+}
+
+/// Create the config and data directories (including `logs/` and `covers/`)
+/// if missing.
 pub fn ensure_dirs() -> AppResult<()> {
     std::fs::create_dir_all(config_dir()?)?;
     std::fs::create_dir_all(data_dir()?)?;
     std::fs::create_dir_all(logs_dir()?)?;
+    std::fs::create_dir_all(covers_dir()?)?;
     Ok(())
 }

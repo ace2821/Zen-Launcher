@@ -183,6 +183,58 @@ these fields loads them as defaults.
   supervision tracks the direct child; launchers that exit immediately end the
   session early (known limitation).
 
+## Covers (artwork)
+
+- `fetch_cover_candidates(query: string) -> CoverCandidate[]` — keyless Steam
+  store search. `CoverCandidate = { provider: "steam", id: string, name:
+  string, thumbUrl: string, portraitUrl: string | null, landscapeUrl: string |
+  null }` (portrait = 600x900 library art, landscape = header 460x215; `null`
+  when the app id has no store page). Search failures surface as `IO`.
+- `download_cover(gameId, url) -> Game` — downloads a provider image
+  (http/https only, 10 MB cap, raster image content types only), stores it as
+  `<dataDir>/covers/cover-<gameId>-<unix>.<ext>`, sets `coverPath` to the
+  stored file (replacing the previous cover file) and emits `library-changed`.
+- `set_cover_from_file(gameId, sourcePath) -> Game` — copies a local raster
+  image (`.png/.jpg/.jpeg/.webp`) into the covers dir with the same naming and
+  sets `coverPath`; the source file is never touched.
+- Rendering: covers reach the webview through the Tauri asset protocol with a
+  scope limited to `<dataDir>/covers/**`. File names are unique per write, so
+  no cache busting is needed.
+
+## Mods (loaders & installs)
+
+- `mods_status(gameId) -> ModsStatus`:
+  `{ loader: "bepinex" | "melonloader" | "doorstop" | "none", modsDir: string |
+  null, modsDirKind: "bepinex-plugins" | "mods" | "none", engine: "unity-mono"
+  | "unity-il2cpp" | "unknown", suggestedLoader: "bepinex5" | "melonloader" |
+  null, installed: string[] }`.
+  - Detection: `BepInEx/` → `bepinex`; `MelonLoader/` → `melonloader`;
+    `doorstop_config.ini` or `winhttp.dll` / `version.dll` at the game root →
+    `doorstop` (community loaders, e.g. NeoModLoader); otherwise `none`.
+  - `modsDir`: `BepInEx/plugins` for bepinex; otherwise the first of `Mods/`,
+    `MelonLoader/Mods`, `mods/` that exists; `null` when none.
+  - `installed`: top-level entries of `modsDir` (cap 50), for the drop zone.
+  - Engine: `*_Data/il2cpp_data` or `GameAssembly.dll` → `unity-il2cpp`;
+    `MonoBleedingEdge/` or `*_Data/Managed/` → `unity-mono`.
+  - `suggestedLoader`: `bepinex5` for Unity Mono, `melonloader` for Unity
+    IL2CPP, `null` otherwise.
+- `install_mod_loader(gameId) -> ModsStatus` — downloads the newest matching
+  release asset from GitHub (BepInEx: `BepInEx_win_x64_*.zip`; MelonLoader:
+  `MelonLoader.x64.zip`) and extracts it into the game folder (BepInEx 5
+  layout: `winhttp.dll` + `doorstop_config.ini` + `BepInEx/`), then ensures
+  `BepInEx/plugins` exists. `VALIDATION` when a loader is already present or
+  the game type is not `windows`; nothing is written on failure.
+- `install_mod_archive(gameId, archivePath) -> ModInstallResult` —
+  `{ installed: string[], modsDir: string, trashed: boolean }`. Accepts
+  `.zip` / `.7z` / `.rar` (system `7z` handles all three; 512 MB cap). Entries
+  are validated first (no absolute paths, no `..` traversal) and `__MACOSX`
+  noise is skipped; extraction goes into `modsDir` (archives are extracted
+  as-is, archives carrying a nested top folder keep it). Fails with
+  `VALIDATION` when no mods dir exists yet. After a successful extraction the
+  archive is moved to the system trash (`gio trash`); if trashing fails the
+  archive stays put and `trashed` is `false` — files are never deleted
+  outright.
+
 ## Scanner heuristics (M1 minimum)
 
 - Walk each source root recursively; skip already-approved game folders.
