@@ -5,9 +5,9 @@ import type { Game } from "../../lib/types";
 import { CARD_TEXT_HEIGHT, GameCard } from "./GameCard";
 import styles from "./library.module.css";
 
-const GAP = 20;
-const PAD = 24;
-const MIN_CARD_WIDTH = 184;
+const GAP = 16;
+const PAD = 20;
+const MIN_CARD_WIDTH = 200;
 /** Used when nothing has been measured yet (first paint, jsdom). */
 const FALLBACK_WIDTH = 1180;
 

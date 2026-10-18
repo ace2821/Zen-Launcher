@@ -60,6 +60,8 @@ interface LibraryState {
   settings: Settings | null;
   currentGame: Game | null;
   sessions: Session[];
+  /** Game ids that have a session started but not yet ended ("playing now"). */
+  activeSessions: number[];
   scan: ScanProgressState | null;
   lastScan: ScanSummary | null;
   /** Keyed by action, e.g. `candidate:approve:101`. */
@@ -122,6 +124,7 @@ const EMPTY = {
   settings: null,
   currentGame: null,
   sessions: [] as Session[],
+  activeSessions: [] as number[],
   scan: null,
   lastScan: null,
   busy: {} as Record<string, boolean>,
@@ -168,6 +171,9 @@ export const useLibraryStore = create<LibraryState>()((set, get) => {
           translate("details.launched"),
           translate("details.launchedBody", { title }),
         );
+        set((state) => ({
+          activeSessions: [...new Set([...state.activeSessions, payload.gameId])],
+        }));
       }),
       await api.on("session-ended", (payload) => {
         const title =
@@ -179,6 +185,11 @@ export const useLibraryStore = create<LibraryState>()((set, get) => {
             duration: formatClockDuration(payload.durationSeconds),
           }),
         );
+        set((state) => ({
+          activeSessions: state.activeSessions.filter(
+            (id) => id !== payload.gameId,
+          ),
+        }));
         void get().refreshAll();
       }),
       await api.on("library-changed", () => {

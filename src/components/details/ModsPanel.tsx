@@ -1,5 +1,13 @@
-import { CircleSlash, LoaderCircle, PackagePlus, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { CircleSlash, FolderOpen, LoaderCircle, PackagePlus, RefreshCw } from "lucide-react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ForwardedRef,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { ARCHIVE_EXTENSIONS, isArchivePath, useWindowDragDrop } from "../../lib/dnd";
@@ -32,12 +40,32 @@ function fileName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
+/** Imperative handle exposed to Big Picture so the couch can cycle focus
+   between the panel's action buttons with the d-pad and fire the focused one
+   with South. */
+export interface ModsPanelHandle {
+  focusFirst(): void;
+  focusNext(): void;
+  focusPrevious(): void;
+  activateFocused(): void;
+}
+
 export interface ModsPanelProps {
   game: Game;
+  /** Tighter layout, taller touch targets and a stronger focus ring: the
+     console take-over has less breathing room than the details page. */
+  compact?: boolean;
+  /** Whether d-pad left/right should cycle focus between the panel's buttons.
+     Big Picture sets this so the console can reach every action. */
+  gamepad?: boolean;
 }
 
 /** The loader situation, and the ways to change it — for the engines that have one. */
-export function ModsPanel({ game }: ModsPanelProps) {
+export const ModsPanel = forwardRef<ModsPanelHandle, ModsPanelProps>(
+  function ModsPanel(
+    { game, compact = false, gamepad = false }: ModsPanelProps,
+    forwardedRef: ForwardedRef<ModsPanelHandle>,
+  ) {
   const { t } = useTranslation();
   const labels = useModLabels();
   const settings = useLibraryStore((state) => state.settings);
@@ -72,6 +100,81 @@ export function ModsPanel({ game }: ModsPanelProps) {
    * archive, so neither is offered as if it could work.
    */
   const canInstall = status !== null && status.modsDir !== null;
+
+  /* ------------------------------------------------------------ focus --- */
+
+  /** The section root: Big Picture uses it to find every action button and
+     cycle focus between them with the d-pad. */
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  /** Every action button in DOM order — refreshed after each render so the
+     list stays honest when loaders appear/disappear or the drop zone shows up. */
+  const orderedButtons = useCallback(
+    () =>
+      Array.from(
+        sectionRef.current?.querySelectorAll<HTMLButtonElement>("button") ??
+          [],
+      ),
+    [],
+  );
+
+  const focusFirst = useCallback(() => {
+    orderedButtons()[0]?.focus({ preventScroll: true });
+  }, [orderedButtons]);
+
+  const focusNext = useCallback(() => {
+    const buttons = orderedButtons();
+    if (buttons.length === 0) return;
+    const current = document.activeElement;
+    const idx = buttons.indexOf(current as HTMLButtonElement);
+    buttons[idx >= 0 ? (idx + 1) % buttons.length : 0]?.focus({
+      preventScroll: true,
+    });
+  }, [orderedButtons]);
+
+  const focusPrevious = useCallback(() => {
+    const buttons = orderedButtons();
+    if (buttons.length === 0) return;
+    const current = document.activeElement;
+    const idx = buttons.indexOf(current as HTMLButtonElement);
+    buttons[idx >= 0 ? (idx - 1 + buttons.length) % buttons.length : 0]?.focus({
+      preventScroll: true,
+    });
+  }, [orderedButtons]);
+
+  const activateFocused = useCallback(() => {
+    (document.activeElement as HTMLButtonElement | null)?.click();
+  }, []);
+
+  useImperativeHandle(
+    forwardedRef,
+    () => ({
+      focusFirst,
+      focusNext,
+      focusPrevious,
+      activateFocused,
+    }),
+    [focusFirst, focusNext, focusPrevious, activateFocused],
+  );
+
+  const handlePanelKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (!gamepad) return;
+      const buttons = orderedButtons();
+      if (buttons.length === 0) return;
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        void focusPrevious();
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        void focusNext();
+      } else if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        void activateFocused();
+      }
+    },
+    [gamepad, orderedButtons, focusNext, focusPrevious, activateFocused],
+  );
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -226,8 +329,26 @@ export function ModsPanel({ game }: ModsPanelProps) {
     await installArchives([path]);
   };
 
+  /** Reveals the game's mods folder in the file manager — the console equivalent
+     of "browse your mods", and the natural companion to the drop tray. */
+  const openFolder = async () => {
+    const modsDir = status?.modsDir;
+    if (modsDir === null || modsDir === undefined) return;
+    try {
+      await api.revealItemInDir(modsDir);
+    } catch (failure) {
+      toastError(t("mods.revealFailed"), toUiError(failure));
+    }
+  };
+
   return (
-    <section className={page.panel}>
+    <section
+      ref={sectionRef}
+      className={[page.panel, compact ? styles.compact : ""]
+        .filter(Boolean)
+        .join(" ")}
+      onKeyDown={handlePanelKeyDown}
+    >
       <div className={page.panelHead}>
         <div className={page.panelText}>
           <h2 className="sectionTitle">{t("mods.title")}</h2>
@@ -235,11 +356,25 @@ export function ModsPanel({ game }: ModsPanelProps) {
         </div>
         <div className={page.panelActions}>
           <IconButton
+            
             icon={RefreshCw}
             label={t("mods.refresh")}
             disabled={loading || installing || installingLoader !== null}
             onClick={() => void refresh()}
           />
+          {compact ? null : (
+            <IconButton
+              
+              icon={FolderOpen}
+              label={t("mods.openFolder")}
+              disabled={
+                status?.modsDir === null ||
+                installing ||
+                installingLoader !== null
+              }
+              onClick={() => void openFolder()}
+            />
+          )}
         </div>
       </div>
 
@@ -321,7 +456,8 @@ export function ModsPanel({ game }: ModsPanelProps) {
                         </span>
                       </span>
                       <Button
-                        size="sm"
+                        
+                        size={compact ? "md" : "sm"}
                         variant={recommended ? "secondary" : "ghost"}
                         icon={PackagePlus}
                         loading={installingLoader === loader.id}
@@ -443,17 +579,30 @@ export function ModsPanel({ game }: ModsPanelProps) {
               ) : null}
 
               <Button
-                size="sm"
+                
+                size={compact ? "md" : "sm"}
                 variant="ghost"
                 disabled={installing || installingLoader !== null || !canInstall}
                 onClick={() => void chooseArchive()}
               >
                 {t("mods.chooseArchive")}
               </Button>
+              {compact && status?.modsDir !== null ? (
+                <Button
+                  
+                  size="md"
+                  variant="ghost"
+                  icon={FolderOpen}
+                  disabled={installing || installingLoader !== null}
+                  onClick={() => void openFolder()}
+                >
+                  {t("mods.openFolder")}
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </>
       ) : null}
     </section>
   );
-}
+});

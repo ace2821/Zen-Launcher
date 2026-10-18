@@ -9,12 +9,13 @@ import {
   type CSSProperties,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { GlyphLegend, Keycap } from "../components/bigpicture/Glyph";
+import { Glyph, GlyphLegend, Keycap } from "../components/bigpicture/Glyph";
 import styles from "../components/bigpicture/bigpicture.module.css";
 import { GameCover } from "../components/library/GameCover";
 import { Badge } from "../components/ui/Badge";
 import { Button, IconButton } from "../components/ui/Button";
 import { EmptyState, Skeleton } from "../components/ui/Feedback";
+import { ModsPanel, type ModsPanelHandle } from "../components/details/ModsPanel";
 import { api, isTauriAvailable } from "../lib/api";
 import { navIntent, type GlyphTheme, type NavIntent } from "../lib/gamepad";
 import {
@@ -25,6 +26,9 @@ import {
 } from "../lib/hooks";
 import type { Game, Session } from "../lib/types";
 import { useLibraryStore } from "../store/library";
+
+/** One of the two tabs in the details panel: Info or Mods. */
+type DetailTab = "info" | "mods";
 import { useFilteredGames } from "../store/selectors";
 import { useShellStore } from "../store/shell";
 
@@ -125,6 +129,8 @@ function HintsBar({ theme, gamepad }: { theme: GlyphTheme; gamepad: boolean }) {
           <GlyphLegend
             theme={theme}
             hints={[
+              { button: "leftTrigger", label: t("bigPicture.hintShoulderLeft") },
+              { button: "rightTrigger", label: t("bigPicture.hintShoulderRight") },
               { button: "south", label: t("bigPicture.hintSelect") },
               { button: "east", label: t("bigPicture.hintBack") },
               { button: "start", label: t("bigPicture.hintMenu") },
@@ -158,10 +164,25 @@ function HintsBar({ theme, gamepad }: { theme: GlyphTheme; gamepad: boolean }) {
  * What `South` opens: what the entry is, when it was last played, and the one
  * thing a couch actually came here to do.
  *
- * Focus lands on Play, so the pad's `South` and the keyboard's `Enter` both do
- * the obvious thing without anyone aiming at anything.
+ * Focus lands on Play in the Info tab, or on the first action button in the
+ * Mods tab, so the pad's `South` and the keyboard's `Enter` both do the
+ * obvious thing without anyone aiming at anything.
  */
-function DetailsPanel({ game, onClose }: { game: Game; onClose(): void }) {
+function DetailsPanel({
+  game,
+  onClose,
+  activeTab,
+  onTabChange,
+  modsPanelRef,
+  theme,
+}: {
+  game: Game;
+  onClose(): void;
+  activeTab: DetailTab;
+  onTabChange(tab: DetailTab): void;
+  modsPanelRef: React.RefObject<ModsPanelHandle | null>;
+  theme: GlyphTheme;
+}) {
   const { t } = useTranslation();
   const labels = useGameLabels();
   const { playtime, relativeDate } = useFormatters();
@@ -194,9 +215,15 @@ function DetailsPanel({ game, onClose }: { game: Game; onClose(): void }) {
     };
   }, [game.id]);
 
+  // Land the focus where the current tab expects it: Play in Info, the first
+  // action button in Mods.
   useEffect(() => {
-    playRef.current?.focus({ preventScroll: true });
-  }, []);
+    if (activeTab === "mods") {
+      modsPanelRef.current?.focusFirst();
+    } else {
+      playRef.current?.focus({ preventScroll: true });
+    }
+  }, [activeTab, modsPanelRef]);
 
   return (
     <>
@@ -232,52 +259,86 @@ function DetailsPanel({ game, onClose }: { game: Game; onClose(): void }) {
 
           <h2 className={styles.panelTitle}>{game.title}</h2>
 
-          <div className={styles.panelMeta}>
-            <span className={styles.panelMetaRow}>
-              <span className={styles.panelMetaKey}>
-                <Timer size={13} aria-hidden />{t("bigPicture.panelPlaytime")}
-              </span>
-              <span className={styles.panelMetaValue}>
-                {playtime(game.totalSeconds)}
-              </span>
-            </span>
-            <span className={styles.panelMetaRow}>
-              <span className={styles.panelMetaKey}>
-                <Clock size={13} aria-hidden />{t("bigPicture.panelLastSession")}
-              </span>
-              <span className={styles.panelMetaValue}>
-                {lastSession === undefined
-                  ? "…"
-                  : lastSession === null
-                    ? t("bigPicture.panelNever")
-                    : relativeDate(lastSession.startedAt)}
-              </span>
-            </span>
-          </div>
-
-          <div className={styles.panelActions}>
+          {/* Tab strip: L1 / R1 flip between Info and Mods, with the shoulder
+             triggers painted right next to the tab names. */}
+          <div className={styles.tabStrip}>
             <Button
-              ref={playRef}
-              variant="primary"
-              icon={Play}
-              loading={launching}
-              disabled={!launch.available}
-              title={launch.hint ?? t("bigPicture.panelPlay")}
-              onClick={() => {
-                // Leaving the panel is the point: the game is taking over.
-                void launchGame(game.id).then(onClose);
-              }}
+              size="sm"
+              variant={activeTab === "info" ? "primary" : "ghost"}
+              onClick={() => onTabChange("info")}
+              aria-pressed={activeTab === "info"}
             >
-              {launching ? t("bigPicture.panelLaunching") : t("bigPicture.panelPlay")}
+              <Glyph theme={theme} button="leftTrigger" size={16} />
+              {t("bigPicture.panelTabInfo")}
             </Button>
-            <Button variant="ghost" icon={X} onClick={onClose}>
-              {t("bigPicture.hintBack")}
+            <Button
+              size="sm"
+              variant={activeTab === "mods" ? "primary" : "ghost"}
+              onClick={() => onTabChange("mods")}
+              aria-pressed={activeTab === "mods"}
+            >
+              {t("bigPicture.panelTabMods")}
+              <Glyph theme={theme} button="rightTrigger" size={16} />
             </Button>
           </div>
 
-          {launch.hint !== null ? (
-            <p className={styles.panelNote}>{launch.hint}</p>
-          ) : null}
+          {activeTab === "info" ? (
+            <>
+              <div className={styles.panelMeta}>
+                <span className={styles.panelMetaRow}>
+                  <span className={styles.panelMetaKey}>
+                    <Timer size={13} aria-hidden />{t("bigPicture.panelPlaytime")}
+                  </span>
+                  <span className={styles.panelMetaValue}>
+                    {playtime(game.totalSeconds)}
+                  </span>
+                </span>
+                <span className={styles.panelMetaRow}>
+                  <span className={styles.panelMetaKey}>
+                    <Clock size={13} aria-hidden />{t("bigPicture.panelLastSession")}
+                  </span>
+                  <span className={styles.panelMetaValue}>
+                    {lastSession === undefined
+                      ? "…"
+                      : lastSession === null
+                        ? t("bigPicture.panelNever")
+                        : relativeDate(lastSession.startedAt)}
+                  </span>
+                </span>
+              </div>
+
+              <div className={styles.panelActions}>
+                <Button
+                  ref={playRef}
+                  variant="primary"
+                  icon={Play}
+                  loading={launching}
+                  disabled={!launch.available}
+                  title={launch.hint ?? t("bigPicture.panelPlay")}
+                  onClick={() => {
+                    // Leaving the panel is the point: the game is taking over.
+                    void launchGame(game.id).then(onClose);
+                  }}
+                >
+                  {launching ? t("bigPicture.panelLaunching") : t("bigPicture.panelPlay")}
+                </Button>
+                <Button variant="ghost" icon={X} onClick={onClose}>
+                  {t("bigPicture.hintBack")}
+                </Button>
+              </div>
+
+              {launch.hint !== null ? (
+                <p className={styles.panelNote}>{launch.hint}</p>
+              ) : null}
+            </>
+          ) : (
+            <ModsPanel
+              game={game}
+              compact
+              gamepad
+              ref={modsPanelRef}
+            />
+          )}
         </div>
       </motion.div>
     </>
@@ -308,11 +369,13 @@ export function BigPictureView() {
 
   const [focus, setFocus] = useState(0);
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<DetailTab>("info");
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const tiles = useRef<Array<HTMLButtonElement | null>>([]);
   const focusRef = useRef(0);
   const openRef = useRef(false);
   const countRef = useRef(0);
+  const modsPanelRef = useRef<ModsPanelHandle | null>(null);
   const windowHeight = useWindowHeight();
 
   useEffect(() => {
@@ -423,17 +486,48 @@ export function BigPictureView() {
       switch (event.key) {
         case "ArrowLeft":
         case "ArrowRight": {
-          // With the panel open the row is behind a dialog: the arrow keys stay
-          // with the panel rather than moving a focus nobody can see.
-          if (openRef.current) return;
+          // With the panel open the row is behind a dialog. In the Mods tab the
+          // arrows cycle focus between the panel's buttons; everywhere else they
+          // stay with the panel rather than moving a focus nobody can see.
+          if (openRef.current) {
+            if (tab === "mods") {
+              event.preventDefault();
+              if (event.key === "ArrowLeft")
+                modsPanelRef.current?.focusPrevious();
+              else modsPanelRef.current?.focusNext();
+            }
+            return;
+          }
           event.preventDefault();
           handlers.current.move(event.key === "ArrowLeft" ? -1 : 1);
           return;
         }
         case "Enter": {
-          if (openRef.current) return;
+          if (openRef.current) {
+            if (tab === "mods") {
+              event.preventDefault();
+              modsPanelRef.current?.activateFocused();
+            }
+            return;
+          }
           event.preventDefault();
           handlers.current.openPanel();
+          return;
+        }
+        case "q":
+        case "Q": {
+          if (openRef.current) {
+            event.preventDefault();
+            setTab("info");
+          }
+          return;
+        }
+        case "e":
+        case "E": {
+          if (openRef.current) {
+            event.preventDefault();
+            setTab("mods");
+          }
           return;
         }
         case "Escape": {
@@ -461,6 +555,7 @@ export function BigPictureView() {
   useEffect(() => {
     intentRef.current = (intent) => {
       if (intent === "back") {
+        // East always closes the panel — the prompt promises "Back".
         handlers.current.back();
         return;
       }
@@ -469,13 +564,32 @@ export function BigPictureView() {
         handlers.current.exit();
         return;
       }
-      if (intent === "left" || intent === "right") {
-        if (!openRef.current) handlers.current.move(intent === "left" ? -1 : 1);
+      // Shoulder triggers flip the detail tabs (Info ↔ Mods).
+      if (intent === "leftBumper" || intent === "rightBumper") {
+        if (openRef.current) setTab((prev) => (prev === "info" ? "mods" : "info"));
         return;
       }
-      if (intent === "confirm" && !openRef.current) handlers.current.openPanel();
+      if (intent === "left" || intent === "right") {
+        if (!openRef.current) {
+          handlers.current.move(intent === "left" ? -1 : 1);
+        } else if (tab === "mods") {
+          // D-pad left/right cycle focus between the Mods panel's buttons.
+          if (intent === "left") modsPanelRef.current?.focusPrevious();
+          else modsPanelRef.current?.focusNext();
+        }
+        return;
+      }
+      if (intent === "confirm") {
+        if (!openRef.current) {
+          handlers.current.openPanel();
+        } else if (tab === "mods") {
+          // South fires the button the d-pad is resting on.
+          modsPanelRef.current?.activateFocused();
+        }
+        return;
+      }
     };
-  }, []);
+  }, [tab]);
 
   useEffect(() => {
     let live = true;
@@ -641,7 +755,14 @@ export function BigPictureView() {
 
       <AnimatePresence>
         {open && selected !== null ? (
-          <DetailsPanel game={selected} onClose={closePanel} />
+          <DetailsPanel
+            game={selected}
+            onClose={closePanel}
+            activeTab={tab}
+            onTabChange={setTab}
+            modsPanelRef={modsPanelRef}
+            theme={theme}
+          />
         ) : null}
       </AnimatePresence>
     </div>

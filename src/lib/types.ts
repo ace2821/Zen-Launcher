@@ -270,6 +270,10 @@ export interface GamepadList {
 /** What produced a `gamepad-event`. */
 export type GamepadEventKind = "button-press" | "button-release" | "axis";
 
+/** Every button that can appear in a gamepad prompt legend. Face buttons plus
+   Start and the two shoulder triggers Big Picture uses to flip detail tabs. */
+export type PromptButton = "south" | "east" | "west" | "north" | "start" | "leftTrigger" | "rightTrigger";
+
 /**
  * One navigation event from the core's `gilrs` thread.
  *

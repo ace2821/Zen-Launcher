@@ -46,7 +46,8 @@ describe("gamepad press → intent", () => {
     expect(navIntent({ ...press("South"), kind: "button-release" })).toBeNull();
 
     // The rail is one row: a vertical press moves nothing rather than moving a
-    // focus nobody can see.
+    // focus nobody can see. The shoulder triggers are the only "extra" presses
+    // the rail now maps — they flip detail tabs in Big Picture.
     for (const code of [
       "DPadUp",
       "DPadDown",
@@ -56,10 +57,16 @@ describe("gamepad press → intent", () => {
       "West",
       "Select",
       "Mode",
-      "LeftTrigger",
     ]) {
       expect(navIntent(press(code))).toBeNull();
     }
+  });
+});
+
+describe("gamepad shoulder triggers", () => {
+  it("maps the shoulder triggers to tab-flipping intents", () => {
+    expect(navIntent(press("LeftTrigger"))).toBe("leftBumper");
+    expect(navIntent(press("RightTrigger"))).toBe("rightBumper");
   });
 });
 

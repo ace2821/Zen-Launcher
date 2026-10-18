@@ -15,7 +15,14 @@ import type {
  */
 
 /** What a gamepad press means in a menu. */
-export type NavIntent = "left" | "right" | "confirm" | "back" | "menu";
+export type NavIntent =
+  | "left"
+  | "right"
+  | "confirm"
+  | "back"
+  | "menu"
+  | "leftBumper"
+  | "rightBumper";
 
 /** The four face buttons, named by position rather than by platform letter. */
 export type FaceButton = "south" | "east" | "west" | "north";
@@ -39,6 +46,9 @@ const BUTTON_INTENTS: Record<string, NavIntent> = {
   DPadRight: "right",
   AxisLeft: "left",
   AxisRight: "right",
+  // Shoulder triggers flip the detail panel's tabs (Info ↔ Mods).
+  LeftTrigger: "leftBumper",
+  RightTrigger: "rightBumper",
 };
 
 /**

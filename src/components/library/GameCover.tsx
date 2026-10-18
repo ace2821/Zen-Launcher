@@ -57,6 +57,7 @@ export function GameCover({
         />
       ) : (
         <>
+          <span className={styles.coverPattern} aria-hidden />
           <span
             className={[
               styles.coverInitials,
@@ -68,6 +69,7 @@ export function GameCover({
           >
             {titleInitials(title)}
           </span>
+          <span className={styles.coverAccent} aria-hidden />
           <span className={styles.coverGlow} />
         </>
       )}

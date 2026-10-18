@@ -1,4 +1,5 @@
-import { FACE_GLYPHS, type FaceButton, type GlyphTheme } from "../../lib/gamepad";
+import { FACE_GLYPHS, type GlyphTheme } from "../../lib/gamepad";
+import type { PromptButton } from "../../lib/types";
 import styles from "./bigpicture.module.css";
 
 /**
@@ -11,18 +12,25 @@ import styles from "./bigpicture.module.css";
  * stylesheet, keyed off the `data-theme` / `data-button` attributes below.
  */
 
-/** A prompt that is not one of the four face buttons but still needs a glyph. */
-export type PromptButton = FaceButton | "start";
-
 /**
  * Start is the same hamburger on both families — neither vendor prints anything
  * else on it, so it does not belong in the themed table.
  */
 const START_GLYPH = "≡";
 
+/** The shoulder triggers don't have a vendor letter, so they wear a short label
+   that reads the same on either glyph family. */
+const SHOULDER_GLYPH: Record<"leftTrigger" | "rightTrigger", string> = {
+  leftTrigger: "L1",
+  rightTrigger: "R1",
+};
+
 /** The character shown on a prompt button. */
 export function glyphFor(theme: GlyphTheme, button: PromptButton): string {
-  return button === "start" ? START_GLYPH : FACE_GLYPHS[theme][button];
+  if (button === "start") return START_GLYPH;
+  if (button === "leftTrigger" || button === "rightTrigger")
+    return SHOULDER_GLYPH[button];
+  return FACE_GLYPHS[theme][button];
 }
 
 export interface GlyphProps {

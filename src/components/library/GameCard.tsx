@@ -9,7 +9,7 @@ import { Button, IconButton } from "../ui/Button";
 import { GameCover } from "./GameCover";
 import styles from "./library.module.css";
 
-export const CARD_TEXT_HEIGHT = 92;
+export const CARD_TEXT_HEIGHT = 64;
 
 export interface GameCardProps {
   game: Game;
@@ -27,6 +27,9 @@ export function GameCard({ game, coverHeight, onOpen }: GameCardProps) {
   const revealGame = useLibraryStore((state) => state.revealGame);
   const toggleFavorite = useLibraryStore((state) => state.toggleFavorite);
   const busy = useLibraryStore((state) => state.busy);
+  const activeSessions = useLibraryStore((state) => state.activeSessions);
+
+  const isPlaying = activeSessions.includes(game.id) && game.status !== "missing";
 
   const favoriteLabel = game.favorite
     ? t("library.favoriteRemove")
@@ -38,7 +41,12 @@ export function GameCard({ game, coverHeight, onOpen }: GameCardProps) {
       style={{ height: coverHeight + CARD_TEXT_HEIGHT }}
       aria-label={game.title}
     >
-      <div className={styles.cardCoverWrap} style={{ height: coverHeight }}>
+      <div
+        className={[styles.cardCoverWrap, isPlaying ? styles.cardPlayingWrap : ""]
+          .filter(Boolean)
+          .join(" ")}
+        style={{ height: coverHeight }}
+      >
         <button
           type="button"
           className={styles.cardCoverButton}
@@ -56,6 +64,10 @@ export function GameCard({ game, coverHeight, onOpen }: GameCardProps) {
           </span>
         ) : null}
 
+        <span className={styles.cardEnvironment}>
+          <Chip>{labels.type(game.type)}</Chip>
+        </span>
+
         <button
           type="button"
           className={[styles.star, game.favorite ? styles.starOn : ""]
@@ -69,18 +81,40 @@ export function GameCard({ game, coverHeight, onOpen }: GameCardProps) {
           <Star size={14} fill={game.favorite ? "currentColor" : "none"} aria-hidden />
         </button>
 
+        <span className={styles.cardPlaytime}>
+          {playtime(game.totalSeconds)}
+        </span>
+
+        {isPlaying ? (
+          <span className={styles.cardPlayingNow} aria-hidden />
+        ) : null}
+
         <div className={styles.cardActions}>
           <Button
             variant="primary"
             size="sm"
             icon={Play}
-            className={styles.cardActionsGrow}
+            className={[styles.cardActionsGrow, isPlaying ? styles.cardActionPlaying : ""]
+              .filter(Boolean)
+              .join(" ")}
             disabled={!launch.available}
-            title={launch.hint ?? t("common.play")}
+            aria-label={
+              isPlaying
+                ? t("library.playingNow")
+                : launch.hint ?? t("common.play")
+            }
+            title={
+              isPlaying
+                ? t("library.playingNow")
+                : launch.hint ?? t("common.play")
+            }
             loading={busy[`game:launch:${game.id}`] === true}
             onClick={() => void launchGame(game.id)}
           >
-            {t("common.play")}
+            <>
+              {isPlaying ? t("library.playingNow") : t("common.play")}
+              <span className={styles.cardDot} aria-hidden />
+            </>
           </Button>
           {isMock ? null : (
             <IconButton
@@ -100,23 +134,16 @@ export function GameCard({ game, coverHeight, onOpen }: GameCardProps) {
         </div>
       </div>
 
+      <div className={styles.cardCoverTitle} title={game.title}>
+        {game.title}
+      </div>
+
       <div className={styles.cardText}>
-        <button
-          type="button"
-          className={styles.cardTitle}
-          title={game.title}
-          onClick={() => onOpen(game)}
-        >
-          {game.title}
-        </button>
         <div className={styles.cardMeta}>
-          <span className="tabular">{playtime(game.totalSeconds)}</span>
-          <span aria-hidden>·</span>
           <span>{relativeDate(game.lastPlayedAt)}</span>
         </div>
         <div className={styles.cardTags}>
-          {game.type === "native" ? null : <Chip>{labels.type(game.type)}</Chip>}
-          {game.tags.slice(0, game.type === "native" ? 2 : 1).map((tag) => (
+          {game.tags.slice(0, 2).map((tag) => (
             <Chip key={tag}>{tag}</Chip>
           ))}
         </div>

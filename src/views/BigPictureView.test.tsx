@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { Toaster } from "../components/ui/Toaster";
+import { ConfirmHost } from "../components/ui/ConfirmHost";
 import { api } from "../lib/api";
 import type { GamepadEvent, GamepadKind } from "../lib/types";
 import { useLibraryStore } from "../store/library";
@@ -283,7 +284,157 @@ describe("BigPictureView", () => {
     expect(await screen.findByText("Nothing to launch")).toBeInTheDocument();
     expect(screen.queryAllByRole("option")).toHaveLength(0);
   });
+
+  it("flips between the Info and Mods tabs with the shoulder triggers", async () => {
+    await setupMockApp();
+    const user = userEvent.setup();
+    renderBigPicture();
+
+    await screen.findAllByRole("option");
+    await user.click(tile("Vampire Survivors"));
+    await screen.findByRole("dialog", { name: "Vampire Survivors" });
+
+    const infoBtn = screen.getByRole("button", { name: "Info" });
+    const modsBtn = screen.getByRole("button", { name: "Mods" });
+    expect(infoBtn).toHaveAttribute("aria-pressed", "true");
+    expect(modsBtn).toHaveAttribute("aria-pressed", "false");
+
+    await press("RightTrigger");
+    await waitFor(() => {
+      expect(infoBtn).toHaveAttribute("aria-pressed", "false");
+      expect(modsBtn).toHaveAttribute("aria-pressed", "true");
+    });
+
+    await press("LeftTrigger");
+    await waitFor(() => {
+      expect(infoBtn).toHaveAttribute("aria-pressed", "true");
+      expect(modsBtn).toHaveAttribute("aria-pressed", "false");
+    });
+  });
+
+  it("flips tabs with Q and E on the keyboard", async () => {
+    await setupMockApp();
+    const user = userEvent.setup();
+    renderBigPicture();
+
+    await screen.findAllByRole("option");
+    await user.click(tile("Vampire Survivors"));
+    await screen.findByRole("dialog", { name: "Vampire Survivors" });
+
+    fireEvent.keyDown(window, { key: "e" });
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Installable loaders" }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(window, { key: "q" });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Info" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+    expect(
+      screen.queryByRole("heading", { name: "Installable loaders" }),
+    ).toBeNull();
+  });
+
+  it("renders the Mods panel inside Big Picture with its loader catalog", async () => {
+    await setupMockApp();
+    const user = userEvent.setup();
+    renderBigPicture();
+
+    await screen.findAllByRole("option");
+    await user.click(tile("Vampire Survivors"));
+    await screen.findByRole("dialog", { name: "Vampire Survivors" });
+
+    fireEvent.keyDown(window, { key: "e" });
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Installable loaders" }),
+      ).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Install MelonLoader" }),
+      ).toBeInTheDocument();
+    });
+    // The recommended one wears the badge.
+    expect(screen.getAllByText("Recommended")).toHaveLength(1);
+  });
+
+  it("shows a clear unsupported message and offers nothing for an unknown engine", async () => {
+    await setupMockApp();
+    const user = userEvent.setup();
+    renderBigPicture();
+
+    await screen.findAllByRole("option");
+    await user.click(tile("The Elder Scrolls III: Morrowind"));
+    await screen.findByRole("dialog", {
+      name: "The Elder Scrolls III: Morrowind",
+    });
+
+    fireEvent.keyDown(window, { key: "e" });
+    await waitFor(() => {
+      expect(screen.getByText("No known mod support")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Unknown engine")).toBeInTheDocument();
+
+    // No install button, no drop tray, no file dialog — nothing it can do.
+    expect(screen.queryByRole("button", { name: /^install/i })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Choose an archive…" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("group", { name: "Drop mod archives here" }),
+    ).toBeNull();
+  });
+
+  it("installs a loader through the Big Picture Mods panel and the call lands in the mock", async () => {
+    await setupMockApp();
+    const user = userEvent.setup();
+    render(BigPictureViewWithToaster());
+
+    await screen.findAllByRole("option");
+    await user.click(tile("Vampire Survivors"));
+    await screen.findByRole("dialog", { name: "Vampire Survivors" });
+
+    fireEvent.keyDown(window, { key: "e" });
+    const install = await screen.findByRole("button", {
+      name: "Install MelonLoader",
+    });
+    await user.click(install);
+
+    const confirm = await screen.findByRole("dialog", {
+      name: /Install MelonLoader/,
+    });
+    await user.click(
+      within(confirm).getByRole("button", { name: "Install MelonLoader" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "/home/oliwier/Games/Vampire Survivors/MelonLoader/Mods",
+        ),
+      ).toBeInTheDocument();
+    });
+    expect(useToastStore.getState().toasts.map((t) => t.title)).toContain(
+      "MelonLoader installed",
+    );
+  });
 });
+
+function BigPictureViewWithToaster() {
+  return (
+    <>
+      <BigPictureView />
+      <ConfirmHost />
+      <Toaster />
+    </>
+  );
+}
 
 /**
  * The follow-the-focus maths, without a layout engine. jsdom measures nothing,

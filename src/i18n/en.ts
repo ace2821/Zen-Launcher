@@ -85,12 +85,20 @@ export const en = {
   library: {
     emptyTitle: "Your library is empty",
     emptyBody:
-      "Add a folder you keep games in, scan it, and approve what the scanner finds.",
+      "Point Zen at the folder your games live in — the scanner will find the titles, and you decide what makes it into the library.",
     emptyAction: "Go to Sources & Import",
     noResultsTitle: "Nothing matches",
     noResultsBody: "No entry in the library matches “{{query}}”.",
     noResultsAction: "Clear search",
     showing: "Shown: {{count}} / {{total}}",
+    heroTitle: "Your library",
+    heroBody: "Your games, in one place.",
+    recents: "Recently played",
+    recentsNone: "Nothing played yet",
+    statTitles: "titles",
+    statPlaytime: "played",
+    statWeek: "this week",
+    playingNow: "Playing now",
     favoriteAdd: "Add to favorites",
     favoriteRemove: "Remove from favorites",
     openDetails: "Open details",
@@ -515,6 +523,8 @@ export const en = {
     archiveInstalled: "Installed {{name}}",
     archiveInstalledBody: "Entries added to {{dir}}: {{count}}",
     archiveFailed: "Could not install {{name}}",
+    openFolder: "Open mods folder",
+    revealFailed: "Could not open the folder",
     dropSummary: "{{ok}} installed, {{failed}} failed, {{skipped}} skipped",
     trashKept: "The archive could not be moved to the trash, so it is still where it was.",
 
@@ -553,6 +563,11 @@ export const en = {
     panelLaunching: "Starting…",
     panelHintPlay: "Play",
     panelHintBack: "Back",
+    panelTabInfo: "Info",
+    panelTabMods: "Mods",
+    hintShoulderLeft: "Previous tab",
+    hintShoulderRight: "Next tab",
+    modsOpenFolder: "Open mods folder",
   },
 } as const;
 

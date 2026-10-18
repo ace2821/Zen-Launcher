@@ -26,7 +26,9 @@ describe("app shell", () => {
     expect(nav).toHaveTextContent("Settings");
 
     expect(screen.getByRole("heading", { name: "Library" })).toBeInTheDocument();
-    expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText("Hollow Knight")).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Shown: 13 / 13")).toBeInTheDocument();
   });
 
@@ -48,7 +50,9 @@ describe("app shell", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await screen.findByText("Hollow Knight");
+    expect(
+      (await screen.findAllByText("Hollow Knight")).length,
+    ).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Big Picture" }));
 
     expect(useShellStore.getState().view).toBe("bigPicture");
@@ -70,12 +74,16 @@ describe("LibraryView", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText("Hollow Knight")).length,
+    ).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("radio", { name: "List view" }));
     expect(useShellStore.getState().layout).toBe("list");
     // The table keeps showing the same library.
-    expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText("Hollow Knight")).length,
+    ).toBeGreaterThan(0);
   });
 
   it("explains an empty search result instead of showing a blank page", async () => {
