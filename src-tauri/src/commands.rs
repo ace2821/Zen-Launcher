@@ -212,6 +212,7 @@ pub fn approve_candidate(
         drop(conn);
         // Head start on the Wine prefix so the first Play is fast.
         crate::wine::initialize_for_game(&existing);
+        spawn_auto_cover(app.clone(), &state, &existing);
         emit_library_changed(&app);
         return Ok(existing);
     }
@@ -235,8 +236,44 @@ pub fn approve_candidate(
 
     // Head start on the Wine prefix so the first Play is fast.
     crate::wine::initialize_for_game(&game);
+    spawn_auto_cover(app.clone(), &state, &game);
     emit_library_changed(&app);
     Ok(game)
+}
+
+/// Kick a background best-effort cover fetch for a freshly approved game
+/// (settings: `autoCovers`).
+fn spawn_auto_cover(app: AppHandle, state: &State<'_, AppState>, game: &Game) {
+    let auto = state
+        .lock_settings()
+        .map(|settings| settings.auto_covers)
+        .unwrap_or(false);
+    if !auto {
+        return;
+    }
+    let game_id = game.id;
+    let title = game.title.clone();
+    std::thread::Builder::new()
+        .name("auto-cover".to_string())
+        .spawn(move || {
+            let covers = match crate::paths::covers_dir() {
+                Ok(dir) => dir,
+                Err(err) => {
+                    tracing::warn!("auto covers skipped: {err:?}");
+                    return;
+                }
+            };
+            match crate::covers::download_top_match(&covers, game_id, &title) {
+                Ok(_) => {
+                    tracing::info!("auto cover stored for game {game_id}");
+                    emit_library_changed(&app);
+                }
+                Err(err) => {
+                    tracing::info!("auto cover unavailable for game {game_id}: {err}");
+                }
+            }
+        })
+        .ok();
 }
 
 #[tauri::command]
@@ -303,10 +340,17 @@ pub async fn launch_game(app: AppHandle, id: i64) -> AppResult<LaunchInfo> {
         db::get_game(&conn, id)?
     };
     let hide_on_launch = { state.lock_settings()?.hide_on_launch };
+    let launch_extras = {
+        let settings = state.lock_settings()?;
+        launch::LaunchExtras {
+            game_mode: settings.use_game_mode,
+            mango_hud: settings.use_mango_hud,
+        }
+    };
 
     // Planning can fail (unsupported type, missing exec bit) — nothing is
     // persisted before it succeeds.
-    let plan = launch::build_spawn_plan(&game)?;
+    let plan = launch::build_spawn_plan(&game, &launch_extras)?;
 
     let started_at = time::now_iso();
     let session = {
@@ -368,6 +412,12 @@ pub fn update_settings(state: State<'_, AppState>, patch: SettingsPatch) -> AppR
     }
     if let Some(accent) = patch.accent.take() {
         patch.accent = Some(Settings::normalize_id("accent", &accent)?);
+    }
+    if let Some(layout) = patch.big_picture_layout.take() {
+        patch.big_picture_layout = Some(Settings::normalize_big_picture_layout(&layout)?);
+    }
+    if let Some(max_mb) = patch.mods_max_mb.take() {
+        patch.mods_max_mb = Some(Settings::normalize_mods_max_mb(max_mb)?);
     }
     let updated = {
         let mut settings = state.lock_settings()?;
@@ -465,9 +515,10 @@ pub fn mods_status(state: State<'_, AppState>, game_id: i64) -> AppResult<crate:
 pub async fn install_mod_loader(
     state: State<'_, AppState>,
     game_id: i64,
+    loader_id: Option<String>,
 ) -> AppResult<crate::mods::ModsStatus> {
     let root = game_root_for(&state, game_id)?;
-    crate::mods::install_loader(&root)
+    crate::mods::install_loader(&root, loader_id.as_deref())
 }
 
 #[tauri::command]
@@ -477,6 +528,21 @@ pub async fn install_mod_archive(
     archive_path: String,
 ) -> AppResult<crate::mods::ModInstallResult> {
     let root = game_root_for(&state, game_id)?;
+    let (lenient, max_mb) = {
+        let settings = state.lock_settings()?;
+        (settings.mods_lenient, settings.mods_max_mb)
+    };
     let staging = crate::paths::data_dir()?.join("staging");
-    crate::mods::install_archive(&root, Path::new(&archive_path), &staging)
+    crate::mods::install_archive(
+        &root,
+        Path::new(&archive_path),
+        &staging,
+        lenient,
+        max_mb.max(1) as u64 * 1024 * 1024,
+    )
+}
+
+#[tauri::command]
+pub fn list_gamepads() -> AppResult<Vec<crate::input::GamepadInfo>> {
+    Ok(crate::input::list_gamepads())
 }

@@ -48,8 +48,38 @@ pub fn ensure_executable(path: &Path) -> AppResult<()> {
     Ok(())
 }
 
+/// Session environment extras resolved from settings at launch time.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LaunchExtras {
+    /// Wrap the launch command with `gamemoderun` (best-effort).
+    pub game_mode: bool,
+    /// Inject `MANGOHUD=1` + `MANGOHUD_DLSYM=1` into the launch env.
+    pub mango_hud: bool,
+}
+
+impl LaunchExtras {
+    /// Both extras off (used by tests and callers without settings).
+    pub fn off() -> Self {
+        Self {
+            game_mode: false,
+            mango_hud: false,
+        }
+    }
+}
+
+/// True when `name` is an executable found on PATH.
+fn on_path(name: &str) -> bool {
+    let Ok(path_var) = std::env::var("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&path_var).any(|dir| {
+        let candidate = dir.join(name);
+        is_executable(&candidate)
+    })
+}
+
 /// Pure planning step — no side effects except the `.AppImage` exec bit fixup.
-pub fn build_spawn_plan(game: &Game) -> AppResult<SpawnPlan> {
+pub fn build_spawn_plan(game: &Game, extras: &LaunchExtras) -> AppResult<SpawnPlan> {
     let executable = db::resolve_executable(&game.install_path, &game.executable);
     if !executable.exists() {
         return Err(AppError::launch_failed(format!(
@@ -136,13 +166,36 @@ pub fn build_spawn_plan(game: &Game) -> AppResult<SpawnPlan> {
         env.entry("WINEDLLOVERRIDES".to_string())
             .or_insert_with(|| "mscoree,mshtml=".to_string());
     }
+    if extras.mango_hud {
+        env.entry("MANGOHUD".to_string())
+            .or_insert_with(|| "1".to_string());
+        env.entry("MANGOHUD_DLSYM".to_string())
+            .or_insert_with(|| "1".to_string());
+    }
 
-    Ok(SpawnPlan {
-        program,
-        args,
-        cwd,
-        env,
-    })
+    // GameMode wraps the whole command line; off-when-unavailable is expected.
+    let plan = if extras.game_mode
+        && program.file_name() != Some("gamemoderun".as_ref())
+        && on_path("gamemoderun")
+    {
+        let mut wrapped = vec![program.to_string_lossy().into_owned()];
+        wrapped.extend(args);
+        SpawnPlan {
+            program: PathBuf::from("gamemoderun"),
+            args: wrapped,
+            cwd,
+            env,
+        }
+    } else {
+        SpawnPlan {
+            program,
+            args,
+            cwd,
+            env,
+        }
+    };
+
+    Ok(plan)
 }
 
 /// Wine requires the `WINEPREFIX` directory to exist before it starts
@@ -287,7 +340,11 @@ mod tests {
         let script = dir.path().join("run.sh");
         std::fs::write(&script, b"#!/bin/sh\necho hi\n").unwrap();
 
-        let plan = build_spawn_plan(&game(dir.path(), "run.sh", GameType::Native)).unwrap();
+        let plan = build_spawn_plan(
+            &game(dir.path(), "run.sh", GameType::Native),
+            &LaunchExtras::off(),
+        )
+        .unwrap();
         assert_eq!(plan.program, PathBuf::from("sh"));
         assert_eq!(plan.args[0], script.to_string_lossy());
         assert_eq!(plan.args[1], "--flag");
@@ -301,11 +358,19 @@ mod tests {
         let binary = dir.path().join("game.x86_64");
         std::fs::write(&binary, b"\x7fELF").unwrap();
 
-        let err = build_spawn_plan(&game(dir.path(), "game.x86_64", GameType::Native)).unwrap_err();
+        let err = build_spawn_plan(
+            &game(dir.path(), "game.x86_64", GameType::Native),
+            &LaunchExtras::off(),
+        )
+        .unwrap_err();
         assert_eq!(err.code, crate::error::LAUNCH_FAILED);
 
         ensure_executable(&binary).unwrap();
-        let plan = build_spawn_plan(&game(dir.path(), "game.x86_64", GameType::Native)).unwrap();
+        let plan = build_spawn_plan(
+            &game(dir.path(), "game.x86_64", GameType::Native),
+            &LaunchExtras::off(),
+        )
+        .unwrap();
         assert_eq!(plan.program, binary);
     }
 
@@ -315,7 +380,11 @@ mod tests {
         let appimage = dir.path().join("Game.AppImage");
         std::fs::write(&appimage, b"\x7fELF").unwrap();
 
-        let plan = build_spawn_plan(&game(dir.path(), "Game.AppImage", GameType::Native)).unwrap();
+        let plan = build_spawn_plan(
+            &game(dir.path(), "Game.AppImage", GameType::Native),
+            &LaunchExtras::off(),
+        )
+        .unwrap();
         assert_eq!(plan.program, appimage);
         assert!(is_executable(&plan.program));
     }
@@ -325,7 +394,11 @@ mod tests {
         let dir = tempdir().unwrap();
         std::fs::write(dir.path().join("game.exe"), b"MZ").unwrap();
 
-        let plan = build_spawn_plan(&game(dir.path(), "game.exe", GameType::Windows)).unwrap();
+        let plan = build_spawn_plan(
+            &game(dir.path(), "game.exe", GameType::Windows),
+            &LaunchExtras::off(),
+        )
+        .unwrap();
         assert_eq!(plan.program, PathBuf::from("wine"));
         assert_eq!(plan.args[0], dir.path().join("game.exe").to_string_lossy());
         assert_eq!(plan.args[1], "--flag");
@@ -347,7 +420,11 @@ mod tests {
         let dir = tempdir().unwrap();
         std::fs::write(dir.path().join("launcher.bat"), b"@echo off\n").unwrap();
 
-        let plan = build_spawn_plan(&game(dir.path(), "launcher.bat", GameType::Windows)).unwrap();
+        let plan = build_spawn_plan(
+            &game(dir.path(), "launcher.bat", GameType::Windows),
+            &LaunchExtras::off(),
+        )
+        .unwrap();
         assert_eq!(plan.program, PathBuf::from("wine"));
         assert_eq!(plan.args[0], "cmd");
         assert_eq!(plan.args[1], "/c");
@@ -366,7 +443,7 @@ mod tests {
         g.env
             .insert("WINEPREFIX".to_string(), "/custom/prefix".to_string());
 
-        let plan = build_spawn_plan(&g).unwrap();
+        let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
         assert_eq!(
             plan.env.get("WINEPREFIX"),
             Some(&"/custom/prefix".to_string())
@@ -377,16 +454,28 @@ mod tests {
     fn retro_and_mod_types_are_unsupported() {
         let dir = tempdir().unwrap();
         write_executable(&dir.path().join("game.x86_64"), b"\x7fELF");
-        let err = build_spawn_plan(&game(dir.path(), "game.x86_64", GameType::Retro)).unwrap_err();
+        let err = build_spawn_plan(
+            &game(dir.path(), "game.x86_64", GameType::Retro),
+            &LaunchExtras::off(),
+        )
+        .unwrap_err();
         assert_eq!(err.code, crate::error::UNSUPPORTED);
-        let err = build_spawn_plan(&game(dir.path(), "game.x86_64", GameType::Mod)).unwrap_err();
+        let err = build_spawn_plan(
+            &game(dir.path(), "game.x86_64", GameType::Mod),
+            &LaunchExtras::off(),
+        )
+        .unwrap_err();
         assert_eq!(err.code, crate::error::UNSUPPORTED);
     }
 
     #[test]
     fn missing_executable_is_launch_failed() {
         let dir = tempdir().unwrap();
-        let err = build_spawn_plan(&game(dir.path(), "nope.x86_64", GameType::Native)).unwrap_err();
+        let err = build_spawn_plan(
+            &game(dir.path(), "nope.x86_64", GameType::Native),
+            &LaunchExtras::off(),
+        )
+        .unwrap_err();
         assert_eq!(err.code, crate::error::LAUNCH_FAILED);
     }
 
@@ -394,8 +483,11 @@ mod tests {
     fn relative_executable_resolves_against_install_path() {
         let dir = tempdir().unwrap();
         write_executable(&dir.path().join("bin/game.x86_64"), b"\x7fELF");
-        let plan =
-            build_spawn_plan(&game(dir.path(), "bin/game.x86_64", GameType::Native)).unwrap();
+        let plan = build_spawn_plan(
+            &game(dir.path(), "bin/game.x86_64", GameType::Native),
+            &LaunchExtras::off(),
+        )
+        .unwrap();
         assert_eq!(plan.program, dir.path().join("bin/game.x86_64"));
     }
 

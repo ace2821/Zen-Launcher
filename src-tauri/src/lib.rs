@@ -7,6 +7,7 @@ pub mod commands;
 pub mod covers;
 pub mod db;
 pub mod error;
+pub mod input;
 pub mod launch;
 pub mod models;
 pub mod mods;
@@ -94,6 +95,9 @@ fn setup_app(app: &mut tauri::App) -> AppResult<()> {
 
     wine::initialize_missing(&games);
 
+    // Console-menu navigation: gilrs polling thread → `gamepad-event`.
+    input::spawn(app.handle().clone());
+
     tracing::info!("Zen Launcher ready");
     Ok(())
 }
@@ -131,6 +135,7 @@ pub fn run() {
             commands::mods_status,
             commands::install_mod_loader,
             commands::install_mod_archive,
+            commands::list_gamepads,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

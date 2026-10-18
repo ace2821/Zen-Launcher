@@ -250,7 +250,22 @@ pub struct Settings {
     pub accent: String,
     /// `true` once the first-run wizard has been finished or skipped.
     pub onboarding_completed: bool,
+    /// Fetch a Steam cover automatically when a game is approved.
+    pub auto_covers: bool,
+    /// Lenient mod archive validation (broader types; symlinks skipped).
+    pub mods_lenient: bool,
+    /// Largest accepted mod archive size, in megabytes.
+    pub mods_max_mb: i64,
+    /// Wrap launches with `gamemoderun` when the binary is on PATH.
+    pub use_game_mode: bool,
+    /// Inject `MANGOHUD=1` into launches for overlay support.
+    pub use_mango_hud: bool,
+    /// Big Picture face-button glyph theme: `auto` | `xbox` | `playstation`.
+    pub big_picture_layout: String,
 }
+
+/// Default `modsMaxMb` (1 GiB mod archives).
+pub const DEFAULT_MODS_MAX_MB: i64 = 1024;
 
 impl Default for Settings {
     fn default() -> Self {
@@ -261,6 +276,12 @@ impl Default for Settings {
             font: DEFAULT_FONT_ID.to_string(),
             accent: DEFAULT_ACCENT_ID.to_string(),
             onboarding_completed: false,
+            auto_covers: true,
+            mods_lenient: true,
+            mods_max_mb: DEFAULT_MODS_MAX_MB,
+            use_game_mode: true,
+            use_mango_hud: false,
+            big_picture_layout: "auto".to_string(),
         }
     }
 }
@@ -283,6 +304,26 @@ impl Settings {
         }
         Ok(trimmed.to_string())
     }
+
+    /// Constrain the Big Picture layout to the known glyph themes.
+    pub fn normalize_big_picture_layout(value: &str) -> AppResult<String> {
+        let trimmed = value.trim();
+        if matches!(trimmed, "auto" | "xbox" | "playstation") {
+            Ok(trimmed.to_string())
+        } else {
+            Err(AppError::validation(
+                "bigPictureLayout must be auto, xbox or playstation",
+            ))
+        }
+    }
+
+    /// Clamp the mod archive size cap into a sane range (1 MiB .. 8 GiB).
+    pub fn normalize_mods_max_mb(value: i64) -> AppResult<i64> {
+        if !(1..=8192).contains(&value) {
+            return Err(AppError::validation("modsMaxMb must be between 1 and 8192"));
+        }
+        Ok(value)
+    }
 }
 
 /// Partial patch for `update_settings`.
@@ -295,6 +336,12 @@ pub struct SettingsPatch {
     pub font: Option<String>,
     pub accent: Option<String>,
     pub onboarding_completed: Option<bool>,
+    pub auto_covers: Option<bool>,
+    pub mods_lenient: Option<bool>,
+    pub mods_max_mb: Option<i64>,
+    pub use_game_mode: Option<bool>,
+    pub use_mango_hud: Option<bool>,
+    pub big_picture_layout: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

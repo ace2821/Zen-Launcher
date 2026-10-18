@@ -1,12 +1,21 @@
-//! Mod loader detection and mod installs (BepInEx / MelonLoader era).
+//! Mod loader detection, catalog and mod installs (BepInEx / MelonLoader era).
 //!
 //! Loaders are detected from the game folder layout (no network): `BepInEx/`,
 //! `MelonLoader/`, or a Doorstop marker file (`doorstop_config.ini`,
 //! `winhttp.dll`, `version.dll`) for community loaders such as NeoModLoader.
-//! Loader downloads come from GitHub releases; user mods arrive as archives
-//! (.zip/.7z/.rar), are extracted through the system `7z` into a staging dir
+//!
+//! The loader catalog is ranked by popularity; the suggested loader follows
+//! the detected Unity engine flavor. Loader downloads come from GitHub
+//! releases (stable ones via `releases/latest`, BepInEx 6 via the newest
+//! release carrying the matching asset). User mods arrive as archives
+//! (.zip/.7z/...), are extracted through the system `7z` into a staging dir
 //! first, and only validated entries are moved into the game's mods folder —
 //! the archive then goes to the system trash, never to `rm`.
+//!
+//! Validation strictness is settings-driven: strict mode accepts only
+//! `.zip/.7z/.rar` and refuses symlinked entries; the default lenient mode
+//! accepts anything `7z` can list, skipping symlinks with a logged warning.
+//! Absolute paths and `..` traversal are refused in both modes.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -18,10 +27,54 @@ use crate::error::{AppError, AppResult};
 
 const USER_AGENT: &str = concat!("ZenLauncher/", env!("CARGO_PKG_VERSION"));
 const MAX_LOADER_BYTES: usize = 256 * 1024 * 1024;
-const MAX_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_INSTALLED_ENTRIES: usize = 50;
 
-/// Layout snapshot of a game folder for the mods panel.
+/// Catalog entry for an installable mod loader.
+#[derive(Debug, Clone)]
+pub struct LoaderSpec {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub engines: &'static [&'static str],
+}
+
+/// Order is the popularity ranking: the first entry matching the game's
+/// engine becomes `suggestedLoader`.
+const CATALOG: [LoaderSpec; 4] = [
+    LoaderSpec {
+        id: "bepinex5",
+        name: "BepInEx 5",
+        engines: &["unity-mono"],
+    },
+    LoaderSpec {
+        id: "melonloader",
+        name: "MelonLoader",
+        engines: &["unity-mono", "unity-il2cpp"],
+    },
+    LoaderSpec {
+        id: "bepinex6mono",
+        name: "BepInEx 6 (Mono)",
+        engines: &["unity-mono"],
+    },
+    LoaderSpec {
+        id: "bepinex6il2cpp",
+        name: "BepInEx 6 (IL2CPP)",
+        engines: &["unity-il2cpp"],
+    },
+];
+
+/// Serialized catalog entry in `ModsStatus.loaders`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoaderInfo {
+    pub id: String,
+    pub name: String,
+    pub engines: Vec<String>,
+}
+
+/// Newer BepInEx 6 pre-release builds live in the same repo but not as the
+/// "latest" release; these are resolved by scanning the release list.
+const BEPINEX6_RELEASES: &str = "https://api.github.com/repos/BepInEx/BepInEx/releases?per_page=40";
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModsStatus {
@@ -29,7 +82,9 @@ pub struct ModsStatus {
     pub mods_dir: Option<String>,
     pub mods_dir_kind: &'static str,
     pub engine: &'static str,
+    pub supported: bool,
     pub suggested_loader: Option<&'static str>,
+    pub loaders: Vec<LoaderInfo>,
     pub installed: Vec<String>,
 }
 
@@ -65,11 +120,20 @@ pub fn status(game_root: &Path) -> ModsStatus {
     let loader = detect_loader(game_root);
     let (mods_dir, mods_dir_kind) = detect_mods_dir(game_root, loader);
     let engine = detect_engine(game_root);
-    let suggested_loader = match engine {
-        "unity-mono" => Some("bepinex5"),
-        "unity-il2cpp" => Some("melonloader"),
-        _ => None,
-    };
+    let matching: Vec<&LoaderSpec> = CATALOG
+        .iter()
+        .filter(|spec| spec.engines.contains(&engine))
+        .collect();
+    let supported = !matching.is_empty();
+    let suggested_loader = matching.first().map(|spec| spec.id);
+    let loaders = matching
+        .into_iter()
+        .map(|spec| LoaderInfo {
+            id: spec.id.to_string(),
+            name: spec.name.to_string(),
+            engines: spec.engines.iter().map(|e| e.to_string()).collect(),
+        })
+        .collect();
     let installed = mods_dir
         .as_ref()
         .map(|dir| top_level_entries(dir))
@@ -80,13 +144,16 @@ pub fn status(game_root: &Path) -> ModsStatus {
         mods_dir: mods_dir.map(|dir| dir.to_string_lossy().into_owned()),
         mods_dir_kind,
         engine,
+        supported,
         suggested_loader,
+        loaders,
         installed,
     }
 }
 
-/// Download and install the suggested loader into the game folder.
-pub fn install_loader(game_root: &Path) -> AppResult<ModsStatus> {
+/// Download and install the requested (or suggested) loader into the game
+/// folder. `loaderId` picks a catalog entry; `None` → suggestion.
+pub fn install_loader(game_root: &Path, loader_id: Option<&str>) -> AppResult<ModsStatus> {
     let pre = status(game_root);
     if pre.loader != "none" {
         return Err(AppError::validation(format!(
@@ -94,22 +161,110 @@ pub fn install_loader(game_root: &Path) -> AppResult<ModsStatus> {
             pre.loader
         )));
     }
-    let (repo, matcher) = match pre.suggested_loader {
-        Some("bepinex5") => ("BepInEx/BepInEx", AssetMatch::BepInEx),
-        Some("melonloader") => ("LavaGang/MelonLoader", AssetMatch::MelonLoader),
-        _ => {
-            return Err(AppError::validation(
-                "no known mod loader for this game's engine",
-            ));
-        }
+    let Some(spec) = resolve_loader_spec(&pre, loader_id) else {
+        return Err(AppError::validation(
+            "no known mod loader supports this game's engine",
+        ));
     };
 
-    let url = latest_loader_asset(repo, matcher)?;
+    let url = loader_release_url(spec.id)?;
     let bytes = download_bytes(&url, MAX_LOADER_BYTES)?;
+    extract_loader_zip(game_root, &bytes)?;
+    ensure_loader_dirs(game_root, spec.id)?;
 
-    // BepInEx / MelonLoader zips are laid out for the game root; extract in
-    // place. `enclosed_name` refuses traversal entries.
-    let cursor = std::io::Cursor::new(&bytes);
+    tracing::info!("{} installed into {}", spec.name, game_root.display());
+    Ok(status(game_root))
+}
+
+fn resolve_loader_spec(pre: &ModsStatus, loader_id: Option<&str>) -> Option<&'static LoaderSpec> {
+    match loader_id {
+        Some(id) => {
+            let spec = find_spec(id)?;
+            spec.engines.contains(&pre.engine).then_some(spec)
+        }
+        None => pre.suggested_loader.and_then(find_spec),
+    }
+}
+
+fn find_spec(id: &str) -> Option<&'static LoaderSpec> {
+    CATALOG.iter().find(|spec| spec.id == id)
+}
+
+fn loader_release_url(loader_id: &str) -> AppResult<String> {
+    match loader_id {
+        "bepinex5" => match_latest_asset(
+            "https://api.github.com/repos/BepInEx/BepInEx/releases/latest",
+            "BepInEx_win_x64_",
+        ),
+        "melonloader" => match_latest_asset(
+            "https://api.github.com/repos/LavaGang/MelonLoader/releases/latest",
+            "MelonLoader.x64",
+        ),
+        // BepInEx 6 builds are pre-releases: scan the release list for the
+        // newest one carrying the matching platform asset.
+        "bepinex6mono" => match_newest_asset(BEPINEX6_RELEASES, "BepInEx-Unity.Mono-win-x64-"),
+        "bepinex6il2cpp" => match_newest_asset(BEPINEX6_RELEASES, "BepInEx-Unity.IL2CPP-win-x64-"),
+        other => Err(AppError::validation(format!("unknown mod loader: {other}"))),
+    }
+}
+
+/// Stable loaders ship through `releases/latest`.
+fn match_latest_asset(releases_url: &str, asset_prefix: &str) -> AppResult<String> {
+    let (asset_url, _) = first_matching_asset(releases_url, asset_prefix)?;
+    Ok(asset_url)
+}
+
+/// BepInEx 6 pre-releases: same call, but the URL feeds `/releases` list.
+fn match_newest_asset(releases_url: &str, asset_prefix: &str) -> AppResult<String> {
+    let (asset_url, _) = first_matching_asset(releases_url, asset_prefix)?;
+    Ok(asset_url)
+}
+
+fn first_matching_asset(releases_url: &str, asset_prefix: &str) -> AppResult<(String, String)> {
+    let body = agent()
+        .get(releases_url)
+        .call()
+        .map_err(|err| AppError::io(format!("loader lookup failed: {err}")))?
+        .into_string()
+        .map_err(|err| AppError::io(format!("loader lookup failed: {err}")))?;
+    let releases: Vec<Release> = serde_json::from_str(&body)
+        .map_err(|err| AppError::io(format!("could not parse release info: {err}")))?;
+
+    let prefix = asset_prefix.to_ascii_lowercase();
+    for release in &releases {
+        for asset in &release.assets {
+            let lowers = asset.name.to_ascii_lowercase();
+            if lowers.starts_with(&prefix) && lowers.ends_with(".zip") {
+                return Ok((asset.browser_download_url.clone(), asset.name.clone()));
+            }
+        }
+    }
+    Err(AppError::io(format!(
+        "no matching release asset found ({asset_prefix}*.zip)"
+    )))
+}
+
+fn download_bytes(url: &str, max_bytes: usize) -> AppResult<Vec<u8>> {
+    let response = agent()
+        .get(url)
+        .call()
+        .map_err(|err| AppError::io(format!("download failed: {err}")))?;
+    let mut bytes = Vec::new();
+    response
+        .into_reader()
+        .take((max_bytes + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|err| AppError::io(format!("download failed: {err}")))?;
+    if bytes.len() > max_bytes {
+        return Err(AppError::validation("downloaded file is too large"));
+    }
+    Ok(bytes)
+}
+
+/// BepInEx / MelonLoader zips are laid out for the game root; extract in
+/// place. `enclosed_name` refuses traversal entries.
+fn extract_loader_zip(game_root: &Path, bytes: &[u8]) -> AppResult<()> {
+    let cursor = std::io::Cursor::new(bytes);
     let mut archive = zip::ZipArchive::new(cursor)
         .map_err(|err| AppError::io(format!("loader archive is corrupt: {err}")))?;
     for index in 0..archive.len() {
@@ -131,12 +286,22 @@ pub fn install_loader(game_root: &Path) -> AppResult<ModsStatus> {
             std::io::copy(&mut file, &mut std::fs::File::create(&target)?)?;
         }
     }
-    if pre.suggested_loader == Some("bepinex5") {
-        std::fs::create_dir_all(game_root.join("BepInEx").join("plugins"))?;
-    }
+    Ok(())
+}
 
-    tracing::info!("mod loader installed into {}", game_root.display());
-    Ok(status(game_root))
+/// Make sure the drop target exists right after a fresh loader install, so
+/// the first archive drop cannot fail with "no mods folder".
+fn ensure_loader_dirs(game_root: &Path, loader_id: &str) -> AppResult<()> {
+    match loader_id {
+        "bepinex5" | "bepinex6mono" | "bepinex6il2cpp" => {
+            std::fs::create_dir_all(game_root.join("BepInEx").join("plugins"))?;
+        }
+        "melonloader" => {
+            std::fs::create_dir_all(game_root.join("MelonLoader").join("Mods"))?;
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 /// Extract a user mod archive into the game's mods dir, then trash the
@@ -146,6 +311,8 @@ pub fn install_archive(
     game_root: &Path,
     archive: &Path,
     staging_root: &Path,
+    lenient: bool,
+    max_bytes: u64,
 ) -> AppResult<ModInstallResult> {
     let pre = status(game_root);
     let Some(mods_dir) = pre.mods_dir.clone() else {
@@ -155,20 +322,25 @@ pub fn install_archive(
     };
     let mods_dir = PathBuf::from(mods_dir);
 
-    let extension = archive
-        .extension()
-        .map(|ext| ext.to_string_lossy().to_ascii_lowercase())
-        .unwrap_or_default();
-    if !matches!(extension.as_str(), "zip" | "7z" | "rar") {
-        return Err(AppError::validation(
-            "unsupported archive type — use .zip, .7z or .rar",
-        ));
+    if !lenient {
+        let extension = archive
+            .extension()
+            .map(|ext| ext.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        if !matches!(extension.as_str(), "zip" | "7z" | "rar") {
+            return Err(AppError::validation(
+                "unsupported archive type — use .zip, .7z or .rar",
+            ));
+        }
     }
     let size = std::fs::metadata(archive)
         .map_err(|err| AppError::io(format!("could not read archive: {err}")))?
         .len();
-    if size > MAX_ARCHIVE_BYTES {
-        return Err(AppError::validation("archive is larger than 512 MB"));
+    if size > max_bytes {
+        return Err(AppError::validation(format!(
+            "archive is larger than {} MB",
+            max_bytes / (1024 * 1024)
+        )));
     }
 
     let stamp = SystemTime::now()
@@ -178,7 +350,7 @@ pub fn install_archive(
     let staging = staging_root.join(format!("mod-install-{stamp}"));
     std::fs::create_dir_all(&staging)?;
 
-    let outcome = extract_and_move(archive, &staging, &mods_dir);
+    let outcome = extract_and_move(archive, &staging, &mods_dir, lenient);
     let _ = std::fs::remove_dir_all(&staging);
     let installed = outcome?;
 
@@ -266,7 +438,12 @@ fn top_level_entries(dir: &Path) -> Vec<String> {
     names
 }
 
-fn extract_and_move(archive: &Path, staging: &Path, mods_dir: &Path) -> AppResult<Vec<String>> {
+fn extract_and_move(
+    archive: &Path,
+    staging: &Path,
+    mods_dir: &Path,
+    lenient: bool,
+) -> AppResult<Vec<String>> {
     let paths = archive_entry_paths(archive)?;
     if !entry_paths_are_safe(&paths) {
         return Err(AppError::validation(
@@ -281,7 +458,7 @@ fn extract_and_move(archive: &Path, staging: &Path, mods_dir: &Path) -> AppResul
     ])?;
 
     let mut installed = Vec::new();
-    copy_staged_tree(staging, mods_dir, &mut installed)?;
+    copy_staged_tree(staging, mods_dir, lenient, &mut installed)?;
     installed.sort();
     Ok(installed)
 }
@@ -338,41 +515,59 @@ fn run_7z(args: &[String]) -> AppResult<()> {
     }
 }
 
-/// Move the extracted tree into the mods dir: regular files and dirs only,
-/// no symlinks, `__MACOSX` and dotfile noise skipped.
-fn copy_staged_tree(staging: &Path, mods_dir: &Path, installed: &mut Vec<String>) -> AppResult<()> {
+/// Move the extracted tree into the mods dir: regular files and dirs only.
+/// Symlinks: strict mode refuses with `VALIDATION`; lenient mode skips them
+/// with a warning. `__MACOSX` and dotfile noise is always skipped.
+fn copy_staged_tree(
+    staging: &Path,
+    mods_dir: &Path,
+    lenient: bool,
+    installed: &mut Vec<String>,
+) -> AppResult<()> {
     for entry in std::fs::read_dir(staging)?.flatten() {
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if name_str == "__MACOSX" || name_str.starts_with('.') {
+        let file_name = entry.file_name();
+        let name = file_name.to_string_lossy();
+        if name == "__MACOSX" || name.starts_with('.') {
             continue;
         }
         let source = entry.path();
         if source.symlink_metadata()?.file_type().is_symlink() {
-            return Err(AppError::validation("archive contains symlinks — refusing"));
+            if lenient {
+                tracing::warn!("skipping symlinked mod entry: {}", source.display());
+                continue;
+            }
+            return Err(AppError::validation(
+                "archive contains symlinks — refusing (strict mode)",
+            ));
         }
-        let target = mods_dir.join(&*name);
+        let target = mods_dir.join(&*file_name);
         if source.is_dir() {
-            copy_dir_recursive(&source, &target)?;
+            copy_dir_recursive(&source, &target, lenient)?;
         } else {
             std::fs::create_dir_all(mods_dir)?;
             std::fs::copy(&source, &target)?;
         }
-        installed.push(name_str.into_owned());
+        installed.push(name.into_owned());
     }
     Ok(())
 }
 
-fn copy_dir_recursive(source: &Path, target: &Path) -> AppResult<()> {
+fn copy_dir_recursive(source: &Path, target: &Path, lenient: bool) -> AppResult<()> {
     std::fs::create_dir_all(target)?;
     for entry in std::fs::read_dir(source)?.flatten() {
         let from = entry.path();
         if from.symlink_metadata()?.file_type().is_symlink() {
-            return Err(AppError::validation("archive contains symlinks — refusing"));
+            if lenient {
+                tracing::warn!("skipping symlinked mod entry: {}", from.display());
+                continue;
+            }
+            return Err(AppError::validation(
+                "archive contains symlinks — refusing (strict mode)",
+            ));
         }
         let to = target.join(entry.file_name());
         if from.is_dir() {
-            copy_dir_recursive(&from, &to)?;
+            copy_dir_recursive(&from, &to, lenient)?;
         } else {
             std::fs::copy(&from, &to)?;
         }
@@ -380,56 +575,7 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> AppResult<()> {
     Ok(())
 }
 
-enum AssetMatch {
-    BepInEx,
-    MelonLoader,
-}
-
-impl AssetMatch {
-    fn matches(&self, name: &str) -> bool {
-        match self {
-            // `releases/latest` on BepInEx/BepInEx is the stable 5.x line
-            // (the 6.x bleeding edge builds are pre-releases).
-            AssetMatch::BepInEx => name.starts_with("BepInEx_win_x64_") && name.ends_with(".zip"),
-            AssetMatch::MelonLoader => name == "MelonLoader.x64.zip",
-        }
-    }
-}
-
-fn latest_loader_asset(repo: &str, matcher: AssetMatch) -> AppResult<String> {
-    let url = format!("https://api.github.com/repos/{repo}/releases/latest");
-    let body = agent()
-        .get(&url)
-        .call()
-        .map_err(|err| AppError::io(format!("loader lookup failed: {err}")))?
-        .into_string()
-        .map_err(|err| AppError::io(format!("loader lookup failed: {err}")))?;
-    let release: Release = serde_json::from_str(&body)
-        .map_err(|err| AppError::io(format!("could not parse release info: {err}")))?;
-    release
-        .assets
-        .iter()
-        .find(|asset| matcher.matches(&asset.name))
-        .map(|asset| asset.browser_download_url.clone())
-        .ok_or_else(|| AppError::io(format!("no matching release asset found for {repo}")))
-}
-
-fn download_bytes(url: &str, max_bytes: usize) -> AppResult<Vec<u8>> {
-    let response = agent()
-        .get(url)
-        .call()
-        .map_err(|err| AppError::io(format!("download failed: {err}")))?;
-    let mut bytes = Vec::new();
-    response
-        .into_reader()
-        .take((max_bytes + 1) as u64)
-        .read_to_end(&mut bytes)
-        .map_err(|err| AppError::io(format!("download failed: {err}")))?;
-    if bytes.len() > max_bytes {
-        return Err(AppError::validation("downloaded file is too large"));
-    }
-    Ok(bytes)
-}
+// `STICK_THRESHOLD` is used by `input.rs` (gamepad bridge), not here.
 
 #[cfg(test)]
 mod tests {
@@ -448,6 +594,7 @@ mod tests {
         assert_eq!(found.loader, "bepinex");
         assert_eq!(found.mods_dir_kind, "bepinex-plugins");
         assert_eq!(found.engine, "unity-mono");
+        assert!(found.supported);
         assert_eq!(found.suggested_loader, Some("bepinex5"));
         assert!(found.installed.is_empty());
 
@@ -463,17 +610,25 @@ mod tests {
         assert_eq!(found.mods_dir_kind, "mods");
         assert_eq!(found.engine, "unity-il2cpp");
         assert_eq!(found.suggested_loader, Some("melonloader"));
+        let ids: Vec<_> = found
+            .loaders
+            .iter()
+            .map(|entry| entry.id.as_str())
+            .collect();
+        assert_eq!(ids, vec!["melonloader", "bepinex6il2cpp"]);
         assert!(found.installed.contains(&"NML".to_string()));
 
-        // Nothing installed.
+        // Nothing installed; engine unknown -> reported as unsupported.
         let dir = tempdir().unwrap();
         let game = dir.path().join("game3");
         std::fs::create_dir_all(&game).unwrap();
 
         let found = status(&game);
         assert_eq!(found.loader, "none");
-        assert_eq!(found.mods_dir, None);
+        assert_eq!(found.engine, "unknown");
+        assert!(!found.supported);
         assert_eq!(found.suggested_loader, None);
+        assert!(found.loaders.is_empty());
     }
 
     #[test]
@@ -500,12 +655,44 @@ mod tests {
         std::fs::write(staging.join("__MACOSX/junk"), b"z").unwrap();
 
         let mut installed = Vec::new();
-        copy_staged_tree(&staging, &mods, &mut installed).unwrap();
+        copy_staged_tree(&staging, &mods, true, &mut installed).unwrap();
         installed.sort();
 
         assert_eq!(installed, vec!["MyMod", "loose.txt"]);
         assert!(mods.join("MyMod/sub/file.dll").is_file());
         assert!(mods.join("loose.txt").is_file());
         assert!(!mods.join("__MACOSX").exists());
+    }
+
+    #[test]
+    fn lenient_mode_skips_symlinks_strict_refuses() {
+        let dir = tempdir().unwrap();
+        let staging = dir.path().join("staging");
+        std::fs::create_dir_all(&staging).unwrap();
+        std::fs::write(staging.join("real.dll"), b"x").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(staging.join("real.dll"), staging.join("link.dll")).unwrap();
+
+        // Strict mode refuses outright.
+        let mods = dir.path().join("ModsStrict");
+        let mut installed = Vec::new();
+        assert!(copy_staged_tree(&staging, &mods, false, &mut installed).is_err());
+        assert!(!mods.exists());
+
+        // Lenient mode skips the link and keeps the real file.
+        let mods = dir.path().join("ModsLenient");
+        let mut installed = Vec::new();
+        copy_staged_tree(&staging, &mods, true, &mut installed).unwrap();
+        assert!(mods.join("real.dll").is_file());
+        assert!(!mods.join("link.dll").exists());
+    }
+
+    #[test]
+    fn strict_mode_rejects_unknown_extensions() {
+        // Mirrors the strict-mode extension gate in `install_archive`.
+        let allowed = |ext: &str| matches!(ext, "zip" | "7z" | "rar");
+        assert!(allowed("zip") && allowed("7z") && allowed("rar"));
+        assert!(!allowed("exe"));
+        assert!(!allowed("tar.gz") && !allowed(""));
     }
 }

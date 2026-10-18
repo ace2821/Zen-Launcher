@@ -20,6 +20,12 @@ struct SettingsFile {
     font: String,
     accent: String,
     onboarding_completed: bool,
+    auto_covers: bool,
+    mods_lenient: bool,
+    mods_max_mb: i64,
+    use_game_mode: bool,
+    use_mango_hud: bool,
+    big_picture_layout: String,
 }
 
 impl Default for SettingsFile {
@@ -38,6 +44,12 @@ impl From<Settings> for SettingsFile {
             font: settings.font,
             accent: settings.accent,
             onboarding_completed: settings.onboarding_completed,
+            auto_covers: settings.auto_covers,
+            mods_lenient: settings.mods_lenient,
+            mods_max_mb: settings.mods_max_mb,
+            use_game_mode: settings.use_game_mode,
+            use_mango_hud: settings.use_mango_hud,
+            big_picture_layout: settings.big_picture_layout,
         }
     }
 }
@@ -51,6 +63,12 @@ impl From<SettingsFile> for Settings {
             font: file.font,
             accent: file.accent,
             onboarding_completed: file.onboarding_completed,
+            auto_covers: file.auto_covers,
+            mods_lenient: file.mods_lenient,
+            mods_max_mb: file.mods_max_mb,
+            use_game_mode: file.use_game_mode,
+            use_mango_hud: file.use_mango_hud,
+            big_picture_layout: file.big_picture_layout,
         }
     }
 }
@@ -122,6 +140,24 @@ pub fn apply_patch(settings: &mut Settings, patch: SettingsPatch) {
     if let Some(onboarding_completed) = patch.onboarding_completed {
         settings.onboarding_completed = onboarding_completed;
     }
+    if let Some(auto_covers) = patch.auto_covers {
+        settings.auto_covers = auto_covers;
+    }
+    if let Some(mods_lenient) = patch.mods_lenient {
+        settings.mods_lenient = mods_lenient;
+    }
+    if let Some(mods_max_mb) = patch.mods_max_mb {
+        settings.mods_max_mb = mods_max_mb;
+    }
+    if let Some(use_game_mode) = patch.use_game_mode {
+        settings.use_game_mode = use_game_mode;
+    }
+    if let Some(use_mango_hud) = patch.use_mango_hud {
+        settings.use_mango_hud = use_mango_hud;
+    }
+    if let Some(big_picture_layout) = patch.big_picture_layout {
+        settings.big_picture_layout = big_picture_layout;
+    }
 }
 
 #[cfg(test)]
@@ -140,9 +176,30 @@ mod tests {
             font: "instrument-sans".to_string(),
             accent: "ember".to_string(),
             onboarding_completed: true,
+            auto_covers: false,
+            mods_lenient: false,
+            mods_max_mb: 2048,
+            use_game_mode: false,
+            use_mango_hud: true,
+            big_picture_layout: "playstation".to_string(),
         };
         save_to(&path, &settings).unwrap();
         assert_eq!(load_from(&path), settings);
+
+        // A config file predating the new fields loads them as defaults.
+        std::fs::write(
+            dir.path().join("old.toml"),
+            "language = \"pl\"\ncloseToTray = false\n",
+        )
+        .unwrap();
+        let loaded = load_from(&dir.path().join("old.toml"));
+        assert_eq!(loaded.language, Language::Pl);
+        assert!(loaded.auto_covers);
+        assert!(loaded.mods_lenient);
+        assert_eq!(loaded.mods_max_mb, crate::models::DEFAULT_MODS_MAX_MB);
+        assert!(loaded.use_game_mode);
+        assert!(!loaded.use_mango_hud);
+        assert_eq!(loaded.big_picture_layout, "auto");
     }
 
     #[test]

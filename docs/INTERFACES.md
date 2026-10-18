@@ -124,7 +124,13 @@ Empty `title`/`executable` are rejected with `VALIDATION`.
 keeps its stored value. `font`/`accent` are trimmed and must be 1–32 chars of
 `[a-z0-9-]` (else `VALIDATION`); unknown-but-valid ids are accepted — the UI
 falls back to its defaults (`maple-mono`, `jade`). A config file that predates
-these fields loads them as defaults.
+these fields loads them as defaults. Persisted settings now also carry:
+`autoCovers` (bool, default `true` — covers fetched on approve), `modsLenient`
+(bool, default `true` — lenient mod archive validation), `modsMaxMb`
+(integer, default `1024`), `useGameMode` (bool, default `true` — wraps
+launches with `gamemoderun` when available), `useMangoHud` (bool, default
+`false` — injects `MANGOHUD=1`), `bigPictureLayout` (`"auto" | "xbox" |
+"playstation"`, default `"auto"`).
 
 ## Events (Rust → UI)
 
@@ -135,6 +141,7 @@ these fields loads them as defaults.
 | `session-started` | `{ sessionId, gameId, startedAt }` |
 | `session-ended` | `{ sessionId, gameId, durationSeconds, exitCode: number \| null }` |
 | `library-changed` | `{}` — UI invalidates its queries |
+| `gamepad-event` | `{ kind: "button-press" \| "button-release" \| "axis", pad: number, name: string \| null, code: string }` — Big Picture navigation |
 
 ## Plugins & capabilities
 
@@ -143,7 +150,9 @@ these fields loads them as defaults.
   `dialog:allow-open`.
 - `tauri-plugin-opener` (already in template) — UI uses `revealItemInDir` for
   "show in file manager". Capability must allow `opener:allow-reveal-item-in-dir`.
-- No other plugins in M1.
+- Big Picture toggles fullscreen from the UI — capability must allow
+  `window:allow-set-fullscreen`.
+- `gilrs` (Rust, not a Tauri plugin) — gamepad thread + `gamepad-event`.
 
 ## Tray and window behavior (M1)
 
@@ -179,6 +188,10 @@ these fields loads them as defaults.
   game is approved; `launch_game` does not depend on it — a still-running
   setup only means Wine waits for the prefix lock on the first Play.
 - `retro` / `mod` → `UNSUPPORTED` (their runners arrive in later milestones).
+- Session environment extras (settings-driven, best-effort): when `useGameMode`
+  is set and `gamemoderun` is on PATH the launch command is wrapped with it;
+  when `useMangoHud` is set the launch env gains `MANGOHUD=1` +
+  `MANGOHUD_DLSYM=1` (overlay for Vulkan/DXVK/GL). No per-game overrides yet.
 - Default cwd = the executable's directory (`workDir` overrides). Session
   supervision tracks the direct child; launchers that exit immediately end the
   session early (known limitation).
@@ -206,8 +219,9 @@ these fields loads them as defaults.
 - `mods_status(gameId) -> ModsStatus`:
   `{ loader: "bepinex" | "melonloader" | "doorstop" | "none", modsDir: string |
   null, modsDirKind: "bepinex-plugins" | "mods" | "none", engine: "unity-mono"
-  | "unity-il2cpp" | "unknown", suggestedLoader: "bepinex5" | "melonloader" |
-  null, installed: string[] }`.
+  | "unity-il2cpp" | "unknown", supported: boolean, suggestedLoader: string |
+  null, loaders: { id: string, name: string, engines: string[] }[], installed:
+  string[] }`.
   - Detection: `BepInEx/` → `bepinex`; `MelonLoader/` → `melonloader`;
     `doorstop_config.ini` or `winhttp.dll` / `version.dll` at the game root →
     `doorstop` (community loaders, e.g. NeoModLoader); otherwise `none`.
@@ -216,24 +230,63 @@ these fields loads them as defaults.
   - `installed`: top-level entries of `modsDir` (cap 50), for the drop zone.
   - Engine: `*_Data/il2cpp_data` or `GameAssembly.dll` → `unity-il2cpp`;
     `MonoBleedingEdge/` or `*_Data/Managed/` → `unity-mono`.
-  - `suggestedLoader`: `bepinex5` for Unity Mono, `melonloader` for Unity
-    IL2CPP, `null` otherwise.
-- `install_mod_loader(gameId) -> ModsStatus` — downloads the newest matching
-  release asset from GitHub (BepInEx: `BepInEx_win_x64_*.zip`; MelonLoader:
-  `MelonLoader.x64.zip`) and extracts it into the game folder (BepInEx 5
-  layout: `winhttp.dll` + `doorstop_config.ini` + `BepInEx/`), then ensures
-  `BepInEx/plugins` exists. `VALIDATION` when a loader is already present or
-  the game type is not `windows`; nothing is written on failure.
+  - `supported`: `engine` is a known Unity flavor AND the catalog has a
+    matching loader. For `engine: "unknown"` it is `false` — the UI shows
+    "this game has no known mod support".
+  - `loaders`: catalog entries matching the game's engine, ranked by
+    popularity: `bepinex5` (BepInEx 5, mono, stable), `bepinex6mono`
+    (BepInEx 6 mono), `bepinex6il2cpp` (BepInEx 6 IL2CPP), `melonloader`
+    (MelonLoader, mono + IL2CPP). `suggestedLoader` = the top-ranked entry
+    (`bepinex5` for Unity Mono, `melonloader` for Unity IL2CPP).
+- `install_mod_loader(gameId, loaderId?) -> ModsStatus` — `loaderId` picks a
+  catalog entry (`null`/omitted → `suggestedLoader`). Source assets from
+  GitHub: BepInEx 5 from `releases/latest` (`BepInEx_win_x64_*.zip`),
+  MelonLoader from `releases/latest` (`MelonLoader.x64.zip`), BepInEx 6
+  entries from the newest release whose assets contain
+  `BepInEx-Unity.Mono-win-x64-*.zip` / `BepInEx-Unity.IL2CPP-win-x64-*.zip`.
+  The archive is extracted into the game folder (traversal-safe paths only)
+  and `BepInEx/plugins` is ensured for BepInEx entries. `VALIDATION` when a
+  loader is already installed, the engine is unsupported (`unknown` → "no mod
+  support"), the game type is not `windows`, or the id is unknown; nothing is
+  written on failure.
 - `install_mod_archive(gameId, archivePath) -> ModInstallResult` —
-  `{ installed: string[], modsDir: string, trashed: boolean }`. Accepts
-  `.zip` / `.7z` / `.rar` (system `7z` handles all three; 512 MB cap). Entries
-  are validated first (no absolute paths, no `..` traversal) and `__MACOSX`
-  noise is skipped; extraction goes into `modsDir` (archives are extracted
-  as-is, archives carrying a nested top folder keep it). Fails with
-  `VALIDATION` when no mods dir exists yet. After a successful extraction the
-  archive is moved to the system trash (`gio trash`); if trashing fails the
-  archive stays put and `trashed` is `false` — files are never deleted
-  outright.
+  `{ installed: string[], modsDir: string, trashed: boolean }`. Validation
+  follows the settings: `modsLenient: false` (strict) accepts only
+  `.zip/.7z/.rar` and refuses symlinked entries with `VALIDATION`;
+  `modsLenient: true` (default) accepts any extension `7z` can list, **skips**
+  symlinked entries with a logged warning, and the size cap is
+  `modsMaxMb` (default 1024 MB). Absolute paths and `..` traversal are
+  always refused, `__MACOSX` noise is skipped, extraction goes into `modsDir`
+  (archives carrying a nested top folder keep it), `VALIDATION` when no mods
+  dir exists yet. After a successful extraction the archive is moved to the
+  system trash (`trash` crate, XDG spec); if trashing fails the archive stays
+  put and `trashed` is `false` — files are never deleted outright.
+
+## Covers auto-install (settings-driven)
+
+- On `approve_candidate` when `settings.autoCovers` is `true`, a background
+  thread runs the same Steam title search used by `fetch_cover_candidates`;
+  the top `app` result's portrait is downloaded with the same caps/validation
+  and set as `coverPath` (best-effort — failures are logged and leave the
+  cover empty); `library-changed` notifies the UI either way.
+
+## Gamepad & Big Picture
+
+- The Rust core runs a `gilrs` polling thread and emits `gamepad-event` on
+  the event bus (shape above). Button codes are gilrs `GamepadButtonType`
+  ids (`South`, `North`, `East`, `West`, `DPadUp`, `Start`, `Select`, ...).
+- Analog sticks are reduced in the core to synthetic 4-way axis events
+  (`code: "AxisLeft" | "AxisRight" | "AxisUp" | "AxisDown"`) with a 120 ms
+  held-repeat cadence, so menu navigation feels console-like without the
+  webview drowning in raw axis samples.
+- `list_gamepads() -> { pads: { id: number, name: string, kind: "xbox" |
+  "playstation" | "unknown" }[] }`; kind inferred from the device name
+  ("Xbox" → xbox; "DualShock"/"DualSense"/"PlayStation" → playstation).
+  The UI applies `settings.bigPictureLayout` (`auto` → detected kind, else
+  `xbox` / `playstation` glyph theme for face buttons).
+- Big Picture is a UI route on the main window; fullscreen is toggled from
+  the webview via `window:allow-set-fullscreen`; `Escape`/`Start` exits.
+
 
 ## Scanner heuristics (M1 minimum)
 

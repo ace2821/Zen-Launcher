@@ -143,6 +143,36 @@ fn header_url(id: u64) -> String {
     format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/header.jpg")
 }
 
+/// Best-effort auto-cover: search by the title and store the first good
+/// candidate image (portrait > landscape > thumb, then the next candidate).
+/// Used by the settings-driven auto-cover on game approval.
+pub fn download_top_match(covers_dir: &Path, game_id: i64, query: &str) -> AppResult<PathBuf> {
+    let candidates = fetch_candidates(query)?;
+    let mut urls: Vec<String> = Vec::new();
+    for candidate in candidates.iter() {
+        urls.push(
+            candidate
+                .portrait_url
+                .clone()
+                .or_else(|| candidate.landscape_url.clone())
+                .unwrap_or_else(|| candidate.thumb_url.clone()),
+        );
+        if urls.len() >= 3 {
+            break;
+        }
+    }
+    let mut last_err: Option<AppError> = None;
+    for url in urls {
+        match download(covers_dir, game_id, &url) {
+            Ok(path) => return Ok(path),
+            Err(err) => last_err = Some(err),
+        }
+    }
+    Err(last_err.unwrap_or_else(|| {
+        AppError::validation(format!("no cover candidates found for {query:?}"))
+    }))
+}
+
 fn image_extension(bytes: &[u8]) -> Option<&'static str> {
     if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         Some("png")

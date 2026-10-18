@@ -239,6 +239,12 @@ usable for a desktop game-library project.
   prefix (minimal system-wine runner already in) + umu/Proton-GE, RetroArch
   runner, `.desktop` shortcuts, auto-scan, artwork (Steam covers), mods
   (loader detection/install + drag-drop archive installs).
+- **M2.x (pulled forward) — UX power pack:** settings v3 flags (autoCovers,
+  modsLenient/modsMaxMb, useGameMode, useMangoHud, bigPictureLayout), mod
+  loader catalog with popularity ranking + explicit "no mod support" state
+  for non-Unity engines, lenient archive validation, GameMode/MangoHud launch
+  wrapping, auto-covers on approve, `gilrs` gamepad bridge + Big Picture view
+  with PS/Xbox controller layouts (parts of M4/M5 landed early).
 - **M3 — Metadata and order:** Steam match + SteamGridDB + ScreenScraper,
   artwork cache, details view, search/filters, tags/collections,
   favorites/recents, export/import.
