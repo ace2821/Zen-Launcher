@@ -217,38 +217,80 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
 ## Mods (loaders & installs)
 
 - `mods_status(gameId) -> ModsStatus`:
-  `{ loader: "bepinex" | "melonloader" | "doorstop" | "none", modsDir: string |
-  null, modsDirKind: "bepinex-plugins" | "mods" | "none", engine: "unity-mono"
-  | "unity-il2cpp" | "unknown", supported: boolean, suggestedLoader: string |
-  null, loaders: { id: string, name: string, engines: string[] }[], installed:
-  string[] }`.
-  - Detection: `BepInEx/` → `bepinex`; `MelonLoader/` → `melonloader`;
-    `doorstop_config.ini` or `winhttp.dll` / `version.dll` at the game root →
-    `doorstop` (community loaders, e.g. NeoModLoader); otherwise `none`.
-  - `modsDir`: `BepInEx/plugins` for bepinex; otherwise the first of `Mods/`,
-    `MelonLoader/Mods`, `mods/` that exists; `null` when none.
+  `{ loader: "bepinex" | "melonloader" | "neomodloader" | "mscloader" |
+  "tmodloader" | "cleo" | "cleoredux" | "scripthook-v" | "scripthook-iv" |
+  "frosty-moddata" | "doorstop" | "none", modsDir: string | null, modsDirKind:
+  "bepinex-plugins" | "mods" | "asi-root" | "external" | "none", engine:
+  "unity-mono" | "unity-il2cpp" | "gta-classic" | "gta-iv" | "gta-v" |
+  "terraria" | "frostbite" | "unknown", supported: boolean, suggestedLoader:
+  string | null, loaders: { id: string, name: string, engines: string[],
+  install: "download" | "manual", docs: string | null }[], installed: string[]
+  }`.
+  - Detection (first match): `BepInEx/` → `bepinex`; `MelonLoader/` →
+    `melonloader`; `worldbox_Data/StreamingAssets/mods/NeoModLoader.dll` →
+    `neomodloader`; `MSCLoader.dll` at the root → `mscloader`;
+    `tModLoader.exe` → `tmodloader`; `cleo_redux.asi` → `cleoredux`;
+    `cleo.asi` → `cleo`; `ScriptHookV.dll` → `scripthook-v`;
+    `ScriptHookIV.asi`/`ScriptHookIV.dll` → `scripthook-iv`; `ModData/` →
+    `frosty-moddata` (Frosty); `doorstop_config.ini` or `winhttp.dll` /
+    `version.dll` at the root → `doorstop`; otherwise `none`. Name matching
+    for third-party files is case-insensitive (stays correct on
+    case-sensitive filesystems).
+  - `modsDir`: `BepInEx/plugins` for bepinex; `worldbox_Data/StreamingAssets/
+    mods` for neomodloader; `Mod/` (or `Mods/`) for mscloader; `CLEO/` for
+    cleo/cleoredux; `ModData/` for frosty-moddata; the game root itself for
+    `scripthook-v`/`scripthook-iv` (`asi-root` — ASI mods drop beside the
+    DLL); `null` + kind `external` for tmodloader (mods live in tModLoader's
+    own profile folder and are managed from inside the game); otherwise the
+    first of `Mods/`, `MelonLoader/Mods`, `mods/` that exists; `null` when
+    none.
   - `installed`: top-level entries of `modsDir` (cap 50), for the drop zone.
   - Engine: `*_Data/il2cpp_data` or `GameAssembly.dll` → `unity-il2cpp`;
-    `MonoBleedingEdge/` or `*_Data/Managed/` → `unity-mono`.
-  - `supported`: `engine` is a known Unity flavor AND the catalog has a
-    matching loader. For `engine: "unknown"` it is `false` — the UI shows
-    "this game has no known mod support".
-  - `loaders`: catalog entries matching the game's engine, ranked by
-    popularity: `bepinex5` (BepInEx 5, mono, stable), `bepinex6mono`
-    (BepInEx 6 mono), `bepinex6il2cpp` (BepInEx 6 IL2CPP), `melonloader`
-    (MelonLoader, mono + IL2CPP). `suggestedLoader` = the top-ranked entry
-    (`bepinex5` for Unity Mono, `melonloader` for Unity IL2CPP).
+    `MonoBleedingEdge/` or `*_Data/Managed/` → `unity-mono`; `gta_sa.exe` /
+    `gta-sa.exe` / `gta_sa_compact.exe` → `gta-classic`; `GTAIV.exe` /
+    `PlayGTAIV.exe` → `gta-iv`; `GTA5.exe` / `PlayGTAV.exe` / `Grand Theft
+    Auto V.exe` → `gta-v`; `Terraria.exe` → `terraria`; `ModData/` or an
+    EA Sports FC / FIFA exe (`FC24-26.exe`, `FIFA20-23.exe`) → `frostbite`.
+  - `supported`: `engine` matches catalog entries (AND the loader's root
+    markers when it has any). For `engine: "unknown"` it is `false` — the
+    UI shows "this game has no known mod support".
+  - `loaders`: catalog entries matching the game's engine (and markers),
+    ranked by popularity: `neomodloader` (NeoModLoader, WorldBox only —
+    requires the `worldbox_Data` marker), `mscloader` (MSC Mod Loader, My
+    Summer Car only), `bepinex5`, `melonloader`, `bepinex6mono`,
+    `bepinex6il2cpp` (Unity era), `tmodloader` (Terraria), `cleo5`, `cleo4`,
+    `cleoredux` (GTA classics), `scripthook-iv` (GTA IV), `scripthook-v`
+    (GTA V), `frosty` (Frostbite — EA Sports FC 24/25; FC 26 unverified).
+    `install` says whether the core downloads the loader (`download`) or the
+    loader is installed by its own tooling (`manual`: Script Hook IV/V carry
+    no redistributable download; MSC Mod Loader ships an installer — run it
+    under Wine). `docs` links the manual loader's official page (`null` for
+    download loaders except the informational ones). `suggestedLoader` =
+    the top-ranked entry (`neomodloader` for WorldBox, `mscloader` for My
+    Summer Car, `bepinex5` for plain Unity Mono, `melonloader` for Unity
+    IL2CPP, `cleo5` for GTA classics, `tmodloader` for Terraria, `frosty`
+    for Frostbite).
 - `install_mod_loader(gameId, loaderId?) -> ModsStatus` — `loaderId` picks a
   catalog entry (`null`/omitted → `suggestedLoader`). Source assets from
   GitHub: BepInEx 5 from `releases/latest` (`BepInEx_win_x64_*.zip`),
   MelonLoader from `releases/latest` (`MelonLoader.x64.zip`), BepInEx 6
   entries from the newest release whose assets contain
-  `BepInEx-Unity.Mono-win-x64-*.zip` / `BepInEx-Unity.IL2CPP-win-x64-*.zip`.
-  The archive is extracted into the game folder (traversal-safe paths only)
-  and `BepInEx/plugins` is ensured for BepInEx entries. `VALIDATION` when a
-  loader is already installed, the engine is unsupported (`unknown` → "no mod
-  support"), the game type is not `windows`, or the id is unknown; nothing is
-  written on failure.
+  `BepInEx-Unity.Mono-win-x64-*.zip` / `BepInEx-Unity.IL2CPP-win-x64-*.zip`,
+  NeoModLoader takes the `NeoModLoader.dll` asset (WorldBoxOpenMods/ModLoader),
+  tModLoader takes `tModLoader*.zip`, CLEO 5 takes the
+  `SA.CLEO-v*+Ultimate_ASI_Loader.zip` bundle, CLEO 4 takes `CLEO4.zip`
+  (ships its own ASI loader), CLEO Redux takes the x86 portable archive and
+  installs Ultimate ASI Loader (x86) when no ASI loader dll is present,
+  Frosty takes the newest `Frosty.Mod.Manager.*.zip` from J-Lyt's
+  FrostyToolsuite fork. The archive is extracted into the game folder
+  (traversal-safe paths only) and the loader's mods folder is ensured
+  (`BepInEx/plugins`, `MelonLoader/Mods`, `worldbox_Data/StreamingAssets/
+  mods`, `Mod/`, `CLEO/`, `ModData/`). `VALIDATION` when an incompatible
+  loader is already installed (co-installation is allowed only for CLEO
+  Redux on top of `cleo` and Frosty on anything), the engine is unsupported,
+  the loader is manual (`scripthook-iv/-v`, `mscloader` — install with the
+  loader's own tooling), or the id is unknown; nothing is written on
+  failure.
 - `install_mod_archive(gameId, archivePath) -> ModInstallResult` —
   `{ installed: string[], modsDir: string, trashed: boolean }`. Validation
   follows the settings: `modsLenient: false` (strict) accepts only

@@ -149,6 +149,8 @@ export interface ModsSeed {
   modsDir: string | null;
   modsDirKind: ModsDirKind;
   engine: ModEngine;
+  /** Root entries the fake folder carries — mirrors `spec_matches_root`. */
+  markers: string[];
   installed: string[];
 }
 
@@ -157,29 +159,112 @@ export interface LoaderSpec {
   id: string;
   name: string;
   engines: ModEngine[];
+  /** Root entries the game folder must carry (mirror of `mods.rs` markers). */
+  markers: string[];
+  install: "download" | "manual";
+  docs: string | null;
 }
 
 /**
  * The loader catalog, in the core's popularity order — the first entry matching
- * the game's engine becomes `suggestedLoader`. Kept literal (rather than derived)
- * so a drift from `src-tauri/src/mods.rs` is visible here.
+ * the game's engine (and markers) becomes `suggestedLoader`. Kept literal
+ * (rather than derived) so a drift from `src-tauri/src/mods.rs` is visible here.
  */
 export const LOADER_CATALOG: readonly LoaderSpec[] = [
-  { id: "bepinex5", name: "BepInEx 5", engines: ["unity-mono"] },
+  {
+    id: "neomodloader",
+    name: "NeoModLoader",
+    engines: ["unity-mono"],
+    markers: ["worldbox_Data", "worldbox.exe"],
+    install: "download",
+    docs: "https://worldboxopenmods.gitbook.io/mod-tutorial-en/player-manual/install",
+  },
+  {
+    id: "mscloader",
+    name: "MSC Mod Loader",
+    engines: ["unity-mono"],
+    markers: ["mysummercar_Data", "mysummercar.exe"],
+    install: "manual",
+    docs: "https://github.com/piotrulos/MSCModLoader/releases",
+  },
+  { id: "bepinex5", name: "BepInEx 5", engines: ["unity-mono"], markers: [], install: "download", docs: null },
   {
     id: "melonloader",
     name: "MelonLoader",
     engines: ["unity-mono", "unity-il2cpp"],
+    markers: [],
+    install: "download",
+    docs: null,
   },
-  { id: "bepinex6mono", name: "BepInEx 6 (Mono)", engines: ["unity-mono"] },
-  { id: "bepinex6il2cpp", name: "BepInEx 6 (IL2CPP)", engines: ["unity-il2cpp"] },
+  { id: "bepinex6mono", name: "BepInEx 6 (Mono)", engines: ["unity-mono"], markers: [], install: "download", docs: null },
+  {
+    id: "bepinex6il2cpp",
+    name: "BepInEx 6 (IL2CPP)",
+    engines: ["unity-il2cpp"],
+    markers: [],
+    install: "download",
+    docs: null,
+  },
+  {
+    id: "tmodloader",
+    name: "tModLoader",
+    engines: ["terraria"],
+    markers: [],
+    install: "download",
+    docs: "https://github.com/tModLoader/tModLoader/wiki/Manual-Install",
+  },
+  { id: "cleo5", name: "CLEO 5", engines: ["gta-classic"], markers: [], install: "download", docs: "https://cleo.li" },
+  { id: "cleo4", name: "CLEO 4", engines: ["gta-classic"], markers: [], install: "download", docs: "https://cleo.li" },
+  {
+    id: "cleoredux",
+    name: "CLEO Redux",
+    engines: ["gta-classic"],
+    markers: [],
+    install: "download",
+    docs: "https://re.cleo.li/docs/en/installation.html",
+  },
+  {
+    id: "scripthook-iv",
+    name: "Script Hook IV",
+    engines: ["gta-iv"],
+    markers: [],
+    install: "manual",
+    docs: "https://www.gtaforums.com/",
+  },
+  {
+    id: "scripthook-v",
+    name: "Script Hook V",
+    engines: ["gta-v"],
+    markers: [],
+    install: "manual",
+    docs: "https://www.gta5-mods.com/tools/script-hook-v",
+  },
+  {
+    id: "frosty",
+    name: "Frosty Mod Manager",
+    engines: ["frostbite"],
+    markers: [],
+    install: "download",
+    docs: "https://github.com/J-Lyt/FrostyToolsuite/releases",
+  },
 ];
 
-/** Catalog entries that apply to an engine, most popular first. */
-export function loadersFor(engine: ModEngine): ModLoaderInfo[] {
-  return LOADER_CATALOG.filter((spec) => spec.engines.includes(engine)).map(
-    (spec) => ({ id: spec.id, name: spec.name, engines: [...spec.engines] }),
-  );
+/**
+ * Catalog entries that apply to an engine (and to the fake folder's markers,
+ * mirroring `spec_matches_root`), most popular first.
+ */
+export function loadersFor(engine: ModEngine, rootMarkers: string[] = []): ModLoaderInfo[] {
+  return LOADER_CATALOG.filter(
+    (spec) =>
+      spec.engines.includes(engine) &&
+      (spec.markers.length === 0 || rootMarkers.some((m) => spec.markers.includes(m))),
+  ).map((spec) => ({
+    id: spec.id,
+    name: spec.name,
+    engines: [...spec.engines],
+    install: spec.install,
+    docs: spec.docs,
+  }));
 }
 
 /** The product name a loader id installs, or the id itself when unknown. */
@@ -775,6 +860,7 @@ const MODS_SEED: Record<number, ModsSeed> = {
     modsDir: "Mods",
     modsDirKind: "mods",
     engine: "unknown",
+    markers: [],
     installed: ["MWSE", "MGE-XE", "Patch for Purists", "Tamriel Rebuilt"],
   },
   12: {
@@ -782,6 +868,7 @@ const MODS_SEED: Record<number, ModsSeed> = {
     modsDir: null,
     modsDirKind: "none",
     engine: "unity-il2cpp",
+    markers: [],
     installed: [],
   },
   13: {
@@ -789,6 +876,7 @@ const MODS_SEED: Record<number, ModsSeed> = {
     modsDir: "BepInEx/plugins",
     modsDirKind: "bepinex-plugins",
     engine: "unity-mono",
+    markers: [],
     installed: ["CustomWeapons.dll", "UltraQoL", "config"],
   },
 };

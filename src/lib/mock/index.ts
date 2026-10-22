@@ -26,6 +26,7 @@ import {
   createSeedState,
   DEFAULT_GAMEPADS,
   genericDiscoveries,
+  loaderName,
   loadersFor,
   type MockState,
   type ModsSeed,
@@ -219,6 +220,7 @@ export function createMockApi(options: MockOptions = {}): MockApi {
         modsDir: null,
         modsDirKind: "none",
         engine: "unknown",
+        markers: [],
         installed: [],
       }
     );
@@ -239,7 +241,7 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       throw uiError("VALIDATION", "mod loading is only supported for Windows games");
     }
     const seed = modsSeedFor(game.id);
-    const loaders = loadersFor(seed.engine);
+    const loaders = loadersFor(seed.engine, seed.markers);
     return {
       loader: seed.loader,
       modsDir: seed.modsDir === null ? null : `${game.installPath}/${seed.modsDir}`,
@@ -257,10 +259,29 @@ export function createMockApi(options: MockOptions = {}): MockApi {
    * core, which is also what makes the drop zone work right after installing.
    */
   function loaderLayout(loaderId: string): Pick<ModsSeed, "loader" | "modsDir" | "modsDirKind"> {
-    if (loaderId === "melonloader") {
-      return { loader: "melonloader", modsDir: "MelonLoader/Mods", modsDirKind: "mods" };
-    }
-    return { loader: "bepinex", modsDir: "BepInEx/plugins", modsDirKind: "bepinex-plugins" };
+    // Mirrors `mods::ensure_loader_dirs` + detection ids per catalog entry.
+    const layouts: Record<string, Pick<ModsSeed, "loader" | "modsDir" | "modsDirKind">> = {
+      bepinex5: { loader: "bepinex", modsDir: "BepInEx/plugins", modsDirKind: "bepinex-plugins" },
+      bepinex6mono: { loader: "bepinex", modsDir: "BepInEx/plugins", modsDirKind: "bepinex-plugins" },
+      bepinex6il2cpp: { loader: "bepinex", modsDir: "BepInEx/plugins", modsDirKind: "bepinex-plugins" },
+      melonloader: { loader: "melonloader", modsDir: "MelonLoader/Mods", modsDirKind: "mods" },
+      neomodloader: {
+        loader: "neomodloader",
+        modsDir: "worldbox_Data/StreamingAssets/mods",
+        modsDirKind: "mods",
+      },
+      tmodloader: { loader: "tmodloader", modsDir: null, modsDirKind: "external" },
+      cleo5: { loader: "cleo", modsDir: "CLEO", modsDirKind: "mods" },
+      cleo4: { loader: "cleo", modsDir: "CLEO", modsDirKind: "mods" },
+      cleoredux: { loader: "cleoredux", modsDir: "CLEO", modsDirKind: "mods" },
+      frosty: { loader: "frosty-moddata", modsDir: "ModData", modsDirKind: "mods" },
+    };
+    return layouts[loaderId] ?? { loader: "bepinex", modsDir: "BepInEx/plugins", modsDirKind: "bepinex-plugins" };
+  }
+
+  /** Co-install rules mirror `mods::coinstall_ok`. */
+  function coinstallOk(current: string, next: string): boolean {
+    return current === "none" || next === "frosty" || (next === "cleoredux" && current === "cleo");
   }
 
   function endSession(sessionId: number): void {
@@ -716,9 +737,6 @@ export function createMockApi(options: MockOptions = {}): MockApi {
     async installModLoader(gameId, loaderId?: string) {
       const game = requireGame(gameId);
       const pre = modsStatusOf(game);
-      if (pre.loader !== "none") {
-        throw uiError("VALIDATION", `a mod loader is already installed (${pre.loader})`);
-      }
       // Same resolution as the core: an explicit id has to be a catalog entry
       // that supports this engine, an omitted one is the suggestion. Either way
       // an impossible choice is one message, not two.
@@ -728,6 +746,15 @@ export function createMockApi(options: MockOptions = {}): MockApi {
           : (pre.loaders.find((entry) => entry.id === loaderId)?.id ?? null);
       if (chosen === null) {
         throw uiError("VALIDATION", "no known mod loader supports this game's engine");
+      }
+      if (pre.loader !== "none" && !coinstallOk(pre.loader, chosen)) {
+        throw uiError(
+          "VALIDATION",
+          `a mod loader is already installed (${pre.loader}) — ${loaderName(chosen)} cannot be layered on top`,
+        );
+      }
+      if (pre.loaders.find((entry) => entry.id === chosen)?.install === "manual") {
+        throw uiError("VALIDATION", `${loaderName(chosen)} is installed with its own tooling`);
       }
       await delay(networkMs);
 

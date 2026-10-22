@@ -206,19 +206,42 @@ export interface CoverCandidate {
  * Mods (loaders & installs)
  * ------------------------------------------------------------------------- */
 
-export type ModLoader = "bepinex" | "melonloader" | "doorstop" | "none";
-export type ModsDirKind = "bepinex-plugins" | "mods" | "none";
-export type ModEngine = "unity-mono" | "unity-il2cpp" | "unknown";
+export type ModLoader =
+  | "bepinex"
+  | "melonloader"
+  | "neomodloader"
+  | "mscloader"
+  | "tmodloader"
+  | "cleo"
+  | "cleoredux"
+  | "scripthook-v"
+  | "scripthook-iv"
+  | "frosty-moddata"
+  | "doorstop"
+  | "none";
+export type ModsDirKind = "bepinex-plugins" | "mods" | "asi-root" | "external" | "none";
+export type ModEngine =
+  | "unity-mono"
+  | "unity-il2cpp"
+  | "gta-classic"
+  | "gta-iv"
+  | "gta-v"
+  | "terraria"
+  | "frostbite"
+  | "unknown";
 
 /**
  * One installable loader from the core's catalog, ranked by popularity. The
  * `name` is the product name (a brand — never localized) and `engines` lists the
- * game engines it applies to.
+ * game engines it applies to. `install` says whether the core downloads it
+ * (`download`) or its own tooling does (`manual` — `docs` carries the link).
  */
 export interface ModLoaderInfo {
   id: string;
   name: string;
   engines: string[];
+  install: "download" | "manual";
+  docs: string | null;
 }
 
 export interface ModsStatus {
