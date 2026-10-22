@@ -101,6 +101,9 @@ export const ModsPanel = forwardRef<ModsPanelHandle, ModsPanelProps>(
    */
   const canInstall = status !== null && status.modsDir !== null;
 
+  /** Docs URL for the externally-managed loader (tModLoader), if the catalog lists one. */
+  const externalDocsUrl = status?.loaders.find((l) => l.id === "tmodloader")?.docs ?? null;
+
   /* ------------------------------------------------------------ focus --- */
 
   /** The section root: Big Picture uses it to find every action button and
@@ -454,18 +457,37 @@ export const ModsPanel = forwardRef<ModsPanelHandle, ModsPanelProps>(
                             <Badge tone="accent">{t("mods.recommended")}</Badge>
                           ) : null}
                         </span>
+                        {loader.install === "manual" ? (
+                          <>
+                            {loader.docs ? (
+                              <a
+                                href={loader.docs}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={styles.loaderManualLink}
+                              >
+                                {t("mods.officialDownload")}
+                              </a>
+                            ) : null}
+                            <span className={styles.loaderManualText}>
+                              {t("mods.manualLoader")}
+                            </span>
+                          </>
+                        ) : null}
                       </span>
-                      <Button
-                        
-                        size={compact ? "md" : "sm"}
-                        variant={recommended ? "secondary" : "ghost"}
-                        icon={PackagePlus}
-                        loading={installingLoader === loader.id}
-                        disabled={installingLoader !== null || installing}
-                        onClick={() => void installLoader(loader)}
-                      >
-                        {t("mods.installLoader", { loader: loader.name })}
-                      </Button>
+                      {loader.install === "download" ? (
+                        <Button
+                          
+                          size={compact ? "md" : "sm"}
+                          variant={recommended ? "secondary" : "ghost"}
+                          icon={PackagePlus}
+                          loading={installingLoader === loader.id}
+                          disabled={installingLoader !== null || installing}
+                          onClick={() => void installLoader(loader)}
+                        >
+                          {t("mods.installLoader", { loader: loader.name })}
+                        </Button>
+                      ) : null}
                     </li>
                   );
                 })}
@@ -572,10 +594,32 @@ export const ModsPanel = forwardRef<ModsPanelHandle, ModsPanelProps>(
                   : t("mods.dropHintStrict")}
               </span>
 
-              {status.modsDir === null ? (
-                <span className={`${styles.dropzoneHint} ${styles.dropzoneWarn}`}>
-                  {t("mods.dropNeedsDir")}
+              {status.modsDirKind === "asi-root" ? (
+                <span className={styles.dropzoneHint}>
+                  {t("mods.asiRootNote")}
                 </span>
+              ) : null}
+
+              {status.modsDir === null ? (
+                status.modsDirKind === "external" ? (
+                  <div className={styles.dropzoneExternal}>
+                    {t("mods.externalMods")}
+                    {externalDocsUrl ? (
+                      <a
+                        href={externalDocsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.dropzoneExternalLink}
+                      >
+                        {t("mods.externalDocs")}
+                      </a>
+                    ) : null}
+                  </div>
+                ) : (
+                  <span className={`${styles.dropzoneHint} ${styles.dropzoneWarn}`}>
+                    {t("mods.dropNeedsDir")}
+                  </span>
+                )
               ) : null}
 
               <Button

@@ -491,6 +491,13 @@ export const pl: TranslationShape = {
     recommended: "Zalecany",
     installLoader: "Zainstaluj {{loader}}",
 
+    manualLoader:
+      "Instaluje własnym instalatorem — pobierz ze strony oficjalnej, Zen wykryje go potem.",
+    officialDownload: "Oficjalna strona",
+    asiRootNote: "Pliki .asi lądują obok pliku wykonywalnego gry.",
+    externalMods: "Mody są zarządzane wewnątrz tModLoadera — Zen tylko je wykrywa.",
+    externalDocs: "Dokumentacja tModLoadera",
+
     validationLabel: "Walidacja archiwów",
     validationLenient: "Leniwy",
     validationLenientDetail: "każdy typ czytelny dla 7z · symlinki pomijane",
@@ -536,6 +543,14 @@ export const pl: TranslationShape = {
       bepinex: "BepInEx",
       melonloader: "MelonLoader",
       doorstop: "Doorstop",
+      neomodloader: "NeoModLoader",
+      mscloader: "MSC Mod Loader",
+      tmodloader: "tModLoader",
+      cleo: "CLEO",
+      cleoredux: "CLEO Redux",
+      "scripthook-v": "Script Hook V",
+      "scripthook-iv": "Script Hook IV",
+      "frosty-moddata": "Frosty (ModData)",
       none: "Brak",
     },
     engine: {

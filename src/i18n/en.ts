@@ -489,6 +489,13 @@ export const en = {
     recommended: "Recommended",
     installLoader: "Install {{loader}}",
 
+    manualLoader:
+      "Installed by its own installer — download it from the official page, Zen keeps detecting it afterwards.",
+    officialDownload: "Official download",
+    asiRootNote: "ASI mods land beside the game's executable.",
+    externalMods: "Mods are managed inside tModLoader — Zen only detects them here.",
+    externalDocs: "tModLoader docs",
+
     validationLabel: "Archive validation",
     validationLenient: "Lenient",
     validationLenientDetail: "any type 7z can read · symlinks skipped",
@@ -532,6 +539,14 @@ export const en = {
       bepinex: "BepInEx",
       melonloader: "MelonLoader",
       doorstop: "Doorstop",
+      neomodloader: "NeoModLoader",
+      mscloader: "MSC Mod Loader",
+      tmodloader: "tModLoader",
+      cleo: "CLEO",
+      cleoredux: "CLEO Redux",
+      "scripthook-v": "Script Hook V",
+      "scripthook-iv": "Script Hook IV",
+      "frosty-moddata": "Frosty (ModData)",
       none: "None",
     },
     engine: {
