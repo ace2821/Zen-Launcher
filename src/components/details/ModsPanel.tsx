@@ -13,7 +13,7 @@ import { api } from "../../lib/api";
 import { ARCHIVE_EXTENSIONS, isArchivePath, useWindowDragDrop } from "../../lib/dnd";
 import { toUiError, type UiAppError } from "../../lib/errors";
 import { useModLabels } from "../../lib/hooks";
-import type { Game, ModLoaderInfo, ModsStatus } from "../../lib/types";
+import type { Game, LoaderUpdate, ModLoader, ModLoaderInfo, ModsStatus } from "../../lib/types";
 import { confirmDialog } from "../../store/confirm";
 import { useLibraryStore } from "../../store/library";
 import { toastError, toastInfo, toastSuccess } from "../../store/toasts";
@@ -77,6 +77,10 @@ export const ModsPanel = forwardRef<ModsPanelHandle, ModsPanelProps>(
   const [installingLoader, setInstallingLoader] = useState<string | null>(null);
   /** Name of the archive being extracted right now. */
   const [current, setCurrent] = useState<string | null>(null);
+  /** Update check for the loader Zen installed itself; `null` when there is
+     nothing to update or no Zen-installed loader at all. */
+  const [loaderUpdate, setLoaderUpdate] = useState<LoaderUpdate | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [htmlDrag, setHtmlDrag] = useState(false);
 
   /** The archive rules the core is currently holding this install to. */
@@ -199,6 +203,27 @@ export const ModsPanel = forwardRef<ModsPanelHandle, ModsPanelProps>(
     void refresh();
   }, [refresh]);
 
+  /** Whether the loader Zen installed itself has an update waiting. Only
+     checked for Zen-installed loaders — detected/manual loaders stay quiet. */
+  useEffect(() => {
+    if (status?.installLoader === null) {
+      setLoaderUpdate(null);
+      setCheckingUpdate(false);
+      return;
+    }
+    setCheckingUpdate(true);
+    void api
+      .checkLoaderUpdates(game.id)
+      .then((update) => {
+        setLoaderUpdate(update !== null && update.updatable ? update : null);
+      })
+      .catch(() => {
+        // Informational only: never block the panel on an update check.
+        setLoaderUpdate(null);
+      })
+      .finally(() => setCheckingUpdate(false));
+  }, [status?.installLoader, game.id]);
+
   const installArchives = useCallback(
     async (paths: string[]) => {
       const archives = paths.filter(isArchivePath);
@@ -312,6 +337,24 @@ export const ModsPanel = forwardRef<ModsPanelHandle, ModsPanelProps>(
     }
   };
 
+  const reinstallLoader = async () => {
+    const loader = status?.installLoader;
+    if (!loader) return;
+    setInstallingLoader(loader.id);
+    try {
+      // Reinstalling the same loader pulls the newest release and records it.
+      setStatus(await api.installModLoader(game.id, loader.id));
+      toastSuccess(
+        t("mods.installedToast", { loader: labels.loader(loader.id as ModLoader) }),
+        game.installPath,
+      );
+    } catch (failure) {
+      toastError(t("mods.installFailed"), toUiError(failure));
+    } finally {
+      setInstallingLoader(null);
+    }
+  };
+
   const chooseArchive = async () => {
     let path: string | null = null;
     try {
@@ -415,6 +458,30 @@ export const ModsPanel = forwardRef<ModsPanelHandle, ModsPanelProps>(
               )}
             </span>
           </div>
+
+          {/*
+           * A loader Zen installed itself can go stale. When a newer release
+           * exists, say so and offer a reinstall — the same install path as a
+           * first install, so the core validates and records it identically.
+           */}
+          {status.supported &&
+            status.installLoader !== null &&
+            loaderUpdate !== null && (
+              <div className={styles.loaderUpdate}>
+                <span>{t("mods.updateAvailable", { latest: loaderUpdate.latest })}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  loading={
+                    installingLoader === loaderUpdate.loaderId || checkingUpdate
+                  }
+                  disabled={installingLoader !== null || installing}
+                  onClick={() => void reinstallLoader()}
+                >
+                  {t("mods.reinstallLoader")}
+                </Button>
+              </div>
+            )}
 
           {/*
            * The engine is the gate the whole panel turns on. When the catalog

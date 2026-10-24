@@ -264,6 +264,23 @@ export const en = {
     sessionEnded: "Session ended",
     sessionEndedBody: "“{{title}}” ran for {{duration}}.",
     revealFailed: "Could not open the file manager",
+
+    clientBadge: {
+      samp: "SA-MP",
+      fivem: "FiveM",
+      mta: "MTA",
+    },
+
+    client: {
+      samp: "SA-MP client",
+      host: "Host",
+      port: "Port",
+      portHint: "1 – 65535",
+      portInvalid: "Port must be between 1 and 65535.",
+      nick: "Nick",
+      fivem: "FiveM reads its own config — nothing to set here.",
+      mta: "MTA reads its own config — nothing to set here.",
+    },
   },
 
   settings: {
@@ -511,6 +528,9 @@ export const en = {
     installNote: "Nothing outside the game folder is touched, and no library entry changes.",
     installedToast: "{{loader}} installed",
     installFailed: "Could not install the loader",
+
+    updateAvailable: "Update available: {{latest}}",
+    reinstallLoader: "Reinstall",
 
     dropLabel: "Drop mod archives here",
     dropHintLenient:

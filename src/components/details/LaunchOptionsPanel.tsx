@@ -12,7 +12,7 @@ import {
 import type { Game } from "../../lib/types";
 import { useLibraryStore } from "../../store/library";
 import { toastSuccess } from "../../store/toasts";
-import { Chip } from "../ui/Badge";
+import { Badge, Chip } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { TextAreaField, TextField } from "../ui/Field";
 import page from "../page/page.module.css";
@@ -38,6 +38,11 @@ export interface LaunchOptionsPanelProps {
  * The only editable launch surface in M1. Arguments and environment are edited
  * as free text (that is how people actually copy them around) but are always
  * parsed into the array/record the contract expects — never handed to a shell.
+ *
+ * When the game carries a detected SA-MP client, its `host`/`port`/`nick`
+ * are edited here and saved back as `client` — the core composes the actual
+ * `-h`/`-p`/`-n` launch arguments from `ClientInfo`, this panel only owns the
+ * fields. FiveM and MTA add no arguments, so they get a read-only note instead.
  */
 export function LaunchOptionsPanel({ game }: LaunchOptionsPanelProps) {
   const { t } = useTranslation();
@@ -46,6 +51,18 @@ export function LaunchOptionsPanel({ game }: LaunchOptionsPanelProps) {
     (state) => state.busy[`game:update:${game.id}`] === true,
   );
 
+  const clientKind = game.client?.kind;
+  const isSamp = clientKind === "samp";
+  const isInfoClient = clientKind === "fivem" || clientKind === "mta";
+
+  const clientLabel = isSamp || isInfoClient
+    ? {
+        samp: t("details.clientBadge.samp"),
+        fivem: t("details.clientBadge.fivem"),
+        mta: t("details.clientBadge.mta"),
+      }[clientKind]
+    : null;
+
   // The stored values are the baseline; the fields are free to drift from them.
   const baseline = useMemo(
     () => ({
@@ -53,14 +70,28 @@ export function LaunchOptionsPanel({ game }: LaunchOptionsPanelProps) {
       argsText: stringifyArgs(game.args),
       workDir: game.workDir ?? "",
       envText: stringifyEnv(game.env),
+      host: game.client?.host ?? "",
+      port: game.client?.port?.toString() ?? "",
+      nick: game.client?.nick ?? "",
     }),
-    [game.executable, game.args, game.workDir, game.env],
+    [
+      game.executable,
+      game.args,
+      game.workDir,
+      game.env,
+      game.client?.host,
+      game.client?.port,
+      game.client?.nick,
+    ],
   );
 
   const [executable, setExecutable] = useState(baseline.executable);
   const [argsText, setArgsText] = useState(baseline.argsText);
   const [workDir, setWorkDir] = useState(baseline.workDir);
   const [envText, setEnvText] = useState(baseline.envText);
+  const [host, setHost] = useState(baseline.host);
+  const [port, setPort] = useState(baseline.port);
+  const [nick, setNick] = useState(baseline.nick);
 
   // Opening a different entry always starts from its stored options. The
   // baseline is deliberately not a dependency: this resets on identity change
@@ -70,13 +101,19 @@ export function LaunchOptionsPanel({ game }: LaunchOptionsPanelProps) {
     setArgsText(baseline.argsText);
     setWorkDir(baseline.workDir);
     setEnvText(baseline.envText);
+    setHost(baseline.host);
+    setPort(baseline.port);
+    setNick(baseline.nick);
   }, [game.id]);
 
   const dirty =
     executable !== baseline.executable ||
     argsText !== baseline.argsText ||
     workDir !== baseline.workDir ||
-    envText !== baseline.envText;
+    envText !== baseline.envText ||
+    host !== baseline.host ||
+    port !== baseline.port ||
+    nick !== baseline.nick;
 
   // An external change (another view, an event) is applied only while the
   // editor is untouched, so nothing overwrites what is being typed.
@@ -86,6 +123,9 @@ export function LaunchOptionsPanel({ game }: LaunchOptionsPanelProps) {
     setArgsText(baseline.argsText);
     setWorkDir(baseline.workDir);
     setEnvText(baseline.envText);
+    setHost(baseline.host);
+    setPort(baseline.port);
+    setNick(baseline.nick);
   }, [baseline, dirty]);
 
   const args = useMemo(() => parseArgs(argsText), [argsText]);
@@ -93,25 +133,59 @@ export function LaunchOptionsPanel({ game }: LaunchOptionsPanelProps) {
   const argsIssue = args.issue ? describeIssue(args.issue, t) : null;
   const envIssue = env.issue ? describeIssue(env.issue, t) : null;
   const executableIssue = executable.trim() === "" ? t("details.executableRequired") : null;
-  const invalid = argsIssue !== null || envIssue !== null || executableIssue !== null;
+
+  const portNumber = port.trim() === "" ? null : Number(port);
+  const portIssue =
+    port.trim() !== "" &&
+    (Number.isNaN(portNumber!) || portNumber! < 1 || portNumber! > 65535)
+      ? t("details.client.portInvalid")
+      : null;
+
+  const invalid =
+    argsIssue !== null || envIssue !== null || executableIssue !== null || portIssue !== null;
 
   const reset = useCallback(() => {
     setExecutable(baseline.executable);
     setArgsText(baseline.argsText);
     setWorkDir(baseline.workDir);
     setEnvText(baseline.envText);
+    setHost(baseline.host);
+    setPort(baseline.port);
+    setNick(baseline.nick);
   }, [baseline]);
 
   const save = useCallback(async () => {
     if (invalid) return;
-    const updated = await updateGame(game.id, {
+    const patch: Parameters<typeof updateGame>[1] = {
       executable: executable.trim(),
       args: args.value,
       workDir: workDir.trim() === "" ? null : workDir.trim(),
       env: env.value,
-    });
+    };
+    if (game.client !== null) {
+      patch.client = {
+        kind: game.client.kind,
+        host: host.trim() === "" ? null : host.trim(),
+        port: portNumber,
+        nick: nick.trim() === "" ? null : nick.trim(),
+      };
+    }
+    const updated = await updateGame(game.id, patch);
     if (updated !== null) toastSuccess(t("details.optionsSaved"));
-  }, [args.value, env.value, executable, game.id, invalid, t, updateGame, workDir]);
+  }, [
+    args.value,
+    env.value,
+    executable,
+    game.client,
+    game.id,
+    host,
+    invalid,
+    nick,
+    portNumber,
+    t,
+    updateGame,
+    workDir,
+  ]);
 
   const envEntries = Object.entries(env.value);
 
@@ -219,6 +293,47 @@ export function LaunchOptionsPanel({ game }: LaunchOptionsPanelProps) {
             </span>
           )}
         </div>
+
+        {game.client !== null ? (
+          <div className={styles.clientGroup}>
+            <h3 className={styles.subTitle}>{clientLabel}</h3>
+            {isSamp ? (
+              <>
+                <TextField
+                  label={t("details.client.host")}
+                  mono
+                  value={host}
+                  spellCheck={false}
+                  onChange={(event) => setHost(event.target.value)}
+                />
+                <TextField
+                  label={t("details.client.port")}
+                  hint={t("details.client.portHint")}
+                  error={portIssue}
+                  mono
+                  type="number"
+                  min="1"
+                  max="65535"
+                  value={port}
+                  spellCheck={false}
+                  onChange={(event) => setPort(event.target.value)}
+                />
+                <TextField
+                  label={t("details.client.nick")}
+                  mono
+                  value={nick}
+                  spellCheck={false}
+                  onChange={(event) => setNick(event.target.value)}
+                />
+              </>
+            ) : (
+              <div className={styles.clientInfo}>
+                <Badge tone="info">{clientLabel}</Badge>
+                <span>{t(clientKind === "fivem" ? "details.client.fivem" : "details.client.mta")}</span>
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     </section>
   );

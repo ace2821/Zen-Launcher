@@ -263,6 +263,23 @@ export const pl: TranslationShape = {
     sessionEnded: "Sesja zakończona",
     sessionEndedBody: "„{{title}}” działała {{duration}}.",
     revealFailed: "Nie udało się otworzyć menedżera plików",
+
+    clientBadge: {
+      samp: "SA-MP",
+      fivem: "FiveM",
+      mta: "MTA",
+    },
+
+    client: {
+      samp: "Klient SA-MP",
+      host: "Host",
+      port: "Port",
+      portHint: "1 – 65535",
+      portInvalid: "Port musi być z zakresu 1–65535.",
+      nick: "Nick",
+      fivem: "FiveM czyta własną konfigurację — nic tu do ustawienia.",
+      mta: "MTA czyta własną konfigurację — nic tu do ustawienia.",
+    },
   },
 
   settings: {
@@ -514,6 +531,9 @@ export const pl: TranslationShape = {
       "Nic poza folderem gry nie zostanie ruszone, a wpis w bibliotece się nie zmieni.",
     installedToast: "{{loader}} zainstalowany",
     installFailed: "Nie udało się zainstalować loadera",
+
+    updateAvailable: "Dostępna aktualizacja: {{latest}}",
+    reinstallLoader: "Zainstaluj ponownie",
 
     dropLabel: "Przeciągnij tutaj archiwa z modami",
     dropHintLenient:

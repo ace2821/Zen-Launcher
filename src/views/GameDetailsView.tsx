@@ -51,6 +51,12 @@ function DetailsHero({ game }: { game: Game }) {
   const labels = useGameLabels();
   const { playtime, relativeDate } = useFormatters();
   const launch = useLaunchAvailability(game);
+
+  const clientBadgeLabel = game.client !== null ? {
+    samp: t("details.clientBadge.samp"),
+    fivem: t("details.clientBadge.fivem"),
+    mta: t("details.clientBadge.mta"),
+  }[game.client.kind] : null;
   const settings = useLibraryStore((state) => state.settings);
   const launchGame = useLibraryStore((state) => state.launchGame);
   const removeGame = useLibraryStore((state) => state.removeGame);
@@ -129,6 +135,7 @@ function DetailsHero({ game }: { game: Game }) {
           <Badge tone={game.status === "missing" ? "warn" : "quiet"}>
             {labels.status(game.status)}
           </Badge>
+          {clientBadgeLabel !== null && <Badge tone="quiet">{clientBadgeLabel}</Badge>}
         </div>
 
         <h2 className={styles.heroTitle}>{game.title}</h2>

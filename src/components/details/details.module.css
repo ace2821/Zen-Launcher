@@ -683,6 +683,46 @@
   color: var(--warn);
 }
 
+/* --------------------------------------------------------------- client --- */
+
+.clientGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding-top: var(--s-1);
+  border-top: 1px solid var(--border);
+}
+
+.clientInfo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* Update notice for a loader Zen installed itself: a hint plus the reinstall
+   action, kept compact so it reads as part of the loader fact row. */
+.loaderUpdate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+
+.loaderUpdate span {
+  color: var(--text-muted);
+}
+
 /* --------------------------------------------------------- compact (Big Picture) --- */
 
 /* Big Picture reuses ModsPanel inside its details dialog, where there is less
