@@ -206,6 +206,9 @@ pub fn approve_candidate(
         .clone()
         .unwrap_or_else(|| candidate.suggested_title.clone());
 
+    // Client metadata is re-detected at import time (candidates do not store it).
+    let client = scanner::detect_client(Path::new(&install_path));
+
     // Dedupe by canonical install path.
     if let Some(existing) = db::find_game_by_install_path(&conn, &install_path)? {
         db::set_candidate_status(&conn, id, CandidateStatus::Approved)?;
@@ -229,6 +232,7 @@ pub fn approve_candidate(
             env: Default::default(),
             work_dir: patch.work_dir,
             tags: Vec::new(),
+            client,
         },
     )?;
     db::set_candidate_status(&conn, id, CandidateStatus::Approved)?;
@@ -508,7 +512,8 @@ fn game_root_for(state: &State<'_, AppState>, game_id: i64) -> AppResult<PathBuf
 #[tauri::command]
 pub fn mods_status(state: State<'_, AppState>, game_id: i64) -> AppResult<crate::mods::ModsStatus> {
     let root = game_root_for(&state, game_id)?;
-    Ok(crate::mods::status(&root))
+    let state_dir = crate::paths::game_state_dir(game_id)?;
+    Ok(crate::mods::status_with_install(&root, &state_dir))
 }
 
 #[tauri::command]
@@ -518,7 +523,21 @@ pub async fn install_mod_loader(
     loader_id: Option<String>,
 ) -> AppResult<crate::mods::ModsStatus> {
     let root = game_root_for(&state, game_id)?;
-    crate::mods::install_loader(&root, loader_id.as_deref())
+    let state_dir = crate::paths::game_state_dir(game_id)?;
+    crate::mods::install_loader(&root, loader_id.as_deref(), &state_dir)
+}
+
+/// Compare the loader Zen installed for this game with the latest release.
+/// `null` when there is nothing Zen-installed to check (manual/detected loaders).
+#[tauri::command]
+pub async fn check_loader_updates(
+    state: State<'_, AppState>,
+    game_id: i64,
+) -> AppResult<Option<crate::mods::LoaderUpdate>> {
+    // Resolve the game so an unknown id is NOT_FOUND rather than a silent null.
+    let _ = game_root_for(&state, game_id)?;
+    let state_dir = crate::paths::game_state_dir(game_id)?;
+    crate::mods::check_loader_updates(&state_dir)
 }
 
 #[tauri::command]

@@ -57,11 +57,22 @@ interface Game {
   hidden: boolean;
   notes: string | null;
   coverPath: string | null;   // local file path (providers fill in later milestones)
+  client: ClientInfo | null;  // detected (or manually patched) multiplayer client
   status: "ready" | "missing"; // computed on read (executable exists?)
   createdAt: string;
   updatedAt: string;
   lastPlayedAt: string | null;
   totalSeconds: number;
+}
+
+/** Only these three client layouts are first-class — no `generic` variant. */
+type ClientKind = "samp" | "fivem" | "mta";
+
+interface ClientInfo {
+  kind: ClientKind;
+  host: string | null;  // SA-MP `-h`; ignored by FiveM/MTA
+  port: number | null;  // SA-MP `-p`; out-of-range values deserialize as null
+  nick: string | null;  // SA-MP `-n`
 }
 
 interface Session {
@@ -114,11 +125,16 @@ interface LaunchInfo {
 | `update_settings` | `{ patch }` | `Settings` |
 
 Editable `update_game` fields: `title`, `sortTitle`, `type`, `executable`,
-`args`, `env`, `workDir`, `tags`, `favorite`, `hidden`, `notes`, `coverPath`.
+`args`, `env`, `workDir`, `tags`, `favorite`, `hidden`, `notes`, `coverPath`,
+`client`.
 
 Patch semantics: an omitted field keeps its stored value; an explicit `null`
-clears the nullable fields (`sortTitle`, `workDir`, `notes`, `coverPath`).
-Empty `title`/`executable` are rejected with `VALIDATION`.
+clears the nullable fields (`sortTitle`, `workDir`, `notes`, `coverPath`,
+`client`). For `client`, an omitted key differs from `null`: `null` clears the
+detected/manual client, `{ kind, host?, port?, nick? }` replaces it. Empty
+`title`/`executable` are rejected with `VALIDATION`. A `client.port` outside
+`1..=65535` is stored as `null` (ignored with a warning) rather than rejecting
+the patch.
 
 `update_settings` patch semantics: every field is optional; an omitted field
 keeps its stored value. `font`/`accent` are trimmed and must be 1–32 chars of
@@ -195,6 +211,14 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
 - Default cwd = the executable's directory (`workDir` overrides). Session
   supervision tracks the direct child; launchers that exit immediately end the
   session early (known limitation).
+- Client adapters (`game.client`): SA-MP (`kind: "samp"`) appends `-h <host>`,
+  `-p <port>`, `-n <nick>` after the stored `args`, each only when present
+  (`port` must be 1..=65535; invalid values are ignored, never a failed launch).
+  FiveM (`fivem`) and MTA (`mta`) add no arguments — their launchers read their
+  own config. Client detection (scanner): a folder carrying `FiveM.app/`,
+  `CitizenFX.exe` or `FiveM.exe` → `fivem`; `Multi Theft Auto.exe` → `mta`; a
+  GTA San Andreas root (`gta_sa.exe` or a "GTA San Andreas" folder name) that
+  also carries `samp.exe` → `samp` (the base game stays the launch target).
 
 ## Covers (artwork)
 
@@ -224,8 +248,11 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
   "unity-mono" | "unity-il2cpp" | "gta-classic" | "gta-iv" | "gta-v" |
   "terraria" | "frostbite" | "unknown", supported: boolean, suggestedLoader:
   string | null, loaders: { id: string, name: string, engines: string[],
-  install: "download" | "manual", docs: string | null }[], installed: string[]
-  }`.
+  install: "download" | "manual", docs: string | null }[], installed: string[],
+  installLoader: { id: string, version: string } | null }`.
+  `installLoader` is non-null only when Zen installed the loader itself (read
+  from `<dataDir>/games/<gameId>/loader.json`); detected/manual loaders and
+  `none` leave it `null`.
   - Detection (first match): `BepInEx/` → `bepinex`; `MelonLoader/` →
     `melonloader`; `worldbox_Data/StreamingAssets/mods/NeoModLoader.dll` →
     `neomodloader`; `MSCLoader.dll` at the root → `mscloader`;
@@ -290,7 +317,17 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
   Redux on top of `cleo` and Frosty on anything), the engine is unsupported,
   the loader is manual (`scripthook-iv/-v`, `mscloader` — install with the
   loader's own tooling), or the id is unknown; nothing is written on
-  failure.
+  failure. A successful install records `{ loaderId, version }` in
+  `<dataDir>/games/<gameId>/loader.json` (`version` = semver fragment of the
+  GitHub release tag) and returns it as `installLoader`.
+- `check_loader_updates(gameId) -> LoaderUpdate | null` —
+  `LoaderUpdate = { loaderId: string, current: string, latest: string,
+  assetUrl: string | null, updatable: boolean }`. Reads `loader.json`, looks up
+  the newest matching release for that loader and extracts a light semver
+  fragment from the release tag (e.g. `SA.CLEO-v1.2.3+…` → `1.2.3`).
+  `updatable = latest != current`. Returns `null` when no loader was installed
+  by Zen, the recorded loader is `install: "manual"`, `loader = "none"`, or the
+  state file is missing/corrupt. A lookup failure surfaces as `IO` (retryable).
 - `install_mod_archive(gameId, archivePath) -> ModInstallResult` —
   `{ installed: string[], modsDir: string, trashed: boolean }`. Validation
   follows the settings: `modsLenient: false` (strict) accepts only
@@ -348,6 +385,11 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
 - Ignore pitfalls: `*setup*`, `*redist*`, `unins*`, `crash*`, `_CommonRedist`,
   `DirectX`, `dotnet`, `vc_redist`, `support/`, `docs/`.
 - Candidate = deepest folder that contains a plausible primary executable.
+- Client markers (case-insensitive): `FiveM.app/` or `CitizenFX.exe`/`FiveM.exe`
+  → `client.kind = "fivem"`; `Multi Theft Auto.exe` → `"mta"`; GTA San Andreas
+  root (`gta_sa.exe` or "GTA San Andreas" folder) carrying `samp.exe` → `"samp"`
+  with `gta_sa.exe` still the executable. The client is written to `Game.client`
+  when the candidate is approved (manual `update_game` patches can override it).
 - `confidence` from weighted evidence; `suggestedTitle` = cleaned folder name.
 - Fixture trees for tests live in `src-tauri/tests/fixtures/`.
 
@@ -359,7 +401,7 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
 - SQLite: WAL mode, foreign keys on, versioned migrations table
   `schema_migrations`.
 
-## DB schema (migration v1)
+## DB schema (migrations v1 → v2)
 
 ```sql
 sources(id INTEGER PRIMARY KEY, path TEXT UNIQUE NOT NULL, auto_scan INTEGER NOT NULL DEFAULT 0,
@@ -373,12 +415,21 @@ games(id INTEGER PRIMARY KEY, title TEXT NOT NULL, sort_title TEXT, type TEXT NO
       install_path TEXT NOT NULL, executable TEXT NOT NULL, args_json TEXT NOT NULL DEFAULT '[]',
       env_json TEXT NOT NULL DEFAULT '{}', work_dir TEXT, tags_json TEXT NOT NULL DEFAULT '[]',
       favorite INTEGER NOT NULL DEFAULT 0, hidden INTEGER NOT NULL DEFAULT 0, notes TEXT,
-      cover_path TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      cover_path TEXT, client TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       last_played_at TEXT, total_seconds INTEGER NOT NULL DEFAULT 0);
 sessions(id INTEGER PRIMARY KEY, game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
          started_at TEXT NOT NULL, ended_at TEXT, duration_seconds INTEGER, exit_code INTEGER);
 schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
 ```
+
+- v2: `ALTER TABLE games ADD COLUMN client TEXT NULL;` — `ClientInfo` encoded as
+  JSON; `NULL` means no client. `SCHEMA_VERSION = 2`.
+
+## Per-game state
+
+- `<dataDir>/games/<gameId>/` holds per-game state written by the core.
+  `loader.json` = `{ loaderId, version }` after a successful
+  `install_mod_loader` (never written for manual/detected loaders).
 
 ## M1 exclusions (do not fake these)
 

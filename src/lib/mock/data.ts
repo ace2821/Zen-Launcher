@@ -5,6 +5,7 @@ import type {
   CoverCandidate,
   Game,
   GamepadInfo,
+  LoaderInstall,
   ModEngine,
   ModLoader,
   ModLoaderInfo,
@@ -152,6 +153,8 @@ export interface ModsSeed {
   /** Root entries the fake folder carries — mirrors `spec_matches_root`. */
   markers: string[];
   installed: string[];
+  /** Set when the mock "installed" a loader (mirror of `loader.json`). */
+  installLoader?: LoaderInstall | null;
 }
 
 /** One installable loader; mirrors the core's `mods::CATALOG` entry for entry. */
@@ -272,6 +275,28 @@ export function loaderName(id: string): string {
   return LOADER_CATALOG.find((spec) => spec.id === id)?.name ?? id;
 }
 
+/**
+ * Release versions the mock pretends each loader is at. `installModLoader`
+ * records the current one; `checkLoaderUpdates` compares against the same map,
+ * so the emulated check is a no-op unless the table is bumped.
+ */
+export const LOADER_VERSIONS: Record<string, string> = {
+  bepinex5: "5.4.23",
+  bepinex6mono: "6.0.0",
+  bepinex6il2cpp: "6.0.0",
+  melonloader: "0.6.6",
+  neomodloader: "1.0.0",
+  tmodloader: "2026.1.0",
+  cleo5: "1.0.8",
+  cleo4: "4.3.0",
+  cleoredux: "1.1.2",
+  frosty: "1.0.6",
+};
+
+export function loaderVersion(id: string): string {
+  return LOADER_VERSIONS[id] ?? "1.0.0";
+}
+
 const SOURCES: Source[] = [
   {
     id: 1,
@@ -340,7 +365,7 @@ export function coverArtUri(seed: string, label = seed): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-const GAMES: Game[] = [
+const GAMES: Array<Omit<Game, "client">> = [
   {
     id: 1,
     title: "Hollow Knight",
@@ -1076,6 +1101,7 @@ export function createSeedState(settings?: Partial<Settings>): MockState {
       args: [...game.args],
       env: { ...game.env },
       tags: [...game.tags],
+      client: null,
     })),
     sessions: buildSessions(),
     settings: loadSettings(settings),

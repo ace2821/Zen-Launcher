@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use walkdir::WalkDir;
 
-use crate::models::EngineKind;
+use crate::models::{ClientInfo, ClientKind, EngineKind};
 
 /// Depth cap protecting the walker from pathological trees.
 pub const MAX_DEPTH: usize = 16;
@@ -263,6 +263,93 @@ fn existing_file(dir: &Path, names: &[String]) -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
+// ---------------------------------------------------------------------------
+// Multiplayer client detection (SA-MP / FiveM / MTA)
+// ---------------------------------------------------------------------------
+
+fn file_ci(entries: &[Entry], name: &str) -> Option<PathBuf> {
+    entries
+        .iter()
+        .find(|entry| !entry.is_dir && entry.name.eq_ignore_ascii_case(name))
+        .map(|entry| entry.path.clone())
+}
+
+fn has_dir_ci(entries: &[Entry], name: &str) -> bool {
+    entries
+        .iter()
+        .any(|entry| entry.is_dir && entry.name.eq_ignore_ascii_case(name))
+}
+
+/// Client markers in a folder listing. Detection is pure; the caller decides
+/// which executable to store (the client launcher is not always the game).
+fn detect_client_in(dir: &Path, entries: &[Entry]) -> Option<ClientInfo> {
+    let has_file = |name: &str| file_ci(entries, name).is_some();
+
+    if has_dir_ci(entries, "FiveM.app") || has_file("CitizenFX.exe") || has_file("FiveM.exe") {
+        return Some(ClientInfo {
+            kind: ClientKind::Fivem,
+            host: None,
+            port: None,
+            nick: None,
+        });
+    }
+    if has_file("Multi Theft Auto.exe") {
+        return Some(ClientInfo {
+            kind: ClientKind::Mta,
+            host: None,
+            port: None,
+            nick: None,
+        });
+    }
+
+    // SA-MP is an add-on: the GTA San Andreas root itself stays the game, and
+    // `samp.exe` rides on top of it.
+    let base = normalize_key(&base_name(dir));
+    let gta_root = has_file("gta_sa.exe") || base.contains("gtasanandreas");
+    if has_file("samp.exe") && gta_root {
+        return Some(ClientInfo {
+            kind: ClientKind::Samp,
+            host: None,
+            port: None,
+            nick: None,
+        });
+    }
+
+    None
+}
+
+/// Public entry point used by `approve_candidate` to attach client metadata at
+/// import time (candidates do not persist it themselves).
+pub fn detect_client(dir: &Path) -> Option<ClientInfo> {
+    let entries = read_entries(dir);
+    detect_client_in(dir, &entries)
+}
+
+/// The executable a client folder should launch.
+fn client_executable(entries: &[Entry], kind: ClientKind) -> Option<PathBuf> {
+    match kind {
+        ClientKind::Fivem => file_ci(entries, "CitizenFX.exe")
+            .or_else(|| file_ci(entries, "FiveM.exe"))
+            .or_else(|| {
+                entries
+                    .iter()
+                    .find(|entry| entry.is_dir && entry.name.eq_ignore_ascii_case("FiveM.app"))
+                    .and_then(|entry| {
+                        std::fs::read_dir(&entry.path).ok().and_then(|read| {
+                            read.flatten().find_map(|item| {
+                                let name = item.file_name().to_string_lossy().into_owned();
+                                (name.eq_ignore_ascii_case("CitizenFX.exe")
+                                    || name.eq_ignore_ascii_case("FiveM.exe"))
+                                .then(|| item.path())
+                            })
+                        })
+                    })
+            }),
+        ClientKind::Mta => file_ci(entries, "Multi Theft Auto.exe"),
+        ClientKind::Samp => file_ci(entries, "gta_sa.exe"),
+    }
+}
+
 fn normalize_key(value: &str) -> String {
     value
         .to_ascii_lowercase()
@@ -301,6 +388,29 @@ fn detect_dir(dir: &Path) -> Option<RawCandidate> {
 
     let has = |names: &[String], needle: &str| names.iter().any(|name| name == needle);
     let title = clean_title(&base);
+
+    // ---- Multiplayer clients (FiveM / MTA / SA-MP add-on) ----------------
+    if let Some(client) = detect_client_in(dir, &entries) {
+        let executable = client_executable(&entries, client.kind)
+            .or_else(|| first_exe_in(dir))
+            .or_else(|| first_elf_executable_in(dir));
+        let (label, marker) = match client.kind {
+            ClientKind::Fivem => ("FiveM", "FiveM.app/CitizenFX.exe"),
+            ClientKind::Mta => ("Multi Theft Auto", "Multi Theft Auto.exe"),
+            ClientKind::Samp => ("SA-MP", "samp.exe"),
+        };
+        return Some(RawCandidate {
+            path: dir.to_path_buf(),
+            engine: EngineKind::Unknown,
+            suggested_title: title,
+            confidence: 0.85,
+            evidence: vec![
+                format!("{marker} ({label} client)"),
+                "multiplayer client folder".to_string(),
+            ],
+            executable,
+        });
+    }
 
     // ---- Unity -----------------------------------------------------------
     if let Some(data_dir) = dirs
@@ -726,6 +836,51 @@ fn finalize(mut candidates: Vec<RawCandidate>) -> Vec<RawCandidate> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn client_markers_detect_fivem_mta_and_samp() {
+        // FiveM: the `.app` bundle alone is enough; the exe lives inside it.
+        let dir = tempfile::tempdir().unwrap();
+        let fx = dir.path().join("FiveM");
+        std::fs::create_dir_all(fx.join("FiveM.app")).unwrap();
+        std::fs::write(fx.join("FiveM.app/CitizenFX.exe"), b"MZ").unwrap();
+        let client = detect_client(&fx).expect("FiveM client");
+        assert_eq!(client.kind, ClientKind::Fivem);
+        let candidate = detect_dir(&fx).expect("FiveM folder is a candidate");
+        assert_eq!(
+            candidate.executable.unwrap().file_name().unwrap().to_string_lossy(),
+            "CitizenFX.exe"
+        );
+
+        // MTA: exact launcher name, case-insensitive.
+        let mta = dir.path().join("MTA");
+        std::fs::create_dir_all(&mta).unwrap();
+        std::fs::write(mta.join("multi theft auto.EXE"), b"MZ").unwrap();
+        assert_eq!(detect_client(&mta).unwrap().kind, ClientKind::Mta);
+        assert_eq!(
+            detect_dir(&mta).unwrap().executable.unwrap().file_name().unwrap().to_string_lossy(),
+            "multi theft auto.EXE"
+        );
+
+        // SA-MP rides on GTA San Andreas: the client is detected, but the game
+        // root (gta_sa.exe) stays the launch target.
+        let sa = dir.path().join("GTA San Andreas");
+        std::fs::create_dir_all(&sa).unwrap();
+        std::fs::write(sa.join("gta_sa.exe"), b"MZ").unwrap();
+        std::fs::write(sa.join("samp.exe"), b"MZ").unwrap();
+        assert_eq!(detect_client(&sa).unwrap().kind, ClientKind::Samp);
+        let candidate = detect_dir(&sa).unwrap();
+        assert_eq!(
+            candidate.executable.unwrap().file_name().unwrap().to_string_lossy(),
+            "gta_sa.exe"
+        );
+
+        // `samp.exe` without a GTA root is not a client.
+        let stray = dir.path().join("Stray");
+        std::fs::create_dir_all(&stray).unwrap();
+        std::fs::write(stray.join("samp.exe"), b"MZ").unwrap();
+        assert_eq!(detect_client(&stray), None);
+    }
 
     #[test]
     fn ignore_rules_cover_contract_pitfalls() {

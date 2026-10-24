@@ -190,6 +190,31 @@ pub struct ModsStatus {
     pub suggested_loader: Option<&'static str>,
     pub loaders: Vec<LoaderInfo>,
     pub installed: Vec<String>,
+    /// Set when Zen installed the detected loader itself (see `loader.json`);
+    /// `null` for manual/detected loaders.
+    pub install_loader: Option<LoaderInstall>,
+}
+
+/// Record of a loader Zen downloaded, persisted in
+/// `<dataDir>/games/<gameId>/loader.json`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoaderInstall {
+    pub id: String,
+    pub version: String,
+}
+
+/// A newer loader release compared against the installed one.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoaderUpdate {
+    pub loader_id: String,
+    pub current: String,
+    pub latest: String,
+    pub asset_url: Option<String>,
+    /// Light comparison: `latest != current` (versions are normalized semver
+    /// fragments, not full range checks).
+    pub updatable: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -202,6 +227,8 @@ pub struct ModInstallResult {
 
 #[derive(Debug, Deserialize)]
 struct Release {
+    #[serde(default)]
+    tag_name: String,
     #[serde(default)]
     assets: Vec<Asset>,
 }
@@ -254,12 +281,27 @@ pub fn status(game_root: &Path) -> ModsStatus {
         suggested_loader,
         loaders,
         installed,
+        install_loader: None,
     }
 }
 
+/// `status` plus the persisted loader record. Commands use this variant; plain
+/// `status` stays path-only for tests and detection.
+pub fn status_with_install(game_root: &Path, state_dir: &Path) -> ModsStatus {
+    let mut status = status(game_root);
+    status.install_loader = read_loader_install(state_dir).ok().flatten();
+    status
+}
+
 /// Download and install the requested (or suggested) loader into the game
-/// folder. `loaderId` picks a catalog entry; `None` → suggestion.
-pub fn install_loader(game_root: &Path, loader_id: Option<&str>) -> AppResult<ModsStatus> {
+/// folder. `loaderId` picks a catalog entry; `None` → suggestion. On success the
+/// downloaded release is recorded in `<stateDir>/loader.json` so the update
+/// checker can compare versions later.
+pub fn install_loader(
+    game_root: &Path,
+    loader_id: Option<&str>,
+    state_dir: &Path,
+) -> AppResult<ModsStatus> {
     let pre = status(game_root);
     let Some(spec) = resolve_loader_spec(&pre, loader_id, game_root) else {
         return Err(AppError::validation(
@@ -286,16 +328,29 @@ pub fn install_loader(game_root: &Path, loader_id: Option<&str>) -> AppResult<Mo
     }
 
     let query = loader_release_query(spec.id)?;
-    let url = resolve_asset_url(&query)?;
-    let bytes = download_bytes(&url, MAX_LOADER_BYTES)?;
+    let asset = resolve_asset(&query)?;
+    let bytes = download_bytes(&asset.url, MAX_LOADER_BYTES)?;
     extract_loader_zip(game_root, &bytes)?;
     ensure_loader_dirs(game_root, spec.id)?;
     if spec.id == "cleoredux" {
         ensure_asi_loader(game_root)?;
     }
 
+    let version = extract_version(&asset.tag).unwrap_or_else(|| asset.tag.clone());
+    if let Err(err) = write_loader_install(
+        state_dir,
+        &LoaderInstall {
+            id: spec.id.to_string(),
+            version,
+        },
+    ) {
+        // The loader is on disk already; a state write failure only disables
+        // the update check, so log it instead of failing the install.
+        tracing::warn!("could not record the installed loader: {err:?}");
+    }
+
     tracing::info!("{} installed into {}", spec.name, game_root.display());
-    Ok(status(game_root))
+    Ok(status_with_install(game_root, state_dir))
 }
 
 /// Loader combinations that legitimately coexist: installing fresh (no loader
@@ -344,7 +399,7 @@ fn find_spec(id: &str) -> Option<&'static LoaderSpec> {
     CATALOG.iter().find(|spec| spec.id == id)
 }
 
-/// Everything `resolve_asset_url` needs to pick the download for a loader.
+/// Everything `resolve_asset` needs to pick the download for a loader.
 #[derive(Debug, Clone)]
 struct ReleaseQuery {
     releases_url: &'static str,
@@ -357,7 +412,7 @@ struct ReleaseQuery {
 }
 
 /// Pure mapping loader id → release lookup. Network resolution lives in
-/// `resolve_asset_url`, which keeps this testable.
+/// `resolve_asset`, which keeps this testable.
 fn loader_release_query(loader_id: &str) -> AppResult<ReleaseQuery> {
     match loader_id {
         "bepinex5" => Ok(ReleaseQuery {
@@ -434,9 +489,16 @@ fn loader_release_query(loader_id: &str) -> AppResult<ReleaseQuery> {
     }
 }
 
+/// A resolved release asset plus the release tag it came from.
+#[derive(Debug, Clone, PartialEq)]
+struct ResolvedAsset {
+    url: String,
+    tag: String,
+}
+
 /// Resolve `query` against the releases list: newest release whose asset
 /// matches prefix/require/suffix.
-fn resolve_asset_url(query: &ReleaseQuery) -> AppResult<String> {
+fn resolve_asset(query: &ReleaseQuery) -> AppResult<ResolvedAsset> {
     let body = agent()
         .get(query.releases_url)
         .call()
@@ -458,7 +520,10 @@ fn resolve_asset_url(query: &ReleaseQuery) -> AppResult<String> {
                     .iter()
                     .all(|needle| lowers.contains(&needle.to_ascii_lowercase()))
             {
-                return Ok(asset.browser_download_url.clone());
+                return Ok(ResolvedAsset {
+                    url: asset.browser_download_url.clone(),
+                    tag: release.tag_name.clone(),
+                });
             }
         }
     }
@@ -467,6 +532,96 @@ fn resolve_asset_url(query: &ReleaseQuery) -> AppResult<String> {
         query.prefix,
         query.suffix.trim_start_matches('.')
     )))
+}
+
+/// First semver-looking fragment in a tag or asset name
+/// (`SA.CLEO-v1.2.3+Ultimate_ASI_Loader.zip` → `1.2.3`). Deliberately light:
+/// the update checker only needs "is this the same string?".
+fn extract_version(raw: &str) -> Option<String> {
+    let chars: Vec<char> = raw.chars().collect();
+    let mut index = 0;
+    while index < chars.len() {
+        if !chars[index].is_ascii_digit() {
+            index += 1;
+            continue;
+        }
+        let start = index;
+        while index < chars.len() && (chars[index].is_ascii_digit() || chars[index] == '.') {
+            index += 1;
+        }
+        let candidate: String = chars[start..index].iter().collect();
+        let trimmed = candidate.trim_end_matches('.').to_string();
+        if trimmed.contains('.') {
+            return Some(trimmed);
+        }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
+// Per-game loader state (`<dataDir>/games/<gameId>/loader.json`)
+// ---------------------------------------------------------------------------
+
+fn loader_state_file(state_dir: &Path) -> PathBuf {
+    state_dir.join("loader.json")
+}
+
+fn read_loader_install(state_dir: &Path) -> AppResult<Option<LoaderInstall>> {
+    let path = loader_state_file(state_dir);
+    let raw = match std::fs::read_to_string(&path) {
+        Ok(raw) => raw,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(AppError::io(format!("could not read loader state: {err}"))),
+    };
+    match serde_json::from_str(&raw) {
+        Ok(install) => Ok(Some(install)),
+        Err(err) => {
+            tracing::warn!("ignoring corrupt loader state at {}: {err}", path.display());
+            Ok(None)
+        }
+    }
+}
+
+fn write_loader_install(state_dir: &Path, install: &LoaderInstall) -> AppResult<()> {
+    std::fs::create_dir_all(state_dir)?;
+    let body = serde_json::to_string_pretty(install)
+        .map_err(|err| AppError::io(format!("could not encode loader state: {err}")))?;
+    std::fs::write(loader_state_file(state_dir), body)?;
+    Ok(())
+}
+
+/// Compare the recorded loader against the latest matching GitHub release.
+/// `None` when Zen did not install a loader, the loader is manual, or the state
+/// file is missing. Network failures surface as `IO` (the UI shows a retry).
+pub fn check_loader_updates(state_dir: &Path) -> AppResult<Option<LoaderUpdate>> {
+    check_loader_updates_with(state_dir, resolve_asset)
+}
+
+/// Testable core of [`check_loader_updates`]: the release lookup is injected so
+/// the comparison logic can be exercised without network access.
+fn check_loader_updates_with<F>(state_dir: &Path, resolve: F) -> AppResult<Option<LoaderUpdate>>
+where
+    F: Fn(&ReleaseQuery) -> AppResult<ResolvedAsset>,
+{
+    let Some(install) = read_loader_install(state_dir)? else {
+        return Ok(None);
+    };
+    let Some(spec) = find_spec(&install.id) else {
+        return Ok(None);
+    };
+    if spec.install != "download" {
+        return Ok(None);
+    }
+    let query = loader_release_query(spec.id)?;
+    let asset = resolve(&query)?;
+    let latest = extract_version(&asset.tag).unwrap_or_else(|| asset.tag.clone());
+    Ok(Some(LoaderUpdate {
+        loader_id: install.id.clone(),
+        current: install.version.clone(),
+        latest: latest.clone(),
+        asset_url: Some(asset.url),
+        updatable: latest != install.version,
+    }))
 }
 
 /// CLEO Redux is an `.asi` plugin: without the CLEO library's bundled ASI
@@ -1199,6 +1354,78 @@ mod tests {
         assert!(coinstall_ok("bepinex", "frosty"));
         assert!(!coinstall_ok("bepinex", "cleo5"));
         assert!(!coinstall_ok("cleo", "bepinex5"));
+    }
+
+    #[test]
+    fn loader_state_roundtrip_and_update_check() {
+        let dir = tempdir().unwrap();
+        let state = dir.path().join("games/7");
+        assert_eq!(read_loader_install(&state).unwrap(), None);
+        assert_eq!(check_loader_updates(&state).unwrap(), None);
+
+        write_loader_install(
+            &state,
+            &LoaderInstall {
+                id: "cleo5".into(),
+                version: "1.0.0".into(),
+            },
+        )
+        .unwrap();
+        assert!(state.join("loader.json").is_file());
+        let stored = read_loader_install(&state).unwrap().unwrap();
+        assert_eq!(stored.id, "cleo5");
+        assert_eq!(stored.version, "1.0.0");
+
+        // Fake release response: the tag is parsed down to a semver fragment.
+        let update = check_loader_updates_with(&state, |_query| {
+            Ok(ResolvedAsset {
+                url: "https://example.invalid/SA.CLEO-v1.2.3+Ultimate_ASI_Loader.zip".into(),
+                tag: "SA.CLEO-v1.2.3+Ultimate_ASI_Loader.zip".into(),
+            })
+        })
+        .unwrap()
+        .expect("an update should be reported");
+        assert_eq!(update.loader_id, "cleo5");
+        assert_eq!(update.current, "1.0.0");
+        assert_eq!(update.latest, "1.2.3");
+        assert!(update.updatable);
+        assert_eq!(
+            update.asset_url.as_deref(),
+            Some("https://example.invalid/SA.CLEO-v1.2.3+Ultimate_ASI_Loader.zip")
+        );
+
+        // Same version → not updatable.
+        let same = check_loader_updates_with(&state, |_| {
+            Ok(ResolvedAsset {
+                url: "https://example.invalid/x.zip".into(),
+                tag: "v1.0.0".into(),
+            })
+        })
+        .unwrap()
+        .unwrap();
+        assert!(!same.updatable);
+        assert_eq!(same.latest, "1.0.0");
+
+        // A manual loader is never checked (no network call either).
+        write_loader_install(
+            &state,
+            &LoaderInstall {
+                id: "scripthook-v".into(),
+                version: "1.0.0".into(),
+            },
+        )
+        .unwrap();
+        let manual = check_loader_updates_with(&state, |_| panic!("manual loaders skip the lookup"))
+            .unwrap();
+        assert_eq!(manual, None);
+    }
+
+    #[test]
+    fn version_extraction_handles_release_tags_and_asset_names() {
+        assert_eq!(extract_version("v1.2.3"), Some("1.2.3".into()));
+        assert_eq!(extract_version("SA.CLEO-v1.2.3+Ultimate_ASI_Loader.zip"), Some("1.2.3".into()));
+        assert_eq!(extract_version("BepInEx_win_x64_5.4.23.3"), Some("5.4.23.3".into()));
+        assert_eq!(extract_version("no-version-here"), None);
     }
 
     #[test]

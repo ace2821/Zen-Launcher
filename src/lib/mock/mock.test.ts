@@ -267,6 +267,26 @@ describe("mock adapter — games", () => {
     expect(reread.env).toEqual(updated.env);
   });
 
+  it("round-trips client metadata and distinguishes omitted from null", async () => {
+    const samp = {
+      kind: "samp" as const,
+      host: "play.example.com",
+      port: 7777,
+      nick: "Zen",
+    };
+    const updated = await api.updateGame(2, { client: samp });
+    expect(updated.client).toEqual(samp);
+    expect((await api.getGame(2)).client).toEqual(samp);
+
+    // Omitted `client` keeps the stored value — unlike an explicit null.
+    const kept = await api.updateGame(2, { favorite: true });
+    expect(kept.client).toEqual(samp);
+
+    const cleared = await api.updateGame(2, { client: null });
+    expect(cleared.client).toBeNull();
+    expect((await api.getGame(2)).client).toBeNull();
+  });
+
   it("refuses entries whose runner has not landed, and a missing executable", async () => {
     // A mod (7) and a retro (10) entry still need a runner that arrives after
     // M1; a native entry whose binary is gone (11) is an IO failure.
@@ -628,6 +648,22 @@ describe("mock adapter — mods", () => {
       loader: "bepinex",
       modsDir: "/home/oliwier/Games/Vampire Survivors/BepInEx/plugins",
       modsDirKind: "bepinex-plugins",
+    });
+  });
+
+  it("records the installed loader and checks it without faking an update", async () => {
+    const after = await api.installModLoader(12, "bepinex6il2cpp");
+    expect(after.installLoader).toEqual({ id: "bepinex6il2cpp", version: "6.0.0" });
+
+    // A detected/manual loader has no `loader.json` equivalent → no check.
+    await expect(api.checkLoaderUpdates(13)).resolves.toBeNull();
+
+    await expect(api.checkLoaderUpdates(12)).resolves.toEqual({
+      loaderId: "bepinex6il2cpp",
+      current: "6.0.0",
+      latest: "6.0.0",
+      assetUrl: null,
+      updatable: false,
     });
   });
 

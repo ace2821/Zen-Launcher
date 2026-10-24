@@ -16,6 +16,7 @@ function makeGame(overrides: Partial<Game> & { id: number; title: string }): Gam
     hidden: false,
     notes: null,
     coverPath: null,
+    client: null,
     status: "ready",
     createdAt: "2026-10-17T12:00:00Z",
     updatedAt: "2026-10-17T12:00:00Z",

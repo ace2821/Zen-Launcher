@@ -60,6 +60,20 @@ export interface Candidate {
   createdAt: string;
 }
 
+/** Multiplayer client kind — only the three known client layouts. */
+export type ClientKind = "samp" | "fivem" | "mta";
+
+/**
+ * Client metadata detected in a game folder (or patched manually).
+ * Only SA-MP uses `host`/`port`/`nick`; FiveM/MTA keep them empty.
+ */
+export interface ClientInfo {
+  kind: ClientKind;
+  host: string | null;
+  port: number | null;
+  nick: string | null;
+}
+
 export interface Game {
   id: number;
   title: string;
@@ -76,6 +90,8 @@ export interface Game {
   notes: string | null;
   /** Local file path; metadata providers fill this in later milestones. */
   coverPath: string | null;
+  /** Detected or manually patched multiplayer client. */
+  client: ClientInfo | null;
   status: GameStatus;
   createdAt: string;
   updatedAt: string;
@@ -152,7 +168,7 @@ export interface CandidatePatch {
   workDir?: string;
 }
 
-/** Contract: subset of `title, sortTitle, type, executable, args, env, workDir, tags, favorite, hidden, notes, coverPath`. */
+/** Contract: subset of `title, sortTitle, type, executable, args, env, workDir, tags, favorite, hidden, notes, coverPath, client`. */
 export interface GamePatch {
   title?: string;
   sortTitle?: string | null;
@@ -166,6 +182,8 @@ export interface GamePatch {
   hidden?: boolean;
   notes?: string | null;
   coverPath?: string | null;
+  /** Omitted keeps the stored client; `null` clears it. */
+  client?: ClientInfo | null;
 }
 
 export interface SettingsPatch {
@@ -261,6 +279,26 @@ export interface ModsStatus {
   loaders: ModLoaderInfo[];
   /** Top-level entries of `modsDir`, capped at 50 by the core. */
   installed: string[];
+  /**
+   * The loader Zen installed itself (from `<dataDir>/games/<gameId>/loader.json`);
+   * `null` for detected/manual loaders and when nothing is installed.
+   */
+  installLoader: LoaderInstall | null;
+}
+
+/** A loader Zen downloaded, with the release version it came from. */
+export interface LoaderInstall {
+  id: string;
+  version: string;
+}
+
+/** Update check answer: `latest != current` makes it updatable. */
+export interface LoaderUpdate {
+  loaderId: string;
+  current: string;
+  latest: string;
+  assetUrl: string | null;
+  updatable: boolean;
 }
 
 export interface ModInstallResult {

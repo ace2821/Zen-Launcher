@@ -12,7 +12,8 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    Candidate, CandidateStatus, EngineKind, Game, GamePatch, GameStatus, GameType, Session, Source,
+    Candidate, CandidateStatus, ClientInfo, EngineKind, Game, GamePatch, GameStatus, GameType, Session,
+    Source,
 };
 use crate::time::now_iso;
 
@@ -69,7 +70,12 @@ CREATE UNIQUE INDEX idx_candidates_source_path ON candidates(source_id, path);
 CREATE INDEX idx_sessions_game_id ON sessions(game_id);
 "#;
 
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
+
+/// v2: client adapter metadata on library entries (`ClientInfo` as JSON).
+pub const MIGRATION_V2: &str = r#"
+ALTER TABLE games ADD COLUMN client TEXT NULL;
+"#;
 
 // ---------------------------------------------------------------------------
 // Connection & migrations
@@ -120,6 +126,17 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
         )?;
         tx.commit()?;
         tracing::info!("applied database migration v1");
+    }
+
+    if current < 2 {
+        let tx = conn.unchecked_transaction()?;
+        tx.execute_batch(MIGRATION_V2)?;
+        tx.execute(
+            "INSERT INTO schema_migrations(version, applied_at) VALUES (2, ?1)",
+            params![now_iso()],
+        )?;
+        tx.commit()?;
+        tracing::info!("applied database migration v2");
     }
 
     Ok(())
@@ -186,6 +203,7 @@ fn map_game(row: &Row<'_>) -> rusqlite::Result<Game> {
     let tags_raw: String = row.get("tags_json")?;
     let executable: String = row.get("executable")?;
     let install_path: String = row.get("install_path")?;
+    let client_raw: Option<String> = row.get("client")?;
 
     let status = if resolve_executable(&install_path, &executable).exists() {
         GameStatus::Ready
@@ -208,6 +226,7 @@ fn map_game(row: &Row<'_>) -> rusqlite::Result<Game> {
         hidden: row.get::<_, i64>("hidden")? != 0,
         notes: row.get("notes")?,
         cover_path: row.get("cover_path")?,
+        client: client_raw.and_then(|raw| serde_json::from_str(&raw).ok()),
         status,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
@@ -241,7 +260,7 @@ pub fn resolve_executable(install_path: &str, executable: &str) -> std::path::Pa
 const SOURCE_COLUMNS: &str = "id, path, auto_scan, created_at, last_scan_at";
 const CANDIDATE_COLUMNS: &str = "id, source_id, path, executable, engine, suggested_title, confidence, evidence_json, status, created_at";
 const GAME_COLUMNS: &str = "id, title, sort_title, type, install_path, executable, args_json, env_json, \
-     work_dir, tags_json, favorite, hidden, notes, cover_path, created_at, updated_at, last_played_at, total_seconds";
+     work_dir, tags_json, favorite, hidden, notes, cover_path, client, created_at, updated_at, last_played_at, total_seconds";
 const SESSION_COLUMNS: &str = "id, game_id, started_at, ended_at, duration_seconds, exit_code";
 
 // ---------------------------------------------------------------------------
@@ -433,15 +452,16 @@ pub struct NewGame {
     pub env: BTreeMap<String, String>,
     pub work_dir: Option<String>,
     pub tags: Vec<String>,
+    pub client: Option<ClientInfo>,
 }
 
 pub fn insert_game(conn: &Connection, game: &NewGame) -> AppResult<Game> {
     let now = now_iso();
     conn.execute(
         "INSERT INTO games(title, sort_title, type, install_path, executable, args_json, env_json, \
-         work_dir, tags_json, favorite, hidden, notes, cover_path, created_at, updated_at, \
+         work_dir, tags_json, favorite, hidden, notes, cover_path, client, created_at, updated_at, \
          last_played_at, total_seconds) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, 0, NULL, NULL, ?10, ?10, NULL, 0)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, 0, NULL, NULL, ?10, ?11, ?11, NULL, 0)",
         params![
             game.title,
             game.sort_title,
@@ -452,6 +472,7 @@ pub fn insert_game(conn: &Connection, game: &NewGame) -> AppResult<Game> {
             encode_json(&game.env),
             game.work_dir,
             encode_json(&game.tags),
+            game.client.as_ref().map(encode_json),
             now,
         ],
     )?;
@@ -539,11 +560,14 @@ pub fn update_game(conn: &Connection, id: i64, patch: &GamePatch) -> AppResult<G
     if let Some(cover_path) = &patch.cover_path {
         game.cover_path = cover_path.clone();
     }
+    if let Some(client) = &patch.client {
+        game.client = client.clone();
+    }
 
     conn.execute(
         "UPDATE games SET title = ?2, sort_title = ?3, type = ?4, executable = ?5, args_json = ?6, \
          env_json = ?7, work_dir = ?8, tags_json = ?9, favorite = ?10, hidden = ?11, notes = ?12, \
-         cover_path = ?13, updated_at = ?14 WHERE id = ?1",
+         cover_path = ?13, client = ?14, updated_at = ?15 WHERE id = ?1",
         params![
             id,
             game.title,
@@ -558,6 +582,7 @@ pub fn update_game(conn: &Connection, id: i64, patch: &GamePatch) -> AppResult<G
             i64::from(game.hidden),
             game.notes,
             game.cover_path,
+            game.client.as_ref().map(encode_json),
             now_iso(),
         ],
     )?;
@@ -765,6 +790,87 @@ mod tests {
     }
 
     #[test]
+    fn migration_v2_adds_client_and_client_roundtrips() {
+        use crate::models::{ClientInfo, ClientKind};
+
+        // A v1 database (no `client` column) migrates to v2.
+        let conn = Connection::open_in_memory().unwrap();
+        configure(&conn).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);",
+        )
+        .unwrap();
+        conn.execute_batch(MIGRATION_V1).unwrap();
+        conn.execute(
+            "INSERT INTO schema_migrations(version, applied_at) VALUES (1, '2026-10-17T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        assert_eq!(schema_version(&conn).unwrap(), 1);
+        migrate(&conn).unwrap();
+        assert_eq!(schema_version(&conn).unwrap(), 2);
+        let has_client: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('games') WHERE name = 'client'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_client, 1);
+
+        let dir = tempdir().unwrap();
+        let executable = dir.path().join("gta_sa.exe");
+        std::fs::write(&executable, b"MZ").unwrap();
+        let game = insert_game(
+            &conn,
+            &NewGame {
+                title: "GTA San Andreas".into(),
+                sort_title: None,
+                game_type: GameType::Windows,
+                install_path: dir.path().to_string_lossy().into_owned(),
+                executable: executable.to_string_lossy().into_owned(),
+                args: vec![],
+                env: BTreeMap::new(),
+                work_dir: None,
+                tags: vec![],
+                client: Some(ClientInfo {
+                    kind: ClientKind::Samp,
+                    host: Some("play.example.com".into()),
+                    port: Some(7777),
+                    nick: Some("Zen".into()),
+                }),
+            },
+        )
+        .unwrap();
+        let stored = get_game(&conn, game.id).unwrap();
+        assert_eq!(stored.client.as_ref().unwrap().kind, ClientKind::Samp);
+        assert_eq!(stored.client.as_ref().unwrap().port, Some(7777));
+
+        // Omitted patch keeps the client; explicit null clears it.
+        let kept = update_game(
+            &conn,
+            game.id,
+            &GamePatch {
+                title: Some("GTA:SA".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(kept.client, stored.client);
+
+        let cleared = update_game(
+            &conn,
+            game.id,
+            &GamePatch {
+                client: Some(None),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(cleared.client, None);
+    }
+
+    #[test]
     fn game_crud_roundtrip() {
         let (_dir, conn) = open_temp();
         let dir = tempdir().unwrap();
@@ -781,6 +887,7 @@ mod tests {
             env: BTreeMap::from([("MANGOHUD".to_string(), "1".to_string())]),
             work_dir: None,
             tags: vec!["indie".into()],
+            client: None,
         };
         let game = insert_game(&conn, &new_game).unwrap();
         assert_eq!(game.status, GameStatus::Ready);
@@ -856,6 +963,7 @@ mod tests {
                 env: BTreeMap::new(),
                 work_dir: None,
                 tags: vec![],
+                client: None,
             },
         )
         .unwrap();
@@ -901,6 +1009,7 @@ mod tests {
                 env: BTreeMap::new(),
                 work_dir: None,
                 tags: vec![],
+                client: None,
             },
         )
         .unwrap();
@@ -970,6 +1079,7 @@ mod tests {
                 env: BTreeMap::new(),
                 work_dir: None,
                 tags: vec![],
+                client: None,
             },
         )
         .unwrap();
@@ -1003,6 +1113,7 @@ mod tests {
                 env: BTreeMap::new(),
                 work_dir: None,
                 tags: vec![],
+                client: None,
             },
         )
         .unwrap();

@@ -18,7 +18,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::db;
 use crate::error::{AppError, AppResult};
-use crate::models::{Game, GameType, SessionEnded, SessionStarted, events};
+use crate::models::{ClientKind, Game, GameType, SessionEnded, SessionStarted, events};
 use crate::paths;
 use crate::state::AppState;
 use crate::time;
@@ -151,6 +151,7 @@ pub fn build_spawn_plan(game: &Game, extras: &LaunchExtras) -> AppResult<SpawnPl
     };
 
     args.extend(game.args.iter().cloned());
+    append_client_args(game, &mut args);
 
     let mut env = game.env.clone();
     if game.game_type == GameType::Windows {
@@ -196,6 +197,34 @@ pub fn build_spawn_plan(game: &Game, extras: &LaunchExtras) -> AppResult<SpawnPl
     };
 
     Ok(plan)
+}
+
+/// Per-client connection flags. Only SA-MP takes them; FiveM/MTA are launched
+/// as-is. A port outside 1..=65535 never reaches this point (it deserializes as
+/// `None`), so `-p` is only added for a usable port.
+fn append_client_args(game: &Game, args: &mut Vec<String>) {
+    let Some(client) = &game.client else {
+        return;
+    };
+    if client.kind != ClientKind::Samp {
+        return;
+    }
+    if let Some(host) = client.host.as_deref().map(str::trim).filter(|h| !h.is_empty()) {
+        args.push("-h".to_string());
+        args.push(host.to_string());
+    }
+    if let Some(port) = client.port {
+        if port == 0 {
+            tracing::warn!("ignoring invalid SA-MP port 0 for game {}", game.id);
+        } else {
+            args.push("-p".to_string());
+            args.push(port.to_string());
+        }
+    }
+    if let Some(nick) = client.nick.as_deref().map(str::trim).filter(|n| !n.is_empty()) {
+        args.push("-n".to_string());
+        args.push(nick.to_string());
+    }
 }
 
 /// Wine requires the `WINEPREFIX` directory to exist before it starts
@@ -318,6 +347,7 @@ mod tests {
             hidden: false,
             notes: None,
             cover_path: None,
+            client: None,
             status: GameStatus::Ready,
             created_at: "2026-10-17T00:00:00Z".into(),
             updated_at: "2026-10-17T00:00:00Z".into(),
@@ -332,6 +362,69 @@ mod tests {
         }
         std::fs::write(path, contents).unwrap();
         ensure_executable(path).unwrap();
+    }
+
+    #[test]
+    fn samp_client_adds_host_port_and_nick_after_game_args() {
+        use crate::models::{ClientInfo, ClientKind};
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join("gta_sa.exe"), b"MZ").unwrap();
+        let mut g = game(dir.path(), "gta_sa.exe", GameType::Windows);
+        g.client = Some(ClientInfo {
+            kind: ClientKind::Samp,
+            host: Some("play.example.com".into()),
+            port: Some(7777),
+            nick: Some("Zen".into()),
+        });
+
+        let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
+        let trailing: Vec<&str> = plan.args[1..].iter().map(String::as_str).collect();
+        assert_eq!(
+            trailing,
+            vec!["--flag", "-h", "play.example.com", "-p", "7777", "-n", "Zen"]
+        );
+    }
+
+    #[test]
+    fn samp_out_of_range_port_is_ignored_not_fatal() {
+        use crate::models::{ClientInfo, ClientKind};
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join("gta_sa.exe"), b"MZ").unwrap();
+        let mut g = game(dir.path(), "gta_sa.exe", GameType::Windows);
+
+        // 70000 cannot fit a u16: it deserializes as `None` (logged), which the
+        // launch adapter simply skips.
+        let client: ClientInfo =
+            serde_json::from_str(r#"{"kind":"samp","host":"h","port":70000,"nick":null}"#).unwrap();
+        assert_eq!(client.port, None);
+        assert_eq!(client.kind, ClientKind::Samp);
+        g.client = Some(client);
+
+        let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
+        assert!(plan.args.iter().any(|arg| arg == "-h"));
+        assert!(!plan.args.iter().any(|arg| arg == "-p"));
+    }
+
+    #[test]
+    fn fivem_and_mta_clients_add_no_extra_args() {
+        use crate::models::{ClientInfo, ClientKind};
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join("CitizenFX.exe"), b"MZ").unwrap();
+        for kind in [ClientKind::Fivem, ClientKind::Mta] {
+            let mut g = game(dir.path(), "CitizenFX.exe", GameType::Windows);
+            g.client = Some(ClientInfo {
+                kind,
+                host: Some("ignored".into()),
+                port: Some(1234),
+                nick: Some("ignored".into()),
+            });
+            let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
+            let expected = vec![
+                dir.path().join("CitizenFX.exe").to_string_lossy().into_owned(),
+                "--flag".to_string(),
+            ];
+            assert_eq!(plan.args, expected);
+        }
     }
 
     #[test]

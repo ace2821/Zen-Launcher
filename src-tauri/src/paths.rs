@@ -11,6 +11,15 @@ pub const CONFIG_FILE: &str = "config.toml";
 pub const DB_FILE: &str = "library.db";
 pub const LOGS_DIR: &str = "logs";
 pub const COVERS_DIR: &str = "covers";
+pub const GAMES_DIR: &str = "games";
+
+/// Per-game state (`<dataDir>/games/<gameId>/`), created on demand. Holds the
+/// loader install record used by the update checker.
+pub fn game_state_dir(game_id: i64) -> AppResult<PathBuf> {
+    let dir = data_dir()?.join(GAMES_DIR).join(game_id.to_string());
+    std::fs::create_dir_all(&dir)?;
+    Ok(dir)
+}
 
 pub fn config_dir() -> AppResult<PathBuf> {
     dirs::config_dir()

@@ -162,6 +162,49 @@ pub struct Candidate {
     pub created_at: String,
 }
 
+/// Multiplayer client a folder was detected as (SA-MP / FiveM / MTA).
+///
+/// `generic` is deliberately absent: only the three known client layouts are
+/// first-class, everything else stays a plain game folder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ClientKind {
+    Samp,
+    Fivem,
+    Mta,
+}
+
+/// Client metadata attached to a [`Game`]. `host`/`port`/`nick` are only used
+/// by the SA-MP launch adapter; FiveM/MTA keep them empty.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientInfo {
+    pub kind: ClientKind,
+    pub host: Option<String>,
+    /// Out-of-range values (outside 1..=65535) deserialize as `None` — a bad
+    /// port is ignored at launch instead of failing the whole patch.
+    #[serde(default, deserialize_with = "deserialize_port")]
+    pub port: Option<u16>,
+    pub nick: Option<String>,
+}
+
+/// Accept a JSON number only when it is a valid TCP port; anything else becomes
+/// `None` (the launch adapter then skips `-p`). Keeps `update_game` lenient.
+fn deserialize_port<'de, D>(deserializer: D) -> Result<Option<u16>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = Option::<i64>::deserialize(deserializer)?;
+    Ok(match raw {
+        Some(port) if (1..=65535).contains(&port) => Some(port as u16),
+        Some(port) => {
+            tracing::warn!("ignoring out-of-range client port: {port}");
+            None
+        }
+        None => None,
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
@@ -180,6 +223,8 @@ pub struct Game {
     pub hidden: bool,
     pub notes: Option<String>,
     pub cover_path: Option<String>,
+    /// Detected (or manually patched) multiplayer client metadata.
+    pub client: Option<ClientInfo>,
     pub status: GameStatus,
     pub created_at: String,
     pub updated_at: String,
@@ -402,6 +447,9 @@ pub struct GamePatch {
     pub notes: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_double_option")]
     pub cover_path: Option<Option<String>>,
+    /// Omitted keeps the stored client; `null` clears it.
+    #[serde(default, deserialize_with = "deserialize_double_option")]
+    pub client: Option<Option<ClientInfo>>,
 }
 
 // ---------------------------------------------------------------------------

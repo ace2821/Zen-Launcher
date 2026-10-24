@@ -12,6 +12,7 @@ import type {
   GamePatch,
   GamepadList,
   LaunchInfo,
+  LoaderUpdate,
   ModInstallResult,
   ModsStatus,
   ScanSummary,
@@ -152,6 +153,10 @@ export function createTauriApi(): LauncherApi {
 
     installModArchive(gameId, archivePath) {
       return invoke<ModInstallResult>("install_mod_archive", { gameId, archivePath });
+    },
+
+    checkLoaderUpdates(gameId) {
+      return invoke<LoaderUpdate | null>("check_loader_updates", { gameId });
     },
 
     async listGamepads(): Promise<GamepadList> {

@@ -13,6 +13,7 @@ import type {
   LaunchInfo,
   ModInstallResult,
   ModsStatus,
+  LoaderUpdate,
   ScanSummary,
   Session,
   Settings,
@@ -83,6 +84,11 @@ export interface LauncherApi {
   installModLoader(gameId: number, loaderId?: string): Promise<ModsStatus>;
   /** Extracts one mod archive into the mods folder and trashes the archive. */
   installModArchive(gameId: number, archivePath: string): Promise<ModInstallResult>;
+  /**
+   * Compares the loader Zen installed for this game with the latest release.
+   * `null` when there is nothing Zen-installed to check (manual/detected loader).
+   */
+  checkLoaderUpdates(gameId: number): Promise<LoaderUpdate | null>;
 
   /* -------------------------------------------------------------- gamepad */
 

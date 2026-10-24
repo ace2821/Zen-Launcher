@@ -12,6 +12,7 @@ import type {
   GamepadInfo,
   GamepadList,
   LaunchInfo,
+  LoaderUpdate,
   ModsStatus,
   ScanSummary,
   Session,
@@ -27,6 +28,8 @@ import {
   DEFAULT_GAMEPADS,
   genericDiscoveries,
   loaderName,
+  loaderVersion,
+  LOADER_CATALOG,
   loadersFor,
   type MockState,
   type ModsSeed,
@@ -136,6 +139,7 @@ function copyGame(game: Game): Game {
     args: [...game.args],
     env: { ...game.env },
     tags: [...game.tags],
+    client: game.client === null ? null : { ...game.client },
   };
 }
 
@@ -251,6 +255,7 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       suggestedLoader: loaders[0]?.id ?? null,
       loaders,
       installed: [...seed.installed].sort().slice(0, INSTALLED_CAP),
+      installLoader: seed.installLoader ?? null,
     };
   }
 
@@ -477,6 +482,7 @@ export function createMockApi(options: MockOptions = {}): MockApi {
         hidden: false,
         notes: null,
         coverPath: null,
+        client: null,
         status: computeStatus(executable),
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -545,6 +551,9 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       if (patch.hidden !== undefined) game.hidden = patch.hidden;
       if (patch.notes !== undefined) game.notes = patch.notes;
       if (patch.coverPath !== undefined) game.coverPath = patch.coverPath;
+      if (patch.client !== undefined) {
+        game.client = patch.client === null ? null : { ...patch.client };
+      }
 
       game.updatedAt = nowString(clock);
       emit("library-changed", {});
@@ -759,9 +768,32 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       await delay(networkMs);
 
       const seed = modsSeedFor(game.id);
-      state.mods.set(gameId, { ...seed, ...loaderLayout(chosen) });
+      state.mods.set(gameId, {
+        ...seed,
+        ...loaderLayout(chosen),
+        installLoader: { id: chosen, version: loaderVersion(chosen) },
+      });
       // The core answers with a fresh detection pass, not a delta.
       return modsStatusOf(game);
+    },
+
+    async checkLoaderUpdates(gameId): Promise<LoaderUpdate | null> {
+      const game = requireGame(gameId);
+      const seed = modsSeedFor(game.id);
+      const installed = seed.installLoader ?? null;
+      if (installed === null) return null;
+      // Manual loaders carry no download, so the core never checks them.
+      const spec = LOADER_CATALOG.find((entry) => entry.id === installed.id);
+      if (spec?.install === "manual") return null;
+      const latest = loaderVersion(installed.id);
+      await delay(networkMs);
+      return {
+        loaderId: installed.id,
+        current: installed.version,
+        latest,
+        assetUrl: null,
+        updatable: latest !== installed.version,
+      };
     },
 
     async installModArchive(gameId, archivePath) {

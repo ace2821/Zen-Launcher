@@ -135,6 +135,7 @@ pub fn run() {
             commands::mods_status,
             commands::install_mod_loader,
             commands::install_mod_archive,
+            commands::check_loader_updates,
             commands::list_gamepads,
         ])
         .run(tauri::generate_context!())
