@@ -1,6 +1,6 @@
 [package]
 name = "zen-launcher"
-version = "0.1.0"
+version = "1.1.0"
 description = "Local-first game library manager and launcher"
 authors = ["ace"]
 edition = "2024"
