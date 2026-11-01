@@ -174,6 +174,8 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
 
 - Tray icon always present; menu: **Show Zen Launcher** (show + focus),
   **Quit** (exit process).
+- Tray icon is best-effort: on runtimes without libappindicator the app starts
+  without a tray entry.
 - Window close button hides to tray when `settings.closeToTray` (default true);
   tray Quit is the real exit.
 - On `launch_game` with `settings.hideOnLaunch` (default true) the window hides

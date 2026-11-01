@@ -90,7 +90,9 @@ fn setup_app(app: &mut tauri::App) -> AppResult<()> {
         tracing::warn!("could not grant the webview access to covers: {err}");
     }
 
-    tray::init(app)?;
+    if let Err(err) = tray::init(app) {
+        tracing::warn!("tray disabled: {err}");
+    }
     tray::install_close_handler(app.handle());
 
     wine::initialize_missing(&games);
