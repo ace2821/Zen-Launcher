@@ -1,0 +1,96 @@
+{
+  "app-id": "io.github.ace2821.ZenLauncher",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "51",
+  "sdk": "org.gnome.Sdk",
+  "command": "zen-launcher",
+  "sdk-extensions": [
+    "org.freedesktop.Sdk.Extension.rust-stable",
+    "org.freedesktop.Sdk.Extension.node24"
+  ],
+  "finish-args": [
+    "--socket=wayland",
+    "--socket=fallback-x11",
+    "--share=ipc",
+    "--share=network",
+    "--socket=pulseaudio",
+    "--device=dri",
+    "--device=all",
+    "--filesystem=/run/media:ro",
+    "--filesystem=/mnt:ro",
+    "--filesystem=~/Games:rw",
+    "--filesystem=~/.local/share/Steam:ro",
+    "--filesystem=~/.steam/steam:ro",
+    "--talk-name=org.freedesktop.Notifications",
+    "--talk-name=com.feralinteractive.GameMode",
+    "--env=WEBKIT_DISABLE_DMABUF_RENDERER=1"
+  ],
+  "modules": [
+    {
+      "name": "wine",
+      "buildsystem": "simple",
+      "build-options": {
+        "env": {
+          "CFLAGS": "-O2"
+        }
+      },
+      "build-commands": [
+        "./configure --prefix=${FLATPAK_DEST} --enable-archs=x86_64 --disable-tests",
+        "make -j${FLATPAK_BUILDER_N_JOBS}",
+        "make install"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/wine-mirror/wine.git",
+          "tag": "wine-11.9",
+          "commit": "0c0d26432084c18213d5c4b343f10939d25eee2c",
+          "x-checker-data": {
+            "type": "git",
+            "url": "https://github.com/wine-mirror/wine.git",
+            "tag-pattern": "^wine-([\\d.]+)$"
+          }
+        }
+      ]
+    },
+    {
+      "name": "zen-launcher",
+      "buildsystem": "simple",
+      "build-options": {
+        "append-path": "/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node24/bin",
+        "env": {
+          "CARGO_HOME": "/run/build/zen-launcher/cargo",
+          "CARGO_NET_OFFLINE": "true",
+          "XDG_CACHE_HOME": "/run/build/zen-launcher/flatpak-node/cache",
+          "npm_config_cache": "/run/build/zen-launcher/flatpak-node/npm-cache"
+        }
+      },
+      "build-commands": [
+        "npm ci --offline",
+        "npm run build",
+        "cargo build --release --offline --manifest-path src-tauri/Cargo.toml",
+        "install -Dm0755 src-tauri/target/release/zen-launcher ${FLATPAK_DEST}/bin/zen-launcher",
+        "install -Dm0644 io.github.ace2821.ZenLauncher.desktop ${FLATPAK_DEST}/share/applications/io.github.ace2821.ZenLauncher.desktop",
+        "install -Dm0644 io.github.ace2821.ZenLauncher.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.ace2821.ZenLauncher.metainfo.xml",
+        "install -Dm0644 src-tauri/icons/128x128.png ${FLATPAK_DEST}/share/icons/hicolor/128x128/apps/io.github.ace2821.ZenLauncher.png",
+        "install -Dm0644 src-tauri/icons/128x128@2x.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.ace2821.ZenLauncher.png",
+        "install -Dm0644 src-tauri/icons/icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/io.github.ace2821.ZenLauncher.png"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/ace2821/Zen-Launcher.git",
+          "tag": "v1.1.0",
+          "commit": "06c3ef4c3eea36442f5fa9e562c978d42f6068fd",
+          "x-checker-data": {
+            "type": "git",
+            "url": "https://github.com/ace2821/Zen-Launcher.git",
+            "tag-pattern": "^v([\\d.]+)$"
+          }
+        },
+        "cargo-sources.json",
+        "node-sources.json"
+      ]
+    }
+  ]
+}

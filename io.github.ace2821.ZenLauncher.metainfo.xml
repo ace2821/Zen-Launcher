@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.ace2821.ZenLauncher</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Zen Launcher</name>
+  <summary>Game library manager and mod loader helper for Linux</summary>
+  <description>
+    <p>
+      Zen Launcher is a local-first game library manager for Linux. It scans the
+      folders of games you already own — DRM-free purchases, freeware, mods,
+      total conversions, retro titles and plain game directories — and keeps
+      them in one library with artwork, play time and recent games. No store
+      clients, no accounts, no telemetry.
+    </p>
+    <p>
+      Games launch straight from the library, including Windows titles through a
+      per-game Wine prefix that is set up automatically. A Big Picture mode
+      offers a console-style, gamepad-driven interface for the couch.
+    </p>
+    <p>
+      A built-in mod loader catalog helps with common modding setups such as
+      Ultimate ASI Loader, CLEO, BepInEx, MelonLoader or tModLoader. Loaders and
+      archives can be installed per game, manual loader links are supported, and
+      an update checker keeps installed loaders current. Client adapters for
+      SA-MP, FiveM and MTA launch multiplayer clients for supported games.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.ace2821.ZenLauncher.desktop</launchable>
+  <url type="homepage">https://github.com/ace2821/Zen-Launcher</url>
+  <url type="bugtracker">https://github.com/ace2821/Zen-Launcher/issues</url>
+  <url type="vcs-browser">https://github.com/ace2821/Zen-Launcher</url>
+  <developer id="io.github.ace2821">
+    <name>ace2821</name>
+  </developer>
+  <!--
+    Screenshots are hosted on the main branch of the upstream repository.
+    Replace them with fresh captures for each major UI change.
+  -->
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/ace2821/Zen-Launcher/main/assets/screenshots/library.png</image>
+      <caption>Library view</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/ace2821/Zen-Launcher/main/assets/screenshots/mods-installed.png</image>
+      <caption>Mod loader detection — installed mods and drop zone</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/ace2821/Zen-Launcher/main/assets/screenshots/mods-install.png</image>
+      <caption>Installable mod loaders straight from GitHub releases</caption>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1">
+    <content_attribute id="violence-cartoon">none</content_attribute>
+    <content_attribute id="violence-fantasy">none</content_attribute>
+    <content_attribute id="violence-realistic">none</content_attribute>
+    <content_attribute id="violence-bloodshed">none</content_attribute>
+    <content_attribute id="violence-sexual">none</content_attribute>
+    <content_attribute id="violence-desecration">none</content_attribute>
+    <content_attribute id="drugs-alcohol">none</content_attribute>
+    <content_attribute id="drugs-narcotics">none</content_attribute>
+    <content_attribute id="drugs-tobacco">none</content_attribute>
+    <content_attribute id="sex-nudity">none</content_attribute>
+    <content_attribute id="sex-themes">none</content_attribute>
+    <content_attribute id="sex-homosexuality">none</content_attribute>
+    <content_attribute id="sex-prostitution">none</content_attribute>
+    <content_attribute id="sex-adultery">none</content_attribute>
+    <content_attribute id="sex-appearance">none</content_attribute>
+    <content_attribute id="language-profanity">none</content_attribute>
+    <content_attribute id="language-humor">none</content_attribute>
+    <content_attribute id="language-discrimination">none</content_attribute>
+    <content_attribute id="social-chat">mild</content_attribute>
+    <content_attribute id="social-audio">none</content_attribute>
+    <content_attribute id="social-contacts">none</content_attribute>
+    <content_attribute id="social-info">mild</content_attribute>
+    <content_attribute id="social-location">none</content_attribute>
+    <content_attribute id="money-purchasing">none</content_attribute>
+    <content_attribute id="money-gambling">none</content_attribute>
+  </content_rating>
+  <releases>
+    <release version="1.1.0" date="2026-10-24">
+      <description>
+        <ul>
+          <li>Client adapters for SA-MP, FiveM and MTA multiplayer clients</li>
+          <li>Extended loader catalog with game-specific mod loaders</li>
+          <li>Loader update checker with update badges in the mods panel</li>
+          <li>Relocated client section with flavor badges in the game view</li>
+          <li>Flathub packaging: manifest, AppStream metadata and desktop entry</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.1.0" date="2026-10-18">
+      <description>
+        <ul>
+          <li>Big Picture console mode with gamepad navigation</li>
+          <li>Library view with hero statistics, recents and denser game cards</li>
+          <li>Mods tab with mod loader catalog and drag and drop installs</li>
+          <li>Windows games launch through automatic per-game Wine prefixes</li>
+          <li>Cover artwork search, settings v3 and onboarding wizard</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>
