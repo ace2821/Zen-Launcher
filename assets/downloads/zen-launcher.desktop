@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Zen Launcher
+Comment=Local-first game library manager and launcher for Linux
+Exec=zen-launcher %F
+Icon=zen-launcher
+Terminal=false
+Type=Application
+Categories=Game;Utility;
+Keywords=game;launcher;library;mods;wine;big picture;
+StartupNotify=true
+StartupWMClass=zen-launcher
+MimeType=x-scheme-handler/zen-launcher;

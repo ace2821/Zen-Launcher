@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Downloads — Zen Launcher</title>
+<meta name="description" content="Download Zen Launcher directly: AppImage and .desktop file. No GitHub account required.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="assets/zen-launcher.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div class="container header-inner">
+    <a href="index.html" class="logo"><img src="assets/zen-launcher.png" alt=""> Zen Launcher</a>
+    <nav class="nav" id="nav">
+      <a href="index.html">Home</a>
+      <a href="documentation.html">Documentation</a>
+      <a href="downloads.html" style="color:var(--text-1)">Downloads</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌓</button>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">☰</button>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="section-head">
+      <h2>Downloads</h2>
+    </div>
+    <p style="color:var(--text-2); margin-bottom: 1.5rem; max-width: 64ch;">Download Zen Launcher directly from this site — no GitHub account or releases page needed. If desktop integration doesn't work out of the box, grab the <code class="mono">.desktop</code> file below and place it in <code class="mono">~/.local/share/applications/</code>.</p>
+
+    <div class="download-grid">
+      <div class="download-card">
+        <div>
+          <h4>Zen Launcher AppImage</h4>
+          <p>Works on any glibc-based distro. Includes the full Tauri 2 application (Rust core + WebView UI). Version 1.1.0, x86-64.</p>
+          <div>
+            <span class="file-badge">Zen-Launcher-1.1.0-x86_64.AppImage</span>
+            <span class="file-badge" style="color:var(--text-3)">≈ 112 MB</span>
+          </div>
+        </div>
+        <div class="download-actions">
+          <a href="assets/downloads/Zen-Launcher-1.1.0-x86_64.AppImage" class="btn primary download" download>Download AppImage</a>
+        </div>
+        <div class="code-wrap" style="margin-top:0.5rem;">
+          <pre><code>chmod +x "Zen-Launcher-1.1.0-x86_64.AppImage"
+./"Zen-Launcher-1.1.0-x86_64.AppImage"</code></pre>
+        </div>
+      </div>
+
+      <div class="download-card">
+        <div>
+          <h4>.desktop file</h4>
+          <p>Desktop entry for KDE / GNOME / Xfce menus. Use this if launcher integration doesn't work automatically. Place it in <code class="mono">~/.local/share/applications/</code> and adjust the <code class="mono">Exec</code> path to your AppImage location.</p>
+          <div>
+            <span class="file-badge">zen-launcher.desktop</span>
+          </div>
+        </div>
+        <div class="download-actions">
+          <a href="assets/downloads/zen-launcher.desktop" class="btn primary download" download>Download .desktop</a>
+        </div>
+        <div class="code-wrap" style="margin-top:0.5rem;">
+          <pre><code># Install to applications menu
+cp zen-launcher.desktop ~/.local/share/applications/
+update-desktop-database ~/.local/share/applications/</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="doc-callout" style="margin-top:2rem;">
+      <strong>Prefer GitHub Releases?</strong> The same files are also published on <a href="https://github.com/ace2821/Zen-Launcher/releases" target="_blank" rel="noopener">GitHub Releases</a>. Direct downloads here are a convenience mirror.
+    </div>
+
+    <h3 style="font-weight:600; font-size:1.1rem; color:var(--text-1); margin:2rem 0 0.5rem;">Install after download</h3>
+    <div class="code-wrap">
+      <pre><code># 1. Make the AppImage executable
+chmod +x "Zen-Launcher-1.1.0-x86_64.AppImage"
+
+# 2. Run it
+./"Zen-Launcher-1.1.0-x86_64.AppImage"
+
+# 3. (Optional) Install .desktop for menu integration
+cp zen-launcher.desktop ~/.local/share/applications/
+update-desktop-database ~/.local/share/applications/</code></pre>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-links">
+      <a href="index.html">Home</a>
+      <a href="documentation.html">Documentation</a>
+      <a href="downloads.html">Downloads</a>
+    </div>
+    <div class="footer-note">License: MIT &nbsp;|&nbsp; <a href="https://github.com/ace2821/Zen-Launcher" target="_blank" rel="noopener">GitHub</a> &nbsp;|&nbsp; <a href="https://github.com/ace2821/Zen-Launcher/releases" target="_blank" rel="noopener">Releases</a></div>
+    <div class="footer-note">No telemetry. No accounts.</div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var html = document.documentElement;
+  var toggle = document.getElementById('themeToggle');
+
+  function setTheme(t) {
+    if (t === 'light') {
+      html.setAttribute('data-theme', 'light');
+      toggle.textContent = '☀️';
+      toggle.setAttribute('aria-pressed', 'true');
+    } else {
+      html.removeAttribute('data-theme');
+      toggle.textContent = '🌓';
+      toggle.setAttribute('aria-pressed', 'false');
+    }
+    localStorage.setItem('zen-theme', t);
+  }
+
+  var stored = localStorage.getItem('zen-theme');
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var theme;
+  if (stored === 'light' || stored === 'dark') {
+    theme = stored;
+  } else {
+    theme = prefersDark ? 'dark' : 'light';
+  }
+  setTheme(theme);
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+    if (!localStorage.getItem('zen-theme')) {
+      setTheme(e.matches ? 'dark' : 'light');
+    }
+  });
+
+  toggle.addEventListener('click', function () {
+    var isLight = html.hasAttribute('data-theme');
+    setTheme(isLight ? 'dark' : 'light');
+  });
+
+  var navToggle = document.getElementById('navToggle');
+  var nav = document.getElementById('nav');
+  navToggle.addEventListener('click', function () {
+    var open = nav.classList.toggle('open');
+    navToggle.setAttribute('aria-expanded', open);
+  });
+  nav.querySelectorAll('a').forEach(function (a) {
+    a.addEventListener('click', function () {
+      nav.classList.remove('open');
+      navToggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+})();
+</script>
+</body>
+</html>

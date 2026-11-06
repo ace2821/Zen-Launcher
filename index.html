@@ -10,315 +10,17 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="assets/zen-launcher.png">
-<style>
-/* Zen Launcher — landing site */
-/* Brand palette kept from screenshots: dark navy bg + blueish cards.
-   Gray scale added for light/dark theme switching. */
-
-/* ---------- Theme variables ---------- */
-/* Default = dark (brand). Light mode overrides via [data-theme="light"]. */
-:root {
-  /* Light mode */
-  --bg: #F8FAFC;
-  --card: #FFFFFF;
-  --text-1: #0F172A;
-  --text-2: #475569;
-  --text-3: #94A3B8;
-  --border: #E2E8F0;
-  --code-bg: #020617;
-  --code-border: #334155;
-  --shadow: rgba(15, 23, 42, 0.10);
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --radius: 16px;
-}
-[data-theme="light"] {
-  --bg: #F8FAFC;
-  --card: #FFFFFF;
-  --text-1: #0F172A;
-  --text-2: #475569;
-  --text-3: #94A3B8;
-  --border: #E2E8F0;
-  --code-bg: #020617;
-  --code-border: #334155;
-  --shadow: rgba(15, 23, 42, 0.10);
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-}
-[data-theme="dark"], html {
-  /* Dark mode (brand, default) */
-  --bg: #0A0F1F;
-  --card: #1E293B;
-  --text-1: #F1F5F9;
-  --text-2: #94A3B8;
-  --text-3: #64748B;
-  --border: #334155;
-  --code-bg: #020617;
-  --code-border: #334155;
-  --shadow: rgba(15, 23, 42, 0.45);
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
-}
-
-/* ---------- Base ---------- */
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body {
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  background: var(--bg);
-  color: var(--text-1);
-  line-height: 1.5;
-  font-size: 16px;
-  font-weight: 400;
-}
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-img { display: block; max-width: 100%; height: auto; }
-code, kbd, .mono {
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Registered, Menlo, Monaco, monospace;
-  font-weight: 500;
-  font-size: 12.5px;
-  letter-spacing: 0.02em;
-}
-
-/* ---------- Layout ---------- */
-.container {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 1.75rem;
-}
-section { padding: 4rem 0; width: 100%; }
-
-/* ---------- Header ---------- */
-header {
-  position: sticky;
-  top: 0;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  z-index: 50;
-}
-.header-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 0;
-  gap: 1rem;
-}
-.logo {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.65rem;
-  font-weight: 600;
-  font-size: 1.25rem;
-  color: var(--text-1);
-  text-decoration: none;
-  letter-spacing: -0.02em;
-}
-.logo img { width: 1.35rem; height: 1.35rem; border-radius: 6px; }
-.logo:hover { color: var(--accent); }
-.nav {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-}
-.nav a {
-  font-size: 0.9rem;
-  color: var(--text-2);
-  text-decoration: none;
-  font-weight: 500;
-}
-.nav a:hover { color: var(--text-1); text-decoration: none; }
-.theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text-2);
-  background: var(--card);
-  border: 1px solid var(--border);
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  cursor: pointer;
-}
-.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
-.nav-toggle { display: none; background: none; border: 1px solid var(--border); color: var(--text-1); padding: 0.4rem 0.7rem; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 1rem; }
-.nav-toggle:hover { background: var(--card); }
-
-/* ---------- Hero ---------- */
-.hero { padding: 4.5rem 0 3rem; text-align: left; }
-.hero-title { font-weight: 600; font-size: 2.6rem; line-height: 1.12; letter-spacing: -0.03em; margin-bottom: 1rem; color: var(--text-1); }
-.hero-tagline { font-size: 1.1rem; color: var(--text-2); margin-bottom: 1.75rem; max-width: 64ch; font-weight: 400; }
-.hero-actions { display: flex; flex-direction: column; gap: 0.85rem; align-items: stretch; }
-.btn {
-  display: inline-block;
-  font-family: Inter, sans-serif;
-  font-size: 0.9rem;
-  font-weight: 500;
-  padding: 0.75rem 1.25rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.1s ease;
-}
-.btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--text-1);
-}
-.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.btn.outline {
-  background: transparent;
-  color: var(--text-1);
-}
-.btn.outline:hover { background: var(--border); color: var(--text-1); }
-.btn:active { transform: scale(0.98); }
-.meta {
-  margin-top: 2rem;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text-3);
-}
-
-/* ---------- At a glance ---------- */
-.section-head { margin-bottom: 1.5rem; }
-.section-head h2 { font-weight: 600; font-size: 1.5rem; letter-spacing: -0.02em; color: var(--text-1); }
-.glance-grid { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1rem; }
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.25rem 1.5rem;
-}
-.card h4 { font-weight: 600; font-size: 1rem; color: var(--text-1); letter-spacing: -0.01em; }
-.card p { font-size: 0.88rem; color: var(--text-2); margin: 0; line-height: 1.5; }
-
-/* ---------- Screenshots (browser mockups) ---------- */
-.screenshot-grid { display: flex; flex-direction: column; gap: 2.5rem; margin-top: 1rem; }
-.screenshot-wrap { display: flex; flex-direction: column; gap: 0.75rem; align-items: stretch; }
-.browser-mock {
-  position: relative;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: 0 24px 48px -12px var(--shadow);
-}
-.browser-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.9rem;
-  background: mix(var(--card), var(--bg), 15%);
-  border-bottom: 1px solid var(--border);
-}
-.browser-dots { display: flex; gap: 0.45rem; }
-.browser-dots span { display: block; width: 9px; height: 9px; border-radius: 50%; background: var(--text-3); opacity: 0.45; }
-.browser-address {
-  flex: 1;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text-3);
-  opacity: 0.8;
-}
-.browser-mock img { width: 100%; height: auto; display: block; border-radius: 0; }
-.screenshot-caption {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11.5px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text-2);
-  text-align: left;
-}
-
-/* ---------- Feature details ---------- */
-.detail-grid { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1rem; }
-.detail-card { border-radius: var(--radius); padding: 1.25rem 1.5rem; background: var(--card); border: 1px solid var(--border); }
-.detail-card h4 { font-weight: 600; font-size: 1rem; color: var(--text-1); margin-bottom: 0.5rem; letter-spacing: -0.01em; }
-.detail-card ul { margin-left: 1.35rem; color: var(--text-2); font-size: 0.88rem; }
-.detail-card li { margin-bottom: 0.35rem; line-height: 1.5; }
-
-/* ---------- Install ---------- */
-.install-wrap { margin-top: 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
-.install-step { border-radius: var(--radius); padding: 1.25rem 1.5rem; background: var(--card); border: 1px solid var(--border); }
-.install-step h4 { font-weight: 600; font-size: 1rem; color: var(--text-1); margin-bottom: 0.5rem; letter-spacing: -0.01em; }
-.install-step p { font-size: 0.88rem; color: var(--text-2); margin-bottom: 0.85rem; line-height: 1.5; }
-.code-wrap { position: relative; border-radius: 10px; border: 1px solid var(--code-border); overflow: hidden; background: var(--code-bg); }
-.code-wrap pre { padding: 1rem 1.1rem; overflow-x: auto; font-size: 0.85rem; line-height: 1.45; margin: 0; }
-.code-wrap code { font-family: "JetBrains Mono", monospace; font-weight: 500; letter-spacing: 0.02em; color: #F1F5F9; }
-.copy-btn {
-  position: absolute;
-  top: 0.55rem; right: 0.55rem;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text-3);
-  background: var(--code-bg);
-  border: 1px solid var(--code-border);
-  padding: 0.2rem 0.55rem;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.copy-btn:hover { color: var(--accent); border-color: var(--accent); }
-.copy-btn.copied { color: var(--accent); }
-
-/* ---------- Tech stack ---------- */
-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.88rem; }
-th, td { text-align: left; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); }
-th { font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); }
-td { color: var(--text-1); }
-tr:last-child td { border-bottom: none; }
-
-/* ---------- Roadmap ---------- */
-.roadmap { margin-top: 1rem; list-style: none; }
-.roadmap li { font-size: 0.9rem; color: var(--text-2); margin-bottom: 0.55rem; padding-left: 1.2rem; position: relative; }
-.roadmap li::before { content: ""; position: absolute; left: 0; top: 0.75rem; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-
-/* ---------- Source ---------- */
-.source-grid { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem; align-items: stretch; }
-
-/* ---------- Footer ---------- */
-footer { border-top: 1px solid var(--border); padding: 3rem 0 2rem; margin-top: 3rem; font-size: 0.8rem; color: var(--text-2); }
-.footer-inner { display: flex; flex-direction: column; gap: 1rem; align-items: flex-start; }
-.footer-links { display: flex; gap: 1.25rem; flex-wrap: wrap; }
-.footer-links a { color: var(--text-1); text-decoration: none; font-size: 0.85rem; font-weight: 500; }
-.footer-links a:hover { color: var(--accent); text-decoration: none; }
-.footer-note { margin-top: 0.5rem; font-weight: 600; color: var(--text-1); }
-.tag { font-family: "JetBrains Mono", monospace; font-size: 10.5px; font-weight: 500; letter-spacing: 0.02em; color: var(--text-3); background: var(--card); border: 1px solid var(--border); padding: 0.15rem 0.5rem; border-radius: 6px; }
-
-/* ---------- Mobile ---------- */
-@media (max-width: 640px) {
-  .hero-title { font-size: 2rem; }
-  .nav { display: none; }
-  .nav-toggle { display: block; }
-  .nav.open { display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem 0; border-bottom: 1px solid var(--border); background: var(--bg); }
-  .hero-actions { align-items: stretch; }
-  .btn { width: 100%; }
-  .section-head h2 { font-size: 1.25rem; }
-}
-</style>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <header>
   <div class="container header-inner">
-    <a href="#" class="logo"><img src="assets/zen-launcher.png" alt=""> Zen Launcher</a>
+    <a href="index.html" class="logo"><img src="assets/zen-launcher.png" alt=""> Zen Launcher</a>
     <nav class="nav" id="nav">
-      <a href="#features">Features</a>
-      <a href="#screenshots">Screenshots</a>
-      <a href="#install">Install</a>
-      <a href="#source">Source</a>
+      <a href="index.html">Home</a>
+      <a href="documentation.html">Documentation</a>
+      <a href="downloads.html">Downloads</a>
     </nav>
     <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌓</button>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">☰</button>
@@ -331,7 +33,7 @@ footer { border-top: 1px solid var(--border); padding: 3rem 0 2rem; margin-top: 
     <h1 class="hero-title">Zen Launcher</h1>
     <p class="hero-tagline">Local-first game library manager and launcher for Linux. Organize, launch and mod the games you already own — DRM-free purchases, freeware, plain folders and Windows titles through Wine. No store clients, no accounts, no telemetry.</p>
     <div class="hero-actions">
-      <a href="https://github.com/ace2821/Zen-Launcher/releases" class="btn primary" target="_blank" rel="noopener">Download (AppImage)</a>
+      <a href="downloads.html" class="btn primary">Download (AppImage)</a>
       <a href="https://github.com/ace2821/Zen-Launcher" class="btn outline" target="_blank" rel="noopener">View source</a>
     </div>
     <div class="meta">v1.1.0 <span class="tag">•</span> Linux <span class="tag">•</span> MIT <span class="tag">•</span> Tauri 2</div>
@@ -471,11 +173,11 @@ footer { border-top: 1px solid var(--border); padding: 3rem 0 2rem; margin-top: 
     <div class="install-wrap">
       <div class="install-step">
         <h4>AppImage (recommended)</h4>
-        <p>Works on any glibc-based distro. Grab the latest release from <a href="https://github.com/ace2821/Zen-Launcher/releases" target="_blank" rel="noopener">Releases</a>, then:</p>
+        <p>Works on any glibc-based distro. Download directly below, then:</p>
         <div class="code-wrap">
           <button class="copy-btn" data-target="appimage">Copy</button>
-          <pre><code>chmod +x "Zen Launcher_*.AppImage"
-./"Zen Launcher_*.AppImage"</code></pre>
+          <pre><code>chmod +x "Zen-Launcher-1.1.0-x86_64.AppImage"
+./"Zen-Launcher-1.1.0-x86_64.AppImage"</code></pre>
         </div>
       </div>
       <div class="install-step">
@@ -541,10 +243,9 @@ bun run dev          # frontend only, mock IPC</code></pre>
 <footer>
   <div class="container footer-inner">
     <div class="footer-links">
-      <a href="#features">Features</a>
-      <a href="#screenshots">Screenshots</a>
-      <a href="#install">Install</a>
-      <a href="#source">Source</a>
+      <a href="index.html">Home</a>
+      <a href="documentation.html">Documentation</a>
+      <a href="downloads.html">Downloads</a>
     </div>
     <div class="footer-note">License: MIT &nbsp;|&nbsp; <a href="https://github.com/ace2821/Zen-Launcher" target="_blank" rel="noopener">GitHub</a> &nbsp;|&nbsp; <a href="https://github.com/ace2821/Zen-Launcher/releases" target="_blank" rel="noopener">Releases</a></div>
     <div class="footer-note">No telemetry. No accounts.</div>
@@ -554,20 +255,39 @@ bun run dev          # frontend only, mock IPC</code></pre>
 <script>
 (function () {
   // ---- Theme init (runs before body paints to avoid flash) ----
-  var stored = localStorage.getItem('zen-theme');
-  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  var theme = stored || (prefersDark ? 'dark' : 'light');
   var html = document.documentElement;
   var toggle = document.getElementById('themeToggle');
 
   function setTheme(t) {
-    if (t === 'light') html.setAttribute('data-theme', 'light');
-    else html.removeAttribute('data-theme');
+    if (t === 'light') {
+      html.setAttribute('data-theme', 'light');
+      toggle.textContent = '☀️';
+      toggle.setAttribute('aria-pressed', 'true');
+    } else {
+      html.removeAttribute('data-theme');
+      toggle.textContent = '🌓';
+      toggle.setAttribute('aria-pressed', 'false');
+    }
     localStorage.setItem('zen-theme', t);
-    toggle.textContent = t === 'light' ? '☀️' : '🌓';
-    toggle.setAttribute('aria-pressed', t === 'light');
+  }
+
+  // Resolve theme: localStorage > system preference > dark (brand default)
+  var stored = localStorage.getItem('zen-theme');
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var theme;
+  if (stored === 'light' || stored === 'dark') {
+    theme = stored;
+  } else {
+    theme = prefersDark ? 'dark' : 'light';
   }
   setTheme(theme);
+
+  // Re-evaluate when system preference changes (only if no manual choice stored)
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+    if (!localStorage.getItem('zen-theme')) {
+      setTheme(e.matches ? 'dark' : 'light');
+    }
+  });
 
   toggle.addEventListener('click', function () {
     var isLight = html.hasAttribute('data-theme');

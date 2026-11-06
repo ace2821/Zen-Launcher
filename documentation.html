@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Documentation — Zen Launcher</title>
+<meta name="description" content="Zen Launcher documentation: overview, quick start, library management, launch, mods, configuration, and troubleshooting.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="assets/zen-launcher.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div class="container header-inner">
+    <a href="index.html" class="logo"><img src="assets/zen-launcher.png" alt=""> Zen Launcher</a>
+    <nav class="nav" id="nav">
+      <a href="index.html">Home</a>
+      <a href="documentation.html" style="color:var(--text-1)">Documentation</a>
+      <a href="downloads.html">Downloads</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌓</button>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">☰</button>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="doc-layout">
+      <!-- Sidebar navigation -->
+      <aside class="doc-sidebar">
+        <h3>Documentation</h3>
+        <ul class="doc-nav">
+          <li><a href="#overview" class="active">Overview</a></li>
+          <li><a href="#quick-start">Quick Start</a></li>
+          <li><a href="#library">Library Management</a></li>
+          <li><a href="#launch">Launch &amp; Wine</a></li>
+          <li><a href="#mods">Mods</a></li>
+          <li><a href="#configuration">Configuration</a></li>
+          <li><a href="#faq">FAQ &amp; Troubleshooting</a></li>
+        </ul>
+      </aside>
+
+      <!-- Main content -->
+      <div class="doc-content">
+        <section id="overview" class="doc-section">
+          <h2>Overview</h2>
+          <p>Zen Launcher is a local-first game library manager and launcher for Linux. It organizes, launches and mods the games you already own — DRM-free store purchases, freeware, plain game folders and Windows titles through Wine. There are no store clients, no accounts and no telemetry.</p>
+          <p>Network access is limited to metadata providers (Steam, SteamGridDB, ScreenScraper) and an optional update check — both are toggleable and all results are cached locally.</p>
+          <div class="doc-callout"><strong>Platform:</strong> Linux first (Arch / CachyOS dev target). Windows port is planned but not yet available.</div>
+        </section>
+
+        <section id="quick-start" class="doc-section">
+          <h2>Quick Start</h2>
+          <ol>
+            <li><strong>Download:</strong> grab the <a href="downloads.html">AppImage</a> from the Downloads page.</li>
+            <li><strong>Make executable:</strong> <code class="mono">chmod +x "Zen-Launcher-1.1.0-x86_64.AppImage"</code></li>
+            <li><strong>Run:</strong> <code class="mono">./"Zen-Launcher-1.1.0-x86_64.AppImage"</code></li>
+            <li><strong>Add games:</strong> point the launcher at your game folders; it scans and suggests candidates for approval.</li>
+          </ol>
+        </section>
+
+        <section id="library" class="doc-section">
+          <h2>Library Management</h2>
+          <p>Scan any folder you point Zen Launcher at. The scanner detects engines (Unity, Godot, Unreal, GameMaker, plain executables) and produces candidates with confidence scores. You approve, edit or reject each one.</p>
+          <ul>
+            <li>Cover art via Steam search with monogram fallbacks</li>
+            <li>Playtime and recents tracking</li>
+            <li>Favorites, notes, tags, hiding</li>
+            <li>Metadata from Steam, SteamGridDB, ScreenScraper and local files</li>
+            <li>Cover grid (default) and list/table views</li>
+          </ul>
+        </section>
+
+        <section id="launch" class="doc-section">
+          <h2>Launch &amp; Wine</h2>
+          <p>Each game has its own launch profile: executable, arguments, working directory and environment variables. Windows titles run through system <code class="mono">wine</code> with a managed prefix per game (<code class="mono">~/.local/share/zen-launcher/prefixes/&lt;game id&gt;</code>), so unrelated games never share a registry or C: drive.</p>
+          <ul>
+            <li>Per-game <code class="mono">WINEPREFIX</code> / <code class="mono">WINEDLLOVERRIDES</code> overrides</li>
+            <li>GameMode and MangoHud toggles</li>
+            <li>Every session is recorded with duration and exit code</li>
+            <li>Multiplayer clients: SA-MP (host/port/nick), FiveM, MTA badges</li>
+          </ul>
+          <div class="doc-callout"><strong>Known limitation:</strong> only the direct child process is supervised. Wrapper-style launchers that exit immediately may end the session early.</div>
+        </section>
+
+        <section id="mods" class="doc-section">
+          <h2>Mods</h2>
+          <p>Zen Launcher detects what a game runs and can install downloadable loaders straight from GitHub releases. Detected loaders include BepInEx 5/6, MelonLoader, NeoModLoader, MSC Mod Loader, tModLoader, CLEO 5/4 &amp; Redux, Script Hook IV/V and Frosty.</p>
+          <ul>
+            <li>Manual-install loaders get official-page links instead</li>
+            <li>Mod archives (zip / 7z / rar) can be dropped onto a game</li>
+            <li>Archives are unpacked into the loader's mods folder with redundant-file handling</li>
+            <li>Loaders Zen installed can be checked for updates and reinstalled</li>
+            <li>Non-destructive: enable/disable moves files to a stash, never deletes</li>
+          </ul>
+        </section>
+
+        <section id="configuration" class="doc-section">
+          <h2>Configuration</h2>
+          <p>Settings live in <code class="mono">~/.config/zen-launcher/config.toml</code> (mode 0600 for provider keys). Library data lives in <code class="mono">~/.local/share/zen-launcher/</code> (<code class="mono">library.db</code>, <code class="mono">images/</code>, <code class="mono">saves/</code>, <code class="mono">mods/</code>).</p>
+          <h3>First-run wizard</h3>
+          <ul>
+            <li>Language: English + Polish from day one</li>
+            <li>Font: Maple Mono (default), headings in Space Grotesk</li>
+            <li>Accent presets and default library view</li>
+            <li>Dark theme only for now — light theme deferred</li>
+            <li>Wizard is skippable and re-runnable from Settings</li>
+          </ul>
+          <h3>Saves</h3>
+          <ul>
+            <li>Auto-backup before each session (if enabled) + manual backup</li>
+            <li>Versioned ZIP snapshots per game</li>
+            <li>One-click restore with pre-restore safety copy</li>
+            <li>Save path auto-detection or user-defined per game</li>
+          </ul>
+        </section>
+
+        <section id="faq" class="doc-section">
+          <h2>FAQ &amp; Troubleshooting</h2>
+          <h3>Does it telemetry?</h3>
+          <p>No. Network is only used for chosen metadata providers and the update check, both toggleable.</p>
+          <h3>Windows games won't launch?</h3>
+          <p>Make sure <code class="mono">wine</code> is installed. Each Windows game gets its own prefix; if a prefix is corrupt, recreate it from the game's launch options.</p>
+          <h3>Desktop integration broken?</h3>
+          <p>Download the <code class="mono">.desktop</code> file from the Downloads page and place it in <code class="mono">~/.local/share/applications/</code>, then adjust the <code class="mono">Exec</code> path to point at your AppImage.</p>
+          <h3>Where are logs?</h3>
+          <p>In <code class="mono">~/.local/share/zen-launcher/logs/</code>.</p>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="container footer-inner">
+    <div class="footer-links">
+      <a href="index.html">Home</a>
+      <a href="documentation.html">Documentation</a>
+      <a href="downloads.html">Downloads</a>
+    </div>
+    <div class="footer-note">License: MIT &nbsp;|&nbsp; <a href="https://github.com/ace2821/Zen-Launcher" target="_blank" rel="noopener">GitHub</a> &nbsp;|&nbsp; <a href="https://github.com/ace2821/Zen-Launcher/releases" target="_blank" rel="noopener">Releases</a></div>
+    <div class="footer-note">No telemetry. No accounts.</div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var html = document.documentElement;
+  var toggle = document.getElementById('themeToggle');
+
+  function setTheme(t) {
+    if (t === 'light') {
+      html.setAttribute('data-theme', 'light');
+      toggle.textContent = '☀️';
+      toggle.setAttribute('aria-pressed', 'true');
+    } else {
+      html.removeAttribute('data-theme');
+      toggle.textContent = '🌓';
+      toggle.setAttribute('aria-pressed', 'false');
+    }
+    localStorage.setItem('zen-theme', t);
+  }
+
+  var stored = localStorage.getItem('zen-theme');
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var theme;
+  if (stored === 'light' || stored === 'dark') {
+    theme = stored;
+  } else {
+    theme = prefersDark ? 'dark' : 'light';
+  }
+  setTheme(theme);
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+    if (!localStorage.getItem('zen-theme')) {
+      setTheme(e.matches ? 'dark' : 'light');
+    }
+  });
+
+  toggle.addEventListener('click', function () {
+    var isLight = html.hasAttribute('data-theme');
+    setTheme(isLight ? 'dark' : 'light');
+  });
+
+  var navToggle = document.getElementById('navToggle');
+  var nav = document.getElementById('nav');
+  navToggle.addEventListener('click', function () {
+    var open = nav.classList.toggle('open');
+    navToggle.setAttribute('aria-expanded', open);
+  });
+  nav.querySelectorAll('a').forEach(function (a) {
+    a.addEventListener('click', function () {
+      nav.classList.remove('open');
+      navToggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+})();
+</script>
+</body>
+</html>
