@@ -5,33 +5,33 @@
 /* ---------- Theme variables ---------- */
 /* Default = dark (brand, no attribute needed). Light mode overrides via [data-theme="light"]. */
 :root {
-  /* Dark mode (brand default) */
-  --bg: #0A0F1F;
-  --card: #1E293B;
-  --text-1: #F1F5F9;
-  --text-2: #94A3B8;
-  --text-3: #64748B;
-  --border: #334155;
+  /* Dark mode (brand default) — gray-scale, no blue */
+  --bg: #0a0a0a;
+  --card: #161616;
+  --text-1: #f1f5f9;
+  --text-2: #a0a0a0;
+  --text-3: #666666;
+  --border: #2a2a2a;
   --code-bg: #020617;
-  --code-border: #334155;
-  --shadow: rgba(15, 23, 42, 0.45);
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
+  --code-border: #2a2a2a;
+  --shadow: rgba(0, 0, 0, 0.45);
+  --accent: #888888;
+  --accent-hover: #aaaaaa;
   --radius: 16px;
 }
 [data-theme="light"] {
-  /* Light mode */
-  --bg: #F8FAFC;
-  --card: #FFFFFF;
-  --text-1: #0F172A;
-  --text-2: #475569;
-  --text-3: #94A3B8;
-  --border: #E2E8F0;
+  /* Light mode — gray-scale, no blue */
+  --bg: #f2f2f2;
+  --card: #ffffff;
+  --text-1: #1a1a1a;
+  --text-2: #555555;
+  --text-3: #777777;
+  --border: #cccccc;
   --code-bg: #020617;
-  --code-border: #334155;
-  --shadow: rgba(15, 23, 42, 0.10);
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
+  --code-border: #2a2a2a;
+  --shadow: rgba(0, 0, 0, 0.10);
+  --accent: #555555;
+  --accent-hover: #444444;
 }
 
 /* ---------- Base ---------- */
