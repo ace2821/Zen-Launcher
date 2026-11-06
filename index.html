@@ -1,238 +1,263 @@
-<!doctype html>
-<html lang="en" class="no-js">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Zen Launcher — the boring launcher that works</title>
-<meta name="description" content="Zen Launcher — local-first Linux game library launcher. Big Picture, Steam covers, BepInEx/MelonLoader mods, GameMode/MangoHud, Wine prefixes. MIT, zero telemetry.">
-<meta property="og:title" content="Zen Launcher — the boring launcher that works">
-<meta property="og:description" content="Local-first Linux game library launcher. Big Picture, Steam covers, drag&drop mods, GameMode & MangoHud, Wine prefixes. MIT, zero telemetry.">
-<meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%23090a0c%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%229%22 fill=%22none%22 stroke=%22%2334d399%22 stroke-width=%222%22/%3E%3C/svg%3E">
-<style>
-:root{
-  --bg:#090a0c;
-  --surface:#0f1116;
-  --border:#242730;
-  --text:#e8e8ea;
-  --muted:#8c919c;
-  --accent:#34d399;
-  --accent-hover:#6ee7b7;
-  --ink:#052012;
-  --code:#12141b;
-}
-*,::before,::after{box-sizing:border-box}
-html.no-js [data-reveal],
-html.no-js [data-reveal] > *{opacity:1;transform:none;transition:none!important;animation:none!important}
-body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
-code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;background:var(--code);color:#c9d1ea;padding:2px 6px;border-radius:4px;font-size:0.85em}
-.container{max-width:860px;margin:0 auto;padding:0 20px}
-.hero{padding:66px 0 44px}
-.hero .kicker{display:inline-block;color:var(--accent);font-size:0.72rem;letter-spacing:0.16em;text-transform:uppercase;margin:0 0 12px}
-.hero h1{font-size:clamp(2.4rem,5.5vw,4.8rem);line-height:1.02;margin:0 0 14px;font-weight:800;letter-spacing:-0.03em}
-.hero h1 em{font-style:normal;color:var(--accent)}
-.hero p.sub{font-size:1.2rem;color:var(--muted);max-width:600px;margin:0 0 20px}
-.hero .jump{font-size:0.85rem;color:var(--muted);margin:0 0 26px}
-.hero .jump a{color:var(--text);border-bottom:1px solid transparent;padding-bottom:2px}
-.hero .jump a:hover{border-bottom-color:var(--accent)}
-.hero .btn{display:inline-block;background:var(--accent);color:var(--ink);padding:13px 26px;border-radius:8px;font-weight:700;font-size:1rem}
-.hero .btn:hover{background:var(--accent-hover)}
-.hero .psst{margin:30px 0 0;font-size:0.8rem;color:var(--muted);border-left:2px solid var(--border);padding-left:12px;font-style:italic}
-.hero .specs{margin-top:26px;font-size:0.8rem;color:var(--muted);letter-spacing:0.02em}
-.what{padding:62px 0 40px}
-.what h2{font-size:clamp(1.5rem,3vw,2rem);margin:0 0 8px}
-.what .intro{color:var(--muted);font-size:0.95rem;margin:0 0 24px;max-width:560px}
-.what .deck{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px}
-.card{border:1px solid var(--border);background:var(--surface);padding:18px 20px;border-radius:10px}
-.card h3{margin:0 0 6px;font-size:1rem}
-.card p{margin:0;color:var(--muted);font-size:0.88rem}
-.card:hover{border-color:var(--accent)}
-.card.big{grid-column:span 2;grid-row:span 2;padding:24px 26px}
-.card.big h3{font-size:1.15rem}
-.card.local{grid-column:1/-1}
-.card.mods{transform:rotate(-1.3deg);transform-origin:left top}
-@media (max-width:640px){
-  .what .deck{grid-template-columns:1fr}
-  .card.big,.card.local{grid-column:span 1;grid-row:auto}
-  .card.mods{transform:none}
-}
-.steps{padding:62px 0 40px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)}
-.steps h2{font-size:clamp(1.5rem,3vw,2rem);margin:0 0 6px}
-.steps .intro{color:var(--muted);font-size:0.95rem;margin:0 0 28px}
-.steps .row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.step{border:1px solid var(--border);padding:20px;border-radius:10px}
-.step .num{display:inline-block;background:var(--accent);color:var(--ink);font-size:0.7rem;font-weight:800;padding:2px 8px;border-radius:4px;margin-bottom:10px;letter-spacing:0.08em}
-.step h3{margin:0 0 6px;font-size:1rem}
-.step p{margin:0 0 12px;color:var(--muted);font-size:0.88rem}
-.step code{display:block;margin:8px 0 0;font-size:0.85em;overflow-wrap:anywhere}
-.step.middle{transform:translateY(-8px);border-color:var(--accent)}
-.cta-sec{padding:62px 0 40px}
-.cta-sec .band{border:1px solid var(--border);background:var(--surface);padding:28px 30px;border-radius:10px}
-.cta-sec h2{margin:0 0 8px;font-size:clamp(1.4rem,3vw,1.9rem)}
-.cta-sec .note{color:var(--muted);font-size:0.95rem;margin:0 0 22px;max-width:540px}
-.cta-sec .btn{display:inline-block;background:var(--accent);color:var(--ink);padding:14px 30px;border-radius:8px;font-weight:700;font-size:1rem}
-.cta-sec .btn:hover{background:var(--accent-hover)}
-footer{padding:42px 0 70px;border-top:1px solid var(--border);color:var(--muted);font-size:0.85rem}
-footer .links{display:flex;flex-wrap:wrap;gap:18px 34px;margin-bottom:26px}
-footer .links a{color:var(--text)}
-footer .links a:hover{color:var(--accent)}
-footer .sign{display:block;text-align:right;margin-top:10px;font-style:italic;color:var(--text)}
-[data-reveal]{opacity:0;transform:translateY(18px);transition:opacity 0.6s ease,transform 0.6s ease}
-[data-reveal] > *{opacity:0;transform:translateY(18px);transition:opacity 0.5s ease,transform 0.5s ease}
-[data-reveal].is-visible{opacity:1;transform:none;transition:none}
-[data-reveal].is-visible > *{opacity:1;transform:none}
-@media (prefers-reduced-motion: reduce){
-  *,::before,::after{transition:none!important;animation:none!important}
-  [data-reveal],[data-reveal] > *{opacity:1;transform:none}
-  .card.mods{transform:none}
-  html{scroll-behavior:auto}
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>Zen Launcher — Local-first game library manager for Linux</title>
+  <meta name="description" content="Zen Launcher: local-first game library manager and launcher for Linux. Organize, launch and mod the games you already own. No store clients, no accounts, no telemetry.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="assets/zen-launcher.png">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="container">
-  <section class="hero" id="hero">
-    <div data-reveal data-stagger="60">
-      <p class="kicker">local-first Linux game library</p>
-      <h1>Zen <em>Launcher</em></h1>
-      <p class="sub">The boring launcher that works.</p>
-      <p class="jump"><a href="#what-it-does">what it does</a> · <a href="#first-run">first run</a> · <a href="https://github.com/ace2821/Zen-Launcher/releases/latest/download/Zen.Launcher_0.1.0_amd64.AppImage">download v0.1.0</a></p>
-      <a href="https://github.com/ace2821/Zen-Launcher/releases/latest/download/Zen.Launcher_0.1.0_amd64.AppImage" class="btn">Download AppImage (~112 MB)</a>
-      <p class="psst">psst — działa jak trzeba. (i tylko na Linuxie, celowo)</p>
-      <p class="specs">Big Picture · Steam covers · BepInEx &amp; MelonLoader mods · GameMode &amp; MangoHud · Wine prefixes · v0.1.0 · MIT · zero telemetry</p>
-    </div>
-  </section>
 
-  <section class="what" id="what-it-does">
-    <div data-reveal data-stagger="80">
-      <h2>What it does</h2>
-      <p class="intro">A handful of things. None of them require an account.</p>
-      <div class="deck">
-        <article class="card big">
-          <h3>Big Picture</h3>
-          <p>Xbox and PlayStation pads work out of the box, with two glyph layouts so the button prompts match the controller in your hands. Keyboard still welcome.</p>
-        </article>
-        <article class="card">
-          <h3>Steam covers</h3>
-          <p>Cover art for your games, because a library should look like shelves, not a spreadsheet.</p>
-        </article>
-        <article class="card mods">
-          <h3>Mods, drag &amp; drop</h3>
-          <p>BepInEx and MelonLoader mods go in by dropping them on the window. No folder archaeology.</p>
-        </article>
-        <article class="card">
-          <h3>GameMode &amp; MangoHud</h3>
-          <p>GameMode asks the CPU to focus. MangoHud shows the numbers if you like numbers. Both optional, both wired.</p>
-        </article>
-        <article class="card">
-          <h3>Sessions &amp; timer</h3>
-          <p>Remembers what you ran and for how long. Stays on your disk. No cloud, no account.</p>
-        </article>
-        <article class="card local">
-          <h3>Local-first, by design</h3>
-          <p>Everything lives on your machine. Tauri 2 + Rust + React, MIT licensed, ~112 MB AppImage. Baked with Rust. — ace2821</p>
-        </article>
+  <header>
+    <div class="container header-inner">
+      <a href="#" class="logo"><img src="assets/zen-launcher.png" alt="" class="logo-icon"> Zen Launcher</a>
+      <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">&#9776;</button>
+      <ul class="nav-list" id="nav-list">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#screenshots">Screenshots</a></li>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#source">Source</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero container">
+      <h1 class="hero-title">Zen Launcher</h1>
+      <p class="hero-tagline">Local-first game library manager and launcher for Linux. Organize, launch and mod the games you already own — DRM-free purchases, freeware, plain folders and Windows titles through Wine. No store clients, no accounts, no telemetry.</p>
+      <div class="hero-actions">
+        <a href="https://github.com/ace2821/Zen-Launcher/releases" class="btn">Download (AppImage)</a>
+        <a href="https://github.com/ace2821/Zen-Launcher" class="btn outline">View source</a>
       </div>
-    </div>
-  </section>
+      <div class="meta">v1.1.0 &middot; Linux &middot; MIT &middot; Tauri 2</div>
+    </section>
 
-  <section class="steps" id="first-run">
-    <div data-reveal data-stagger="70">
-      <h2>First run in 3 steps</h2>
-      <p class="intro">No installer. Just one AppImage.</p>
-      <div class="row">
-        <div class="step">
-          <span class="num">01</span>
-          <h3>Download</h3>
-          <p>Grab the latest release from GitHub.</p>
-          <code>Zen.Launcher_0.1.0_amd64.AppImage</code>
+    <section id="features" class="container">
+      <h2>At a glance</h2>
+      <div class="glance-grid">
+        <div class="card">
+          <h4>Library</h4>
+          <p>Scan folders, cover art with monogram fallbacks, playtime and recents, favorites, notes, tags, hiding.</p>
         </div>
-        <div class="step middle">
-          <span class="num">02</span>
-          <h3>Make it executable</h3>
-          <p>So the system will actually run it.</p>
-          <code>chmod +x Zen.Launcher_0.1.0_amd64.AppImage</code>
+        <div class="card">
+          <h4>Launch</h4>
+          <p>Per-game options, Wine per-game prefix, GameMode and MangoHud, session recording.</p>
         </div>
-        <div class="step">
-          <span class="num">03</span>
-          <h3>Run it</h3>
-          <p>That's it. Your library opens.</p>
-          <code>./Zen.Launcher_0.1.0_amd64.AppImage</code>
+        <div class="card">
+          <h4>Mods</h4>
+          <p>Loader detection (BepInEx, MelonLoader, CLEO, Script Hook, Frosty and more), GitHub releases, zip/7z/rar drops.</p>
+        </div>
+        <div class="card">
+          <h4>Multiplayer</h4>
+          <p>SA-MP, FiveM, MTA badges; SA-MP host, port and nickname options.</p>
+        </div>
+        <div class="card">
+          <h4>Big Picture</h4>
+          <p>Console-style, gamepad-friendly layout reusing the same library data.</p>
+        </div>
+        <div class="card">
+          <h4>Saves</h4>
+          <p>Auto-backup before sessions plus version history and one-click restore.</p>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <section class="cta-sec">
-    <div data-reveal data-stagger="60">
-      <div class="band">
-        <h2>Ready?</h2>
-        <p class="note">The latest release is v0.1.0, ~112 MB. Full source, issues and releases live on GitHub.</p>
-        <a href="https://github.com/ace2821/Zen-Launcher/releases/latest/download/Zen.Launcher_0.1.0_amd64.AppImage" class="btn">Download Zen Launcher v0.1.0</a>
+    <section id="screenshots" class="container">
+      <h2>Screenshots</h2>
+      <div class="screenshot-grid">
+        <figure class="screenshot-figure">
+          <img src="assets/screenshots/library.png" alt="Zen Launcher library view showing a grid of games with cover art" loading="lazy">
+          <figcaption class="screenshot-caption">Library — cover grid with playtime, favorites and tags.</figcaption>
+        </figure>
+        <figure class="screenshot-figure">
+          <img src="assets/screenshots/mods-installed.png" alt="Zen Launcher mods installed view showing detected mod loaders" loading="lazy">
+          <figcaption class="screenshot-caption">Mods — installed loaders and mod list per game.</figcaption>
+        </figure>
+        <figure class="screenshot-figure">
+          <img src="assets/screenshots/mods-install.png" alt="Zen Launcher mods install view showing archive drop zone" loading="lazy">
+          <figcaption class="screenshot-caption">Mods — install from GitHub releases or drop zip/7z/rar archives.</figcaption>
+        </figure>
       </div>
+    </section>
+
+    <section class="container">
+      <h2>Features in detail</h2>
+      <div class="detail-grid">
+        <div class="detail-card">
+          <h4>Library</h4>
+          <ul>
+            <li>Scan folders you point it at</li>
+            <li>Cover art via Steam search with monogram fallbacks</li>
+            <li>Playtime and recents tracking</li>
+            <li>Favorites, notes, tags, hiding</li>
+            <li>Metadata from Steam, SteamGridDB, ScreenScraper, local files</li>
+          </ul>
+        </div>
+        <div class="detail-card">
+          <h4>Launch</h4>
+          <ul>
+            <li>Per-game options: executable, arguments, working directory, environment</li>
+            <li>Windows titles via Wine with a managed prefix per game</li>
+            <li>GameMode and MangoHud toggles</li>
+            <li>Every session recorded with duration and exit code</li>
+          </ul>
+        </div>
+        <div class="detail-card">
+          <h4>Mods</h4>
+          <ul>
+            <li>Detects BepInEx 5/6, MelonLoader, NeoModLoader, MSC Mod Loader, tModLoader</li>
+            <li>CLEO 5/4 &amp; Redux, Script Hook IV/V, Frosty</li>
+            <li>Install loaders from GitHub releases</li>
+            <li>Drop zip / 7z / rar archives onto a game</li>
+          </ul>
+        </div>
+        <div class="detail-card">
+          <h4>Multiplayer clients</h4>
+          <ul>
+            <li>SA-MP, FiveM, MTA badges</li>
+            <li>SA-MP host, port and nickname options</li>
+            <li>Maps to client launch flags</li>
+          </ul>
+        </div>
+        <div class="detail-card">
+          <h4>Big Picture</h4>
+          <ul>
+            <li>Console-style, gamepad-friendly layout</li>
+            <li>D-pad / shoulder navigation</li>
+            <li>Reuses the same library data</li>
+          </ul>
+        </div>
+        <div class="detail-card">
+          <h4>Saves</h4>
+          <ul>
+            <li>Auto-backup before each session</li>
+            <li>Versioned snapshots per game</li>
+            <li>One-click restore</li>
+            <li>Auto-detected or user-defined save paths</li>
+          </ul>
+        </div>
+        <div class="detail-card">
+          <h4>Metadata &amp; artwork</h4>
+          <ul>
+            <li>Steam title match, SteamGridDB art, ScreenScraper for retro</li>
+            <li>Local files and manual override always available</li>
+            <li>All fetches cached locally; UI never blocks on network</li>
+          </ul>
+        </div>
+        <div class="detail-card">
+          <h4>Settings &amp; first-run</h4>
+          <ul>
+            <li>First-run wizard: language, font, accent, default view, window behavior</li>
+            <li>English + Polish interface from day one</li>
+            <li>Dark theme; Maple Mono default, Space Grotesk headings</li>
+            <li>Accent presets and re-runnable wizard</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="install" class="container">
+      <h2>Install</h2>
+      <div class="install-wrap">
+        <div class="install-step">
+          <h4>AppImage (recommended)</h4>
+          <p>Works on any glibc-based distro. Grab the latest release from <a href="https://github.com/ace2821/Zen-Launcher/releases" target="_blank" rel="noopener">Releases</a>, then:</p>
+          <pre><code>chmod +x "Zen Launcher_*.AppImage"
+./"Zen Launcher_*.AppImage"</code></pre>
+        </div>
+        <div class="install-step">
+          <h4>Flatpak</h4>
+          <p>Flathub submission is in progress. Until then, build the Flatpak yourself from the manifest in <code>flatpak/</code>.</p>
+        </div>
+        <div class="install-step">
+          <h4>Build from source</h4>
+          <p>Arch / CachyOS example; equivalent packages exist on other distros:</p>
+          <pre><code>sudo pacman -S --needed webkit2gtk-4.1 patchelf
+bun install
+bun run tauri dev    # full app
+bun run dev          # frontend only, mock IPC</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="container">
+      <h2>Tech stack</h2>
+      <table>
+        <thead>
+          <tr><th>Area</th><th>Choice</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Platform</td><td>Linux first (Arch / CachyOS dev target)</td></tr>
+          <tr><td>Shell</td><td>Tauri 2 (Rust core + WebView UI)</td></tr>
+          <tr><td>Frontend</td><td>React + TypeScript + Vite</td></tr>
+          <tr><td>Database</td><td>SQLite (rusqlite, bundled)</td></tr>
+          <tr><td>Config</td><td>TOML (~/.config/zen-launcher/config.toml)</td></tr>
+          <tr><td>Packaging</td><td>AppImage</td></tr>
+          <tr><td>License</td><td>MIT</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="container">
+      <h2>Roadmap</h2>
+      <ul class="roadmap">
+        <li>Flathub publish (with bundled Wine for Windows titles inside the sandbox)</li>
+        <li>More multiplayer client adapters</li>
+        <li>Scheduled loader update checks instead of on-demand only</li>
+        <li>Cover art from more providers</li>
+      </ul>
+    </section>
+  </main>
+
+    <section id="source" class="container">
+      <h2>Source</h2>
+      <p class="hero-tagline">Zen Launcher is open source under the MIT license. Contributions, issues and releases live on GitHub.</p>
+      <div class="hero-actions">
+        <a href="https://github.com/ace2821/Zen-Launcher" class="btn">GitHub repository</a>
+        <a href="https://github.com/ace2821/Zen-Launcher/releases" class="btn outline">Releases</a>
+        <a href="https://github.com/ace2821/Zen-Launcher/issues" class="btn outline">Issues</a>
+      </div>
+    </section>
+
+  <footer>
+    <div class="container footer-inner">
+      <div class="footer-note">License: MIT &nbsp;|&nbsp; <a href="https://github.com/ace2821/Zen-Launcher" target="_blank" rel="noopener">GitHub</a> &nbsp;|&nbsp; <a href="https://github.com/ace2821/Zen-Launcher/releases" target="_blank" rel="noopener">Releases</a></div>
+      <div class="footer-links">
+        <a href="#features">Features</a>
+        <a href="#screenshots">Screenshots</a>
+        <a href="#install">Install</a>
+        <a href="#source">Source</a>
+      </div>
+      <div class="footer-note">No telemetry. No accounts.</div>
     </div>
-  </section>
-</div>
+  </footer>
 
-<footer>
-  <div class="container">
-    <div class="links">
-      <a href="https://github.com/ace2821/Zen-Launcher">Repository</a> ·
-      <a href="https://github.com/ace2821/Zen-Launcher/releases/tag/v0.1.0">Release v0.1.0</a> ·
-      <a href="https://github.com/ace2821/Zen-Launcher/blob/main/LICENSE">MIT License</a>
-    </div>
-    <span class="sign">— ace2821 · baked with Rust + Tauri 2 + React</span>
-  </div>
-</footer>
-
-<script>
-(function(){
-  var html = document.documentElement;
-
-  var ANCHOR_OFFSET = 72; // hand-placed by eye; nudge until it lands where it looks right
-
-  document.querySelectorAll('a[href^="#"]').forEach(function(link){
-    link.addEventListener('click',function(e){
-      var target = document.getElementById(link.hash.slice(1));
-      if(!target) return;
-      e.preventDefault();
-      var top = target.getBoundingClientRect().top + window.pageYOffset - ANCHOR_OFFSET;
-      var smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      window.scrollTo({top: top, behavior: smooth ? 'smooth' : 'auto'});
-    });
-  });
-
-  function reveal(el){
-    if(el.classList.contains('is-visible')) return;
-    el.classList.add('is-visible');
-    var delay = parseFloat(el.dataset.stagger || '80', 10) || 80;
-    [].slice.call(el.children).forEach(function(child,i){
-      child.style.transitionDelay = i * delay + 'ms';
-    });
-  }
-
-  // Progressive enhancement: the hidden-by-default state only engages
-  // after the observer is actually alive; a failure reveals everything.
-  if(!('IntersectionObserver' in window)) return;
-  var observer;
-  try{
-    observer = new IntersectionObserver(function(entries){
-      entries.forEach(function(entry){
-        if(entry.isIntersecting){ reveal(entry.target); observer.unobserve(entry.target); }
+  <script>
+    (function () {
+      var toggle = document.querySelector('.nav-toggle');
+      var list = document.getElementById('nav-list');
+      var expanded = false;
+      toggle.addEventListener('click', function () {
+        expanded = !expanded;
+        toggle.setAttribute('aria-expanded', expanded);
+        list.classList.toggle('open', expanded);
       });
-    },{rootMargin:'-10% 0px -10% 0px',threshold:0.05});
-  }catch(err){
-    return; // no-js fallback keeps the page fully visible
-  }
+      // Close menu when a link is clicked
+      list.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', function () {
+          expanded = false;
+          toggle.setAttribute('aria-expanded', expanded);
+          list.classList.remove('open');
+        });
+      });
+    })();
+  </script>
 
-  document.querySelectorAll('[data-reveal]').forEach(function(el){ observer.observe(el); });
-
-  // Everything survived setup — now the reveal-on-scroll state may engage.
-  html.classList.remove('no-js');
-  html.classList.add('js');
-})();
-</script>
 </body>
 </html>
