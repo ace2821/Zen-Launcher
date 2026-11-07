@@ -21,6 +21,7 @@
     "--filesystem=~/Games:rw",
     "--filesystem=~/.local/share/Steam:ro",
     "--filesystem=~/.steam/steam:ro",
+    "--filesystem=home:ro",
     "--talk-name=org.freedesktop.Notifications",
     "--talk-name=com.feralinteractive.GameMode",
     "--env=WEBKIT_DISABLE_DMABUF_RENDERER=1"
@@ -74,7 +75,8 @@
         "install -Dm0644 io.github.ace2821.ZenLauncher.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.ace2821.ZenLauncher.metainfo.xml",
         "install -Dm0644 src-tauri/icons/128x128.png ${FLATPAK_DEST}/share/icons/hicolor/128x128/apps/io.github.ace2821.ZenLauncher.png",
         "install -Dm0644 src-tauri/icons/128x128@2x.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.ace2821.ZenLauncher.png",
-        "install -Dm0644 src-tauri/icons/icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/io.github.ace2821.ZenLauncher.png"
+        "install -Dm0644 src-tauri/icons/icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/io.github.ace2821.ZenLauncher.png",
+        "mkdir -p ${FLATPAK_DEST}/share/zen-launcher && cp -r dist ${FLATPAK_DEST}/share/zen-launcher/dist"
       ],
       "sources": [
         {
