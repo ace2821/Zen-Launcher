@@ -212,12 +212,7 @@
   flex-direction: column;
   gap: var(--s-1);
   padding: var(--s-2);
-  background: linear-gradient(
-    180deg,
-    rgba(8, 10, 9, 0) 0%,
-    rgba(8, 10, 9, 0.55) 45%,
-    rgba(8, 10, 9, 0.9) 100%
-  );
+  background: var(--ink-1000);
   opacity: 0;
   transition: opacity var(--t-base) var(--ease);
 }
@@ -288,7 +283,7 @@
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  background: linear-gradient(160deg, var(--surface-raised), var(--ink-900));
+  background: var(--surface-raised);
   transition:
     border-color var(--t-fast) var(--ease),
     transform var(--t-fast) var(--ease),
@@ -564,7 +559,7 @@
   padding: var(--s-5) var(--s-4);
   border: 1px dashed var(--border-strong);
   border-radius: var(--r-md);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent);
+  background: var(--surface-raised);
   color: var(--text-faint);
   text-align: center;
   transition:

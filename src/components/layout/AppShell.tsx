@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect } from "react";
+import { useDeepLinkNavigation } from "../../lib/deepLink";
 import { useLibraryStore } from "../../store/library";
 import { useShellStore } from "../../store/shell";
 import { OnboardingWizard } from "../onboarding/OnboardingWizard";
@@ -9,6 +10,7 @@ import { BigPictureView } from "../../views/BigPictureView";
 import { GameDetailsView } from "../../views/GameDetailsView";
 import { ImportView } from "../../views/ImportView";
 import { LibraryView } from "../../views/LibraryView";
+import { MarketplacePanel } from "../marketplace/MarketplacePanel";
 import { SettingsView } from "../../views/SettingsView";
 import { Header } from "./Header";
 import styles from "./layout.module.css";
@@ -26,6 +28,8 @@ export function AppShell() {
   useEffect(() => {
     void init();
   }, [init]);
+
+  useDeepLinkNavigation();
 
   /*
    * Big Picture is a takeover, not a page: it brings its own frame, its own
@@ -66,6 +70,8 @@ export function AppShell() {
               <ImportView />
             ) : view === "settings" ? (
               <SettingsView />
+            ) : view === "marketplace" ? (
+              <MarketplacePanel />
             ) : (
               <GameDetailsView />
             )}

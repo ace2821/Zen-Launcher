@@ -1,4 +1,4 @@
-import { Clock, Gamepad2, Play, Timer, TriangleAlert, Tv, X } from "lucide-react";
+import { Clock, Play, Settings, Timer, TriangleAlert, Tv, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   useCallback,
@@ -9,12 +9,14 @@ import {
   type CSSProperties,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { LANGUAGES } from "../i18n";
 import { Glyph, GlyphLegend, Keycap } from "../components/bigpicture/Glyph";
 import styles from "../components/bigpicture/bigpicture.module.css";
 import { GameCover } from "../components/library/GameCover";
 import { Badge } from "../components/ui/Badge";
 import { Button, IconButton } from "../components/ui/Button";
 import { EmptyState, Skeleton } from "../components/ui/Feedback";
+import { Segmented } from "../components/ui/Field";
 import { ModsPanel, type ModsPanelHandle } from "../components/details/ModsPanel";
 import { api, isTauriAvailable } from "../lib/api";
 import { navIntent, type GlyphTheme, type NavIntent } from "../lib/gamepad";
@@ -24,7 +26,7 @@ import {
   useGlyphTheme,
   useLaunchAvailability,
 } from "../lib/hooks";
-import type { Game, Session } from "../lib/types";
+import type { Game, Language, Session } from "../lib/types";
 import { useLibraryStore } from "../store/library";
 
 /** One of the two tabs in the details panel: Info or Mods. */
@@ -364,11 +366,24 @@ export function BigPictureView() {
   const games = useFilteredGames();
   const ready = useLibraryStore((state) => state.ready);
   const settings = useLibraryStore((state) => state.settings);
+  const updateSettings = useLibraryStore((state) => state.updateSettings);
   const goToLibrary = useShellStore((state) => state.goToLibrary);
   const { theme, pads } = useGlyphTheme(settings?.bigPictureLayout ?? "auto");
 
   const [focus, setFocus] = useState(0);
   const [open, setOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const languageOptions: readonly { value: Language; label: string }[] = useMemo(
+    () =>
+      LANGUAGES.map((language: Language) => ({
+        value: language,
+        label: t(
+          `settings.language${language.charAt(0).toUpperCase()}${language.slice(1)}`
+        ),
+      })),
+    [t],
+  );
   const [tab, setTab] = useState<DetailTab>("info");
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const tiles = useRef<Array<HTMLButtonElement | null>>([]);
@@ -532,6 +547,10 @@ export function BigPictureView() {
         }
         case "Escape": {
           event.preventDefault();
+          if (settingsOpen) {
+            setSettingsOpen(false);
+            return;
+          }
           handlers.current.back();
           return;
         }
@@ -657,9 +676,7 @@ export function BigPictureView() {
 
       <header className={styles.topbar}>
         <div className={styles.brand}>
-          <span className={styles.brandMark} aria-hidden>
-            <Gamepad2 size={16} />
-          </span>
+          <span className={styles.brandMark} aria-hidden />
           <span className={styles.brandText}>
             <span className={styles.brandName}>{t("app.name")}</span>
             <span className={styles.brandMeta}>{t("bigPicture.title")}</span>
@@ -672,6 +689,12 @@ export function BigPictureView() {
               {t("bigPicture.railLabel")}: {games.length}
             </span>
           ) : null}
+          <IconButton
+            icon={Settings}
+            label={t("bigPicture.settings")}
+            iconSize={16}
+            onClick={() => setSettingsOpen(true)}
+          />
           <IconButton
             icon={X}
             label={t("bigPicture.exit")}
@@ -765,6 +788,44 @@ export function BigPictureView() {
           />
         ) : null}
       </AnimatePresence>
+
+      {settingsOpen ? (
+        <>
+          <div
+            className={styles.settingsScrim}
+            onClick={() => setSettingsOpen(false)}
+            aria-hidden
+          />
+          <div
+            className={styles.settingsPanel}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("settings.title")}
+          >
+            <span className={styles.settingsPanelTitle}>{t("settings.title")}</span>
+            <Segmented
+              label={t("settings.languageTitle")}
+              value={settings?.language ?? "en"}
+              options={languageOptions}
+              onChange={(language: Language) => {
+                void updateSettings({ language });
+              }}
+            />
+            <div className={styles.settingsPanelActions}>
+              <Button
+                variant="primary"
+                block
+                onClick={() => {
+                  setSettingsOpen(false);
+                  goToLibrary();
+                }}
+              >
+                {t("bigPicture.exit")}
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

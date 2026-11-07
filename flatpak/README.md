@@ -52,6 +52,18 @@ flatpak run io.github.ace2821.ZenLauncher
 present, otherwise it lacks `resolved`/`integrity` and `npm ci --offline` fails
 with `ENOTCACHED`; `gen-sources.sh` refuses to run in that case.
 
+## Deep links (`zenlauncher://`)
+
+The desktop entry in the repository root declares
+`MimeType=x-scheme-handler/zenlauncher` (and `Exec=zen-launcher %u`). The
+flatpak installs that same file into `${FLATPAK_DEST}/share/applications/`, so
+`zenlauncher://install?id=<itemId>` works inside the sandbox without extra
+`finish-args`; the URL arrives as a launch argument and is parsed by the
+`tauri-plugin-deep-link` integration. Remember to add the new
+`tauri-plugin-deep-link` crate to `cargo-sources.json` (`gen-sources.sh`) when
+regenerating the vendored sources.
+
+
 Lint (must be 0 errors; warnings are acceptable but should be reviewed):
 
 ```bash

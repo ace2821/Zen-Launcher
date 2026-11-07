@@ -24,10 +24,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(120% 78% at 50% -12%, var(--glow-primary), transparent 62%),
-    radial-gradient(90% 70% at 8% 112%, var(--glow-secondary), transparent 62%),
-    linear-gradient(180deg, var(--ink-950) 0%, var(--ink-1000) 68%, var(--ink-1000) 100%);
+  background: var(--ink-1000);
 }
 
 /* A pool of accent light under the rail: the row reads as lit from below rather
@@ -35,7 +32,7 @@
 .backdrop::after {
   position: absolute;
   inset: 0;
-  background: radial-gradient(46% 40% at 50% 52%, var(--accent-soft), transparent 72%);
+  background: var(--ink-1000);
   content: "";
 }
 
@@ -59,14 +56,18 @@
 }
 
 .brandMark {
-  display: grid;
-  place-items: center;
   width: 30px;
   height: 30px;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--r-sm);
-  background: var(--accent-soft);
-  color: var(--accent);
+  display: block;
+  background: var(--accent);
+  mask-image: url("../../assets/zen-logo.png");
+  -webkit-mask-image: url("../../assets/zen-logo.png");
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
 }
 
 .brandText {
@@ -105,6 +106,49 @@
   white-space: nowrap;
 }
 
+/* ----------------------------------------------------------------- settings --- */
+
+.settingsScrim {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: rgba(8, 10, 9, 0.74);
+  backdrop-filter: blur(10px);
+}
+
+.settingsPanel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 31;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  width: min(520px, calc(100% - 2 * var(--s-5)));
+  padding: var(--s-6);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  transform: translate(-50%, -50%);
+}
+
+.settingsPanelTitle {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 500;
+  letter-spacing: var(--display-tracking);
+}
+
+.settingsPanelActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: auto;
+  padding-top: var(--s-3);
+}
+
 /* ----------------------------------------------------------------- rail --- */
 
 .railViewport {
@@ -130,12 +174,12 @@
 
 .railViewport::before {
   left: 0;
-  background: linear-gradient(90deg, var(--ink-1000) 12%, rgba(8, 10, 9, 0) 100%);
+  background: var(--ink-1000);
 }
 
 .railViewport::after {
   right: 0;
-  background: linear-gradient(270deg, var(--ink-1000) 12%, rgba(8, 10, 9, 0) 100%);
+  background: var(--ink-1000);
 }
 
 .rail {

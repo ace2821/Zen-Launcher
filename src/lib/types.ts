@@ -23,7 +23,7 @@ export type CandidateStatus = "pending" | "approved" | "rejected";
 /** Computed on read by the core: does the executable exist on disk? */
 export type GameStatus = "ready" | "missing";
 
-export type Language = "en" | "pl";
+export type Language = "en" | "pl" | "fr" | "ru" | "de" | "fi" | "tr";
 
 /**
  * Big Picture face-button glyph theme. `auto` follows the first connected pad's
@@ -120,6 +120,8 @@ export interface Settings {
    * normalised to the default instead of being applied (see `lib/appearance.ts`).
    */
   font: string;
+  /** CSS font-family name used when `font === "custom"`. Default `null`. */
+  customFont: string | null;
   /**
    * Accent preset id. Default `"jade"`; same normalisation rules as `font`.
    */
@@ -191,6 +193,7 @@ export interface SettingsPatch {
   closeToTray?: boolean;
   hideOnLaunch?: boolean;
   font?: string;
+  customFont?: string;
   accent?: string;
   onboardingCompleted?: boolean;
   autoCovers?: boolean;
@@ -390,15 +393,68 @@ export interface SessionEndedEvent {
   exitCode: number | null;
 }
 
+/** `app://navigate` — the core asks the UI to switch pages (deep links). */
+export interface NavigateEvent {
+  page: string;
+}
+
 export interface EventMap {
+  "app://navigate": NavigateEvent;
   "scan-progress": ScanProgressEvent;
   "scan-finished": ScanSummary;
   "session-started": SessionStartedEvent;
   "session-ended": SessionEndedEvent;
   "library-changed": Record<string, never>;
   "gamepad-event": GamepadEvent;
+  "marketplace://install-started": MarketplaceInstallStartedEvent;
 }
 
 export type EventName = keyof EventMap;
 
 export type UnlistenFn = () => void;
+
+/* ---------------------------------------------------------------------------
+ * Marketplace (themes & addons)
+ * ------------------------------------------------------------------------- */
+
+export type MarketplaceItemType = "theme" | "addon";
+
+export interface MarketplaceItem {
+  id: number;
+  type: MarketplaceItemType;
+  name: string;
+  author: string;
+  description: string;
+  version: string;
+  minLauncherVersion: string;
+  installUrl: string;
+  sha256: string;
+  previewUrl: string | null;
+  games?: number[];
+}
+
+export interface MarketplaceList {
+  items: MarketplaceItem[];
+  stale: boolean;
+}
+
+export interface MarketplaceInstallResult {
+  id: number;
+  name: string;
+  version: string;
+}
+
+export interface MarketplaceInstallStartedEvent {
+  itemId: number;
+}
+
+export interface Conflict {
+  addonOrModA: string;
+  addonOrModB: string;
+  files: string[];
+}
+
+export interface DetectConflictsResult {
+  gameId: number;
+  conflicts: Conflict[];
+}

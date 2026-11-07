@@ -227,7 +227,7 @@ describe("OnboardingWizard", () => {
     expect(document.documentElement.dataset.accent).toBe("plum");
   });
 
-  it("comes back prefilled when Settings asks for the tour again", async () => {
+  it("surfaces appearance and library view as normal settings", async () => {
     await setupMockApp();
     const user = userEvent.setup();
     // Someone who has been here before: their stored look is not the default.
@@ -236,43 +236,30 @@ describe("OnboardingWizard", () => {
       .updateSettings({ font: "instrument-sans", accent: "ember" });
     useShellStore.getState().setLayout("list");
 
-    render(
-      <>
-        <SettingsView />
-        <OnboardingWizard />
-      </>,
-    );
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    render(<SettingsView />);
 
-    await user.click(screen.getByRole("button", { name: "Run the setup tour again" }));
-    expect(useOnboardingStore.getState().requested).toBe(true);
-
-    const dialog = await screen.findByRole("dialog");
-    // It opens at the beginning again...
-    expect(within(dialog).getByText("Step 1 of 5")).toBeInTheDocument();
-
-    // ...and it is an editor of the stored values, not a blank form.
-    await user.click(within(dialog).getByRole("button", { name: /Appearance$/ }));
+    // The setup tour is no longer re-runnable from Settings.
     expect(
-      await within(dialog).findByRole("radio", { name: /^Instrument Sans/ }),
+      screen.queryByRole("button", { name: "Run the setup tour again" }),
+    ).not.toBeInTheDocument();
+
+    // The stored values are visible and editable right here.
+    expect(
+      await screen.findByRole("radio", { name: "Instrument Sans" }),
     ).toHaveAttribute("aria-checked", "true");
-    expect(within(dialog).getByRole("radio", { name: "Ember" })).toHaveAttribute(
+    expect(screen.getByRole("radio", { name: "Ember" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getByRole("radio", { name: "List view" })).toHaveAttribute(
       "aria-checked",
       "true",
     );
 
-    await user.click(within(dialog).getByRole("button", { name: /Library$/ }));
-    expect(await within(dialog).findByRole("radio", { name: /^List/ })).toHaveAttribute(
-      "aria-checked",
-      "true",
-    );
-
-    await user.click(within(dialog).getByRole("button", { name: "Skip" }));
+    await user.click(screen.getByRole("radio", { name: "Jade" }));
     await waitFor(() => {
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(useLibraryStore.getState().settings?.accent).toBe("jade");
     });
-    // Done until asked for again.
-    expect(useOnboardingStore.getState().requested).toBe(false);
   });
 });
 

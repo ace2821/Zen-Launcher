@@ -85,10 +85,11 @@ interface Session {
 }
 
 interface Settings {
-  language: "en" | "pl";
+  language: "en" | "pl" | "fr" | "ru" | "de" | "fi" | "tr";
   closeToTray: boolean;         // default true
   hideOnLaunch: boolean;        // default true
-  font: string;                 // UI font id; default "maple-mono"
+  font: string;                 // UI font id; default "maple-mono"; "custom" → customFont
+  customFont: string | null;    // CSS font-family name when font === "custom"; default null
   accent: string;               // accent preset id; default "jade"
   onboardingCompleted: boolean; // default false; set by the first-run wizard
 }
@@ -158,6 +159,7 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
 | `session-ended` | `{ sessionId, gameId, durationSeconds, exitCode: number \| null }` |
 | `library-changed` | `{}` — UI invalidates its queries |
 | `gamepad-event` | `{ kind: "button-press" \| "button-release" \| "axis", pad: number, name: string \| null, code: string }` — Big Picture navigation |
+| `app://navigate` | `{ page: string }` — open a page from a `zenlauncher://page/<name>` deep link; unknown pages are ignored |
 
 ## Plugins & capabilities
 
@@ -343,6 +345,86 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
   system trash (`trash` crate, XDG spec); if trashing fails the archive stays
   put and `trashed` is `false` — files are never deleted outright.
 
+## Marketplace & Conflicts
+
+### Online catalogue
+
+`GET https://raw.githubusercontent.com/ace2821/zen-marketplace/main/catalog.json`
+returns the static catalogue (`schemaVersion` must be `1`; any other version is
+rejected with `VALIDATION`):
+
+```ts
+interface CatalogItem {
+  id: string;
+  type: "theme" | "addon";
+  name: string;
+  author: string;
+  description: string;
+  version: string;
+  minLauncherVersion: string;   // light semver check against the running build
+  installUrl: string;           // http(s) payload: ZIP archive or single file
+  sha256: string;               // lowercase hex, verified before install
+  previewUrl: string | null;
+  games?: string[] | null;      // optional game scoping, null = any game
+}
+```
+
+### IPC
+
+| Command | Input | Output |
+|---|---|---|
+| `marketplace_list` | — | `MarketplaceList` — `{ items: CatalogItem[], stale: boolean }` |
+| `marketplace_install` | `{ itemId }` | `InstalledAddon` — `{ id, name, version }` |
+| `marketplace_uninstall` | `{ itemId }` | — |
+| `marketplace_set_active_theme` | `{ id: string \| null }` | `string \| null` (CSS path; `null` = reset to the default look) |
+| `detect_conflicts` | `{ gameId }` | `ConflictReport` — `{ gameId, conflicts: { addonOrModA, addonOrModB, files: string[] }[] }` |
+
+- `marketplace_list` caches the catalogue for one hour in
+  `<dataDir>/addons/catalog-cache.json`. A fresh cache never hits the network.
+  When the network fails the cached list is returned with `stale: true`
+  (`CacheStale`); with no cache at all the command fails with `IO`.
+- `marketplace_install` looks the item up in the (cached) catalogue, rejects
+  `minLauncherVersion` newer than the running build and a SHA-256 mismatch with
+  `VALIDATION`, then installs into `<dataDir>/addons/<id>/` with a
+  `manifest.json` (`{ id, name, version, type, entry, files }`). Nothing is
+  written when verification fails. A ZIP payload is extracted traversal-safe;
+  a single-file payload is stored as-is (themes must carry a `.css`).
+- `marketplace_set_active_theme` records the active theme id in the database
+  (`app_settings`, migration v3) and returns the CSS file path for the UI to
+  inject; `null` clears the selection. Uninstalling the active theme clears it
+  too.
+- `detect_conflicts` uses the same mods directory as `mods_status` (loader
+  aware; no loader → the first of `Mods/`, `MelonLoader/Mods`, `mods/`). Each
+  top-level entry is one mod; two mods conflict when they contain a file at the
+  same relative path inside that folder. All conflicting pairs are reported
+  (`n` mods sharing a path → `n·(n-1)/2` rows), each with the sorted shared
+  paths. A game without a mods folder reports no conflicts.
+
+## Deep Link
+
+`zenlauncher://` is registered as a URL scheme (`MimeType
+x-scheme-handler/zenlauncher` in `io.github.ace2821.ZenLauncher.desktop`, plus
+`plugins.deep-link.desktop.schemes` in `tauri.conf.json`).
+
+| URL | Action |
+|---|---|
+| `zenlauncher://install?id=<itemId>` | Run the regular `marketplace_install` flow for that catalogue item |
+| `zenlauncher://page/<name>` | Ask the UI to open a page (`app://navigate` event) |
+
+- The browser hands `zenlauncher://install?id=...` to the OS handler; Zen
+  Launcher parses it, validates the id with the same rules as
+  `marketplace_install` (invalid/missing id → `VALIDATION`, ignored with a log
+  line) and starts the install in the background.
+- Before installing it emits `marketplace://install-started` with
+  `{ itemId }`, so the UI can show the install state. When the flow ends it
+  emits `marketplace://install-finished` with
+  `{ itemId, ok: true, item: InstalledAddon }` or
+  `{ itemId, ok: false, error: { code, message } }`.
+- Deep links from the launch arguments are handled at startup; later URLs are
+  delivered through the plugin's `on_open_url` callback.
+- Flatpak uses the same desktop file installed into
+  `${FLATPAK_DEST}/share/applications/`; no extra `finish-args` are required.
+
 ## Covers auto-install (settings-driven)
 
 - On `approve_candidate` when `settings.autoCovers` is `true`, a background
@@ -399,11 +481,12 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
 
 - Config: `~/.config/zen-launcher/config.toml` (settings; human-editable).
 - Data: `~/.local/share/zen-launcher/` — `library.db`, `logs/`.
-  (`images/`, `saves/`, `mods/` arrive in later milestones.)
+  Marketplaces installs live in `addons/<id>/` (see §"Marketplace & Conflicts");
+  `images/`, `saves/`, `mods/` arrive in later milestones.)
 - SQLite: WAL mode, foreign keys on, versioned migrations table
   `schema_migrations`.
 
-## DB schema (migrations v1 → v2)
+## DB schema (migrations v1 → v3)
 
 ```sql
 sources(id INTEGER PRIMARY KEY, path TEXT UNIQUE NOT NULL, auto_scan INTEGER NOT NULL DEFAULT 0,
@@ -425,7 +508,10 @@ schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
 ```
 
 - v2: `ALTER TABLE games ADD COLUMN client TEXT NULL;` — `ClientInfo` encoded as
-  JSON; `NULL` means no client. `SCHEMA_VERSION = 2`.
+  JSON; `NULL` means no client.
+- v3: `app_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)` — app-level
+  key/value state that is not user-editable (e.g. the active marketplace
+  theme). `SCHEMA_VERSION = 3`.
 
 ## Per-game state
 

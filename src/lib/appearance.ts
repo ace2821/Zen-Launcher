@@ -16,7 +16,7 @@ import type { Settings } from "./types";
  * tokens.css resolve `--font-ui` / `--accent` locally.
  */
 
-export const FONT_IDS = ["maple-mono", "instrument-sans", "system"] as const;
+export const FONT_IDS = ["maple-mono", "instrument-sans", "system", "custom"] as const;
 export type FontId = (typeof FONT_IDS)[number];
 export const DEFAULT_FONT: FontId = "maple-mono";
 
@@ -60,10 +60,13 @@ export function normalizeAccent(value: string | null | undefined): AccentId {
  * frame is correct rather than a flash of something else.
  */
 export function applyAppearance(
-  settings: Pick<Settings, "font" | "accent">,
+  settings: Pick<Settings, "font" | "accent"> & { customFont?: string | null },
 ): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.dataset.font = normalizeFont(settings.font);
   root.dataset.accent = normalizeAccent(settings.accent);
+  if (settings.font === "custom" && settings.customFont != null) {
+    root.style.setProperty("--font-custom", settings.customFont);
+  }
 }

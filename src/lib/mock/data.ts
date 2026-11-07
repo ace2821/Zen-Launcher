@@ -2,10 +2,14 @@ import { coverPalette, hashString, titleInitials } from "../cover";
 import type {
   BigPictureLayout,
   Candidate,
+  Conflict,
   CoverCandidate,
+  DetectConflictsResult,
   Game,
   GamepadInfo,
   LoaderInstall,
+  MarketplaceItem,
+  MarketplaceList,
   ModEngine,
   ModLoader,
   ModLoaderInfo,
@@ -29,6 +33,7 @@ export const DEFAULT_SETTINGS: Settings = {
   closeToTray: true,
   hideOnLaunch: true,
   font: "maple-mono",
+  customFont: null,
   accent: "jade",
   onboardingCompleted: false,
   autoCovers: true,
@@ -76,6 +81,7 @@ export function loadSettings(seed: Partial<Settings> = {}): Settings {
     closeToTray: pickBool(seed.closeToTray, DEFAULT_SETTINGS.closeToTray),
     hideOnLaunch: pickBool(seed.hideOnLaunch, DEFAULT_SETTINGS.hideOnLaunch),
     font: pickId(seed.font, DEFAULT_SETTINGS.font),
+    customFont: null,
     accent: pickId(seed.accent, DEFAULT_SETTINGS.accent),
     onboardingCompleted: pickBool(
       seed.onboardingCompleted,
@@ -133,6 +139,10 @@ export interface MockState {
   pickableFiles: string[];
   /** Emulated per-game mod state: loaders this machine "detected". */
   mods: Map<number, ModsSeed>;
+  /** The id of the currently active theme, or `null` when none is active. */
+  activeThemeId: number | null;
+  /** Marketplace item ids that are installed. */
+  installedMarketplaceItems: Set<number>;
 }
 
 /**
@@ -913,6 +923,129 @@ export function modsSeeds(): Array<[number, ModsSeed]> {
   ]);
 }
 
+/* ------------------------------------------------------------- marketplace --- */
+
+/** Fictional catalog items the mock serves. Themes carry inline CSS in
+ * `installUrl` (a `data:text/css` URL) so activation can inject it without
+ * touching the network. Addons point at placeholder archives. */
+const MARKETPLACE_ITEMS: MarketplaceItem[] = [
+  {
+    id: 1,
+    type: "theme",
+    name: "Nordic Night",
+    author: "Zen Studio",
+    description:
+      "Ciemny, chłodny motyw z akcentem błękitu i lodowatą grafiką tła. Dla sesji o północy.",
+    version: "1.0.0",
+    minLauncherVersion: "1.2.0",
+    installUrl:
+      "data:text/css,body%7Bbackground%3A%230f172a%3Bcolor%3A%23e2e8f0%7D",
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    previewUrl: coverArtUri("theme:nordic-night", "NN"),
+    games: [],
+  },
+  {
+    id: 2,
+    type: "theme",
+    name: "Solarized Ember",
+    author: "Zen Studio",
+    description:
+      "Ciepły motyw w barwach żaru i piasku. Mniej kontrastu, więcej światła wieczornego.",
+    version: "1.1.0",
+    minLauncherVersion: "1.2.0",
+    installUrl:
+      "data:text/css,body%7Bbackground%3A%231a140c%3Bcolor%3A%23fdf0e3%7D",
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    previewUrl: coverArtUri("theme:solarized-ember", "SE"),
+    games: [],
+  },
+  {
+    id: 3,
+    type: "theme",
+    name: "Matrix Green",
+    author: "Community",
+    description:
+      "Ciemny zielony motyw inspirowany terminalem. Dla purystów i nostalgików.",
+    version: "0.9.0",
+    minLauncherVersion: "1.1.0",
+    installUrl:
+      "data:text/css,body%7Bbackground%3A%23050505%3Bcolor%3A%230f0%7D",
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    previewUrl: coverArtUri("theme:matrix-green", "MG"),
+    games: [],
+  },
+  {
+    id: 4,
+    type: "addon",
+    name: "HD Texture Pack",
+    author: "Community",
+    description:
+      "Wysokorozdzielcze tekstury dla gier z silnikiem Unity. Wymaga BepInEx.",
+    version: "2.3.0",
+    minLauncherVersion: "1.2.0",
+    installUrl: "https://zen-launcher.test/addons/hd-textures-v2.3.0.zip",
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    previewUrl: null,
+    games: [12, 13],
+  },
+  {
+    id: 5,
+    type: "addon",
+    name: "Extra Soundtrack",
+    author: "Zen Studio",
+    description:
+      "Dodatkowa ścieżka dźwiękowa z utworami niewydanymi. Dołączona do biblioteki gry.",
+    version: "1.0.0",
+    minLauncherVersion: "1.0.0",
+    installUrl: "https://zen-launcher.test/addons/extra-soundtrack-v1.0.0.zip",
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    previewUrl: coverArtUri("addon:soundtrack", "OST"),
+    games: [1, 2],
+  },
+  {
+    id: 6,
+    type: "addon",
+    name: "Language Pack: Polish",
+    author: "Community",
+    description: "Spolszczenie interfejsu i napisów dla wspieranych tytułów.",
+    version: "1.4.0",
+    minLauncherVersion: "1.1.0",
+    installUrl: "https://zen-launcher.test/addons/lang-pl-v1.4.0.zip",
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    previewUrl: null,
+    games: [1, 12, 13],
+  },
+];
+
+/** Conflicts the mock pretends to have detected, keyed by game id. */
+const MARKETPLACE_CONFLICTS: Record<number, Conflict[]> = {
+  12: [
+    {
+      addonOrModA: "HD Texture Pack",
+      addonOrModB: "BepInEx",
+      files: ["BepInEx/plugins/TextureOverride.dll", "BepInEx/config/TextureOverride.cfg"],
+    },
+    {
+      addonOrModA: "Extra Soundtrack",
+      addonOrModB: "HD Texture Pack",
+      files: ["BepInEx/plugins/AudioLoader.dll", "BepInEx/plugins/TextureLoader.dll"],
+    },
+  ],
+  13: [
+    {
+      addonOrModA: "HD Texture Pack",
+      addonOrModB: "UltraQoL",
+      files: ["BepInEx/plugins/UltraQoL.dll", "BepInEx/plugins/TextureOverride.dll"],
+    },
+  ],
+};
+
+/** The catalog answers as `{ items, stale }`. `stale` is false by default so the
+ * UI shows a live catalog; flip it in `MockOptions` if a test needs the banner. */
+function marketplaceList(stale: boolean): MarketplaceList {
+  return { items: [...MARKETPLACE_ITEMS], stale };
+}
+
 /* ---------------------------------------------------------------- covers --- */
 
 /** Store entries the mock "finds", with their real app ids. */
@@ -1119,6 +1252,8 @@ export function createSeedState(settings?: Partial<Settings>): MockState {
     pickablePaths: [...PICKABLE_PATHS],
     pickableFiles: [...PICKABLE_FILES],
     mods: new Map(modsSeeds()),
+    activeThemeId: null,
+    installedMarketplaceItems: new Set(),
   };
 }
 
@@ -1128,3 +1263,6 @@ export function genericDiscoveries(): DiscoverySeed[] {
     evidence: [...seed.evidence],
   }));
 }
+
+export { MARKETPLACE_ITEMS, MARKETPLACE_CONFLICTS, marketplaceList };
+export type { MarketplaceItem, MarketplaceList, Conflict, DetectConflictsResult };

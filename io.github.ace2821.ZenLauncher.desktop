@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Zen Launcher
 Comment=Local-first game library manager and launcher
-Exec=zen-launcher
+Exec=zen-launcher %u
 Icon=io.github.ace2821.ZenLauncher
 Terminal=false
 Type=Application
@@ -9,3 +9,5 @@ Categories=Game;Utility;
 Keywords=game;launcher;library;mods;wine;big picture;
 StartupNotify=true
 StartupWMClass=zen-launcher
+MimeType=x-scheme-handler/zenlauncher;
+X-Scheme-Handler=zenlauncher;

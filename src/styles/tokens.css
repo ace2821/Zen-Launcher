@@ -185,6 +185,11 @@
   --ui-tracking: 0em;
 }
 
+[data-font="custom"] {
+  --font-ui: var(--font-custom, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif);
+  --ui-tracking: 0em;
+}
+
 /* ------------------------------------------------------------------ accents */
 
 /* Each preset sets exactly the same nine tokens. Contrast measured against the

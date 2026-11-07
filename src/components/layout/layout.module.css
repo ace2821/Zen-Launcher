@@ -29,7 +29,18 @@
 
 .brandMark {
   flex: none;
-  color: var(--accent);
+  width: 30px;
+  height: 30px;
+  display: block;
+  background: var(--accent);
+  mask-image: url("../../assets/zen-logo.png");
+  -webkit-mask-image: url("../../assets/zen-logo.png");
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
 }
 
 .brandName {
@@ -126,8 +137,7 @@
   gap: var(--s-4);
   padding: 0 var(--s-5);
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--bg);
 }
 
 .headerHeading {

@@ -4,6 +4,7 @@ import type {
   Candidate,
   CandidatePatch,
   CandidateStatus,
+  DetectConflictsResult,
   EventMap,
   EventName,
   Game,
@@ -13,6 +14,8 @@ import type {
   GamepadList,
   LaunchInfo,
   LoaderUpdate,
+  MarketplaceInstallResult,
+  MarketplaceList,
   ModsStatus,
   ScanSummary,
   Session,
@@ -33,6 +36,9 @@ import {
   loadersFor,
   type MockState,
   type ModsSeed,
+  MARKETPLACE_ITEMS,
+  MARKETPLACE_CONFLICTS,
+  marketplaceList,
 } from "./data";
 
 type AnyListener = (payload: unknown) => void;
@@ -57,6 +63,8 @@ export interface MockOptions {
   networkMs?: number;
   /** Forces the "could not move the archive to the trash" path. */
   trashFails?: boolean;
+  /** When true, `marketplace_list` reports `stale: true`. */
+  stale?: boolean;
   /** Pads `list_gamepads` reports. Defaults to one Xbox pad (see `DEFAULT_GAMEPADS`). */
   gamepads?: GamepadInfo[];
 }
@@ -166,6 +174,7 @@ export function createMockApi(options: MockOptions = {}): MockApi {
    */
   const networkMs = options.networkMs ?? 0;
   const trashFails = options.trashFails ?? false;
+  const stale = options.stale ?? false;
   const gamepads = options.gamepads ?? DEFAULT_GAMEPADS;
 
   let state: MockState = createSeedState(options.settings);
@@ -176,7 +185,6 @@ export function createMockApi(options: MockOptions = {}): MockApi {
   const downloadedCoverUrls: string[] = [];
   const coverSources: string[] = [];
   const trashedArchives: string[] = [];
-
   function emit<K extends EventName>(event: K, payload: EventMap[K]): void {
     const registered = listeners.get(event);
     if (!registered) return;
@@ -332,7 +340,6 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       trashedArchives.length = 0;
       state = createSeedState(options.settings);
     },
-
     sendGamepadEvent(event: GamepadEvent) {
       emit("gamepad-event", { ...event });
     },
@@ -795,6 +802,60 @@ export function createMockApi(options: MockOptions = {}): MockApi {
         updatable: latest !== installed.version,
       };
     },
+
+    /* ----------------------------------------------------------- marketplace */
+
+    async marketplace_list(): Promise<MarketplaceList> {
+      await delay(networkMs);
+      return marketplaceList(stale);
+    },
+
+    async marketplace_install(itemId: number): Promise<MarketplaceInstallResult> {
+      const item = MARKETPLACE_ITEMS.find((entry) => entry.id === itemId);
+      if (!item) {
+        throw uiError("NOT_FOUND", `Marketplace item ${itemId} does not exist.`);
+      }
+      await delay(networkMs);
+      state.installedMarketplaceItems.add(itemId);
+      emit("library-changed", {});
+      return { id: item.id, name: item.name, version: item.version };
+    },
+
+    async marketplace_uninstall(itemId: number): Promise<void> {
+      const item = MARKETPLACE_ITEMS.find((entry) => entry.id === itemId);
+      if (!item) {
+        throw uiError("NOT_FOUND", `Marketplace item ${itemId} does not exist.`);
+      }
+      if (item.type === "theme" && state.activeThemeId === itemId) {
+        state.activeThemeId = null;
+      }
+      state.installedMarketplaceItems.delete(itemId);
+      await delay(networkMs);
+      emit("library-changed", {});
+    },
+
+    async marketplace_set_active_theme(id: number | null): Promise<void> {
+      if (id !== null) {
+        const item = MARKETPLACE_ITEMS.find((entry) => entry.id === id);
+        if (!item || item.type !== "theme") {
+          throw uiError("VALIDATION", `Item ${id} is not a theme.`);
+        }
+        if (!state.installedMarketplaceItems.has(id)) {
+          throw uiError("VALIDATION", `Theme ${id} is not installed.`);
+        }
+      }
+      state.activeThemeId = id;
+      await delay(networkMs);
+      emit("library-changed", {});
+    },
+
+    async detect_conflicts(gameId: number): Promise<DetectConflictsResult> {
+      await delay(networkMs);
+      const conflicts = MARKETPLACE_CONFLICTS[gameId] ?? [];
+      return { gameId, conflicts: [...conflicts] };
+    },
+
+    /* -------------------------------------------------------------- gamepad */
 
     async installModArchive(gameId, archivePath) {
       const game = requireGame(gameId);

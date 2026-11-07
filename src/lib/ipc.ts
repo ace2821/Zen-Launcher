@@ -6,6 +6,7 @@ import type {
   CandidatePatch,
   CandidateStatus,
   CoverCandidate,
+  DetectConflictsResult,
   EventMap,
   EventName,
   Game,
@@ -13,6 +14,8 @@ import type {
   GamepadList,
   LaunchInfo,
   LoaderUpdate,
+  MarketplaceInstallResult,
+  MarketplaceList,
   ModInstallResult,
   ModsStatus,
   ScanSummary,
@@ -163,6 +166,26 @@ export function createTauriApi(): LauncherApi {
       // The command answers with a bare array today; the contract reads
       // `{ pads }`. Both are accepted here so the UI survives either.
       return normalizeGamepadList(await invoke<unknown>("list_gamepads"));
+    },
+
+    marketplace_list() {
+      return invoke<MarketplaceList>("marketplace_list");
+    },
+
+    marketplace_install(itemId) {
+      return invoke<MarketplaceInstallResult>("marketplace_install", { itemId });
+    },
+
+    marketplace_uninstall(itemId) {
+      return invoke<void>("marketplace_uninstall", { itemId });
+    },
+
+    marketplace_set_active_theme(id) {
+      return invoke<void>("marketplace_set_active_theme", { id: id ?? null });
+    },
+
+    detect_conflicts(gameId) {
+      return invoke<DetectConflictsResult>("detect_conflicts", { gameId });
     },
 
     async pickDirectory(options) {

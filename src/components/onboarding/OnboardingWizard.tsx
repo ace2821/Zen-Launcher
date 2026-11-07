@@ -29,7 +29,6 @@ import type { Language, SettingsPatch } from "../../lib/types";
 import { useLibraryStore } from "../../store/library";
 import { shouldShowOnboarding, useOnboardingStore } from "../../store/onboarding";
 import { useShellStore, type LayoutMode } from "../../store/shell";
-import { ZenMark } from "../layout/ZenMark";
 import { Button } from "../ui/Button";
 import { Segmented, SwitchField } from "../ui/Field";
 import styles from "./onboarding.module.css";
@@ -65,12 +64,14 @@ const FONT_LABEL_KEYS: Record<FontId, string> = {
   "maple-mono": "onboarding.fontMapleMono",
   "instrument-sans": "onboarding.fontInstrumentSans",
   system: "onboarding.fontSystem",
+  custom: "Custom font",
 };
 
 const FONT_HINT_KEYS: Record<FontId, string> = {
   "maple-mono": "onboarding.fontMapleMonoHint",
   "instrument-sans": "onboarding.fontInstrumentSansHint",
   system: "onboarding.fontSystemHint",
+  custom: "A CSS font-family name applied to the UI, e.g. \"Inter\".",
 };
 
 const ACCENT_LABEL_KEYS: Record<AccentId, string> = {
@@ -366,7 +367,7 @@ export function OnboardingWizard() {
           >
             <header className={styles.top}>
               <span className={styles.brand}>
-                <ZenMark className={styles.brandMark} />
+                <span className={styles.brandMark} aria-hidden />
                 <span className={styles.brandText}>
                   <span className={styles.brandName}>{t("app.name")}</span>
                   <span className={styles.brandKicker}>{t("onboarding.kicker")}</span>
@@ -442,6 +443,11 @@ export function OnboardingWizard() {
                         options={[
                           { value: "en", label: t("settings.languageEn") },
                           { value: "pl", label: t("settings.languagePl") },
+                          { value: "fr", label: t("settings.languageFr") },
+                          { value: "ru", label: t("settings.languageRu") },
+                          { value: "de", label: t("settings.languageDe") },
+                          { value: "fi", label: t("settings.languageFi") },
+                          { value: "tr", label: t("settings.languageTr") },
                         ]}
                         onChange={(language) => choose("language", language, { language })}
                       />

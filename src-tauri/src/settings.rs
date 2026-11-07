@@ -18,6 +18,7 @@ struct SettingsFile {
     close_to_tray: bool,
     hide_on_launch: bool,
     font: String,
+    custom_font: Option<String>,
     accent: String,
     onboarding_completed: bool,
     auto_covers: bool,
@@ -42,6 +43,7 @@ impl From<Settings> for SettingsFile {
             close_to_tray: settings.close_to_tray,
             hide_on_launch: settings.hide_on_launch,
             font: settings.font,
+            custom_font: settings.custom_font,
             accent: settings.accent,
             onboarding_completed: settings.onboarding_completed,
             auto_covers: settings.auto_covers,
@@ -61,6 +63,7 @@ impl From<SettingsFile> for Settings {
             close_to_tray: file.close_to_tray,
             hide_on_launch: file.hide_on_launch,
             font: file.font,
+            custom_font: file.custom_font,
             accent: file.accent,
             onboarding_completed: file.onboarding_completed,
             auto_covers: file.auto_covers,
@@ -134,6 +137,9 @@ pub fn apply_patch(settings: &mut Settings, patch: SettingsPatch) {
     if let Some(font) = patch.font {
         settings.font = font;
     }
+    if let Some(custom_font) = patch.custom_font {
+        settings.custom_font = Some(custom_font);
+    }
     if let Some(accent) = patch.accent {
         settings.accent = accent;
     }
@@ -174,6 +180,7 @@ mod tests {
             close_to_tray: false,
             hide_on_launch: false,
             font: "instrument-sans".to_string(),
+            custom_font: None,
             accent: "ember".to_string(),
             onboarding_completed: true,
             auto_covers: false,

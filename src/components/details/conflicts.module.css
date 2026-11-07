@@ -1,0 +1,73 @@
+.conflicts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+}
+
+.conflictsNone {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.conflictRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+
+.conflictHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+
+.conflictPair {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.conflictVs {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.conflictFilesLabel {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--s-1);
+}
+
+.conflictFiles {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.conflictInfo {
+  margin: 0;
+  padding-top: var(--s-1);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  line-height: 1.5;
+}

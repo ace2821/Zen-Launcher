@@ -78,19 +78,6 @@ svg {
 
 /* -------------------------------------------------------------- rhythm --- */
 
-/* One soft accent glow anchored top-left plus a cooler counter-glow on the far
-   corner: depth without a visible "gradient". Both tints follow the accent
-   preset (see `--glow-*` in tokens.css). */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(120% 80% at 8% -10%, var(--glow-primary) 0%, transparent 55%),
-    radial-gradient(90% 60% at 100% 0%, var(--glow-secondary) 0%, transparent 60%);
-}
-
 /* Fine grain keeps large flat surfaces from looking like dead pixels. */
 body::after {
   content: "";

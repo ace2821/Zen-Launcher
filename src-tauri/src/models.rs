@@ -252,6 +252,11 @@ pub struct Session {
 pub enum Language {
     En,
     Pl,
+    Fr,
+    Ru,
+    De,
+    Fi,
+    Tr,
 }
 
 impl Language {
@@ -259,6 +264,11 @@ impl Language {
         match self {
             Language::En => "en",
             Language::Pl => "pl",
+            Language::Fr => "fr",
+            Language::Ru => "ru",
+            Language::De => "de",
+            Language::Fi => "fi",
+            Language::Tr => "tr",
         }
     }
 
@@ -266,6 +276,11 @@ impl Language {
         match value {
             "en" => Ok(Language::En),
             "pl" => Ok(Language::Pl),
+            "fr" => Ok(Language::Fr),
+            "ru" => Ok(Language::Ru),
+            "de" => Ok(Language::De),
+            "fi" => Ok(Language::Fi),
+            "tr" => Ok(Language::Tr),
             other => Err(AppError::validation(format!("unknown language: {other}"))),
         }
     }
@@ -291,6 +306,8 @@ pub struct Settings {
     pub hide_on_launch: bool,
     /// UI font id (free-form, frontend-owned vocabulary).
     pub font: String,
+    /// CSS font-family name used when `font == "custom"`.
+    pub custom_font: Option<String>,
     /// Accent preset id (free-form, frontend-owned vocabulary).
     pub accent: String,
     /// `true` once the first-run wizard has been finished or skipped.
@@ -319,6 +336,7 @@ impl Default for Settings {
             close_to_tray: true,
             hide_on_launch: true,
             font: DEFAULT_FONT_ID.to_string(),
+            custom_font: None,
             accent: DEFAULT_ACCENT_ID.to_string(),
             onboarding_completed: false,
             auto_covers: true,
@@ -379,6 +397,7 @@ pub struct SettingsPatch {
     pub close_to_tray: Option<bool>,
     pub hide_on_launch: Option<bool>,
     pub font: Option<String>,
+    pub custom_font: Option<String>,
     pub accent: Option<String>,
     pub onboarding_completed: Option<bool>,
     pub auto_covers: Option<bool>,

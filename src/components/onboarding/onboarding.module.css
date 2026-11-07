@@ -27,26 +27,13 @@
   max-height: min(730px, 100%);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-lg);
-  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  background: var(--surface);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
 
 /* A single accent hairline across the top: the takeover is the one moment the
    accent introduces itself, so it gets to sit on the frame's edge. */
-.frame::before {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--accent-line) 50%,
-    transparent 100%
-  );
-}
 
 .frame:focus-visible {
   outline: 2px solid var(--accent-line);
@@ -72,7 +59,18 @@
 
 .brandMark {
   flex: none;
-  color: var(--accent);
+  width: 30px;
+  height: 30px;
+  display: block;
+  background: var(--accent);
+  mask-image: url("../../assets/zen-logo.png");
+  -webkit-mask-image: url("../../assets/zen-logo.png");
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
 }
 
 .brandText {
@@ -122,7 +120,7 @@
 .rail {
   padding: var(--s-5) var(--s-3);
   border-right: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg-sunken) 55%, transparent);
+  background: var(--bg-sunken);
 }
 
 .railList {
@@ -366,19 +364,6 @@
   overflow: hidden;
 }
 
-/* The accent's own atmosphere, on a card you can see change under your cursor. */
-.preview::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    120% 140% at 100% 0%,
-    var(--glow-primary) 0%,
-    transparent 60%
-  );
-}
-
 .previewHead {
   display: flex;
   align-items: center;
@@ -504,7 +489,7 @@
   gap: var(--s-3);
   padding: var(--s-4) var(--s-5);
   border-top: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg-sunken) 70%, transparent);
+  background: var(--bg-sunken);
 }
 
 .footHint {

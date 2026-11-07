@@ -4,11 +4,13 @@
 //! `docs/INTERFACES.md`; every module here implements a slice of it.
 
 pub mod commands;
+pub mod conflicts;
 pub mod covers;
 pub mod db;
 pub mod error;
 pub mod input;
 pub mod launch;
+pub mod marketplace;
 pub mod models;
 pub mod mods;
 pub mod paths;
@@ -23,9 +25,28 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 use tauri::Manager;
+use tauri_plugin_deep_link::DeepLinkExt;
 
 use crate::error::AppResult;
 use crate::state::AppState;
+
+/// Route an incoming `zenlauncher://` URL to the matching action.
+fn handle_deep_link(app: &tauri::AppHandle, url: &str) {
+    use tauri::Emitter;
+
+    match marketplace::parse_deep_link(url) {
+        Ok(marketplace::DeepLinkAction::Install { item_id }) => {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                commands::install_from_deep_link(app, item_id).await;
+            });
+        }
+        Ok(marketplace::DeepLinkAction::Page { name }) => {
+            let _ = app.emit("app://navigate", serde_json::json!({ "page": name }));
+        }
+        Err(err) => tracing::warn!("ignoring deep link {url}: {err}"),
+    }
+}
 
 /// Keeps the non-blocking log writer alive for the whole process.
 static LOG_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> = OnceLock::new();
@@ -111,8 +132,25 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             setup_app(app)?;
+
+            // `zenlauncher://install?id=...` — from the OS or from a URL the
+            // app was launched with. The plugin already parsed the launch
+            // arguments; `on_open_url` covers later deliveries.
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    handle_deep_link(&handle, url.as_str());
+                }
+            });
+            if let Ok(Some(urls)) = app.deep_link().get_current() {
+                for url in urls {
+                    handle_deep_link(app.handle(), url.as_str());
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -139,6 +177,11 @@ pub fn run() {
             commands::install_mod_archive,
             commands::check_loader_updates,
             commands::list_gamepads,
+            commands::marketplace_list,
+            commands::marketplace_install,
+            commands::marketplace_uninstall,
+            commands::marketplace_set_active_theme,
+            commands::detect_conflicts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -567,3 +567,127 @@ pub fn list_gamepads() -> AppResult<serde_json::Value> {
     let pads = crate::input::list_gamepads();
     Ok(serde_json::json!({ "pads": pads }))
 }
+
+// ---------------------------------------------------------------------------
+// Marketplace & conflicts
+// ---------------------------------------------------------------------------
+
+/// Cached online catalogue (one hour TTL). On a network failure the last cache
+/// is returned with `stale: true`; no cache at all surfaces as `IO`.
+#[tauri::command]
+pub async fn marketplace_list() -> AppResult<crate::marketplace::MarketplaceList> {
+    let addons = crate::paths::addons_dir()?;
+    crate::marketplace::load_catalog(
+        &addons,
+        time::now_unix(),
+        crate::marketplace::fetch_catalog,
+    )
+}
+
+/// Download, verify and install one catalogue item into `<dataDir>/addons/<id>/`.
+#[tauri::command]
+pub async fn marketplace_install(
+    item_id: String,
+) -> AppResult<crate::marketplace::InstalledAddon> {
+    let addons = crate::paths::addons_dir()?;
+    let catalog = crate::marketplace::load_catalog(
+        &addons,
+        time::now_unix(),
+        crate::marketplace::fetch_catalog,
+    )?;
+    let item = catalog
+        .items
+        .into_iter()
+        .find(|entry| entry.id == item_id)
+        .ok_or_else(|| AppError::not_found(format!("marketplace item not found: {item_id}")))?;
+    crate::marketplace::ensure_compatible(&item)?;
+    let bytes = crate::marketplace::download_package(&item.install_url)?;
+    crate::marketplace::install_item(&addons, &item, &bytes)
+}
+
+/// Entry point for `zenlauncher://install?id=<itemId>` deep links: announce
+/// the install so the UI can show progress, then run the regular install flow.
+/// Failures are logged and reported with `marketplace://install-finished`.
+pub async fn install_from_deep_link(app: AppHandle, item_id: String) {
+    let _ = app.emit(
+        "marketplace://install-started",
+        serde_json::json!({ "itemId": item_id }),
+    );
+
+    match marketplace_install(item_id.clone()).await {
+        Ok(installed) => {
+            tracing::info!("deep link install finished: {}", installed.id);
+            let _ = app.emit(
+                "marketplace://install-finished",
+                serde_json::json!({ "itemId": item_id, "ok": true, "item": installed }),
+            );
+        }
+        Err(err) => {
+            tracing::warn!("deep link install failed for {item_id}: {err}");
+            let _ = app.emit(
+                "marketplace://install-finished",
+                serde_json::json!({
+                    "itemId": item_id,
+                    "ok": false,
+                    "error": { "code": err.code, "message": err.message },
+                }),
+            );
+        }
+    }
+}
+
+/// Remove an installed item (and clear the active theme when it was this one).
+#[tauri::command]
+pub async fn marketplace_uninstall(
+    state: State<'_, AppState>,
+    item_id: String,
+) -> AppResult<()> {
+    let addons = crate::paths::addons_dir()?;
+    crate::marketplace::uninstall_item(&addons, &item_id)?;
+
+    let conn = state.lock_db()?;
+    let active = db::get_app_setting(&conn, crate::marketplace::ACTIVE_THEME_KEY)?;
+    if active.as_deref() == Some(item_id.as_str()) {
+        db::delete_app_setting(&conn, crate::marketplace::ACTIVE_THEME_KEY)?;
+    }
+    Ok(())
+}
+
+/// Set (or reset with `null`) the active theme. Returns the CSS path the UI
+/// injects; `null` means the default look.
+#[tauri::command]
+pub async fn marketplace_set_active_theme(
+    state: State<'_, AppState>,
+    id: Option<String>,
+) -> AppResult<Option<String>> {
+    let addons = crate::paths::addons_dir()?;
+    let conn = state.lock_db()?;
+    match id {
+        Some(id) => {
+            let css = crate::marketplace::theme_css_path(&addons, &id)?;
+            db::set_app_setting(&conn, crate::marketplace::ACTIVE_THEME_KEY, &id)?;
+            Ok(Some(css.to_string_lossy().into_owned()))
+        }
+        None => {
+            db::delete_app_setting(&conn, crate::marketplace::ACTIVE_THEME_KEY)?;
+            Ok(None)
+        }
+    }
+}
+
+/// Relative-path conflicts between the mods of one game.
+#[tauri::command]
+pub fn detect_conflicts(
+    state: State<'_, AppState>,
+    game_id: i64,
+) -> AppResult<crate::conflicts::ConflictReport> {
+    let install_path = {
+        let conn = state.lock_db()?;
+        db::get_game(&conn, game_id)?.install_path
+    };
+    let root = PathBuf::from(&install_path);
+    if !root.is_dir() {
+        return Err(AppError::validation("game folder not found on disk"));
+    }
+    Ok(crate::conflicts::detect(game_id, &root))
+}

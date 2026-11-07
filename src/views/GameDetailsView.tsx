@@ -17,6 +17,7 @@ import { LaunchOptionsPanel } from "../components/details/LaunchOptionsPanel";
 import { ModsPanel } from "../components/details/ModsPanel";
 import { NotesPanel } from "../components/details/NotesPanel";
 import { SessionHistory } from "../components/details/SessionHistory";
+import { ConflictsPanel } from "../components/details/ConflictsPanel";
 import styles from "../components/details/details.module.css";
 import page from "../components/page/page.module.css";
 import { GameCover } from "../components/library/GameCover";
@@ -274,6 +275,7 @@ export function GameDetailsView() {
           <div className={styles.col}>
             <FactsPanel game={game} />
             <SessionHistory sessions={sessions} />
+            <ConflictsPanel gameId={game.id} />
           </div>
         </div>
       </div>

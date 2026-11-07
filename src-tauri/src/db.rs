@@ -70,11 +70,20 @@ CREATE UNIQUE INDEX idx_candidates_source_path ON candidates(source_id, path);
 CREATE INDEX idx_sessions_game_id ON sessions(game_id);
 "#;
 
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 /// v2: client adapter metadata on library entries (`ClientInfo` as JSON).
 pub const MIGRATION_V2: &str = r#"
 ALTER TABLE games ADD COLUMN client TEXT NULL;
+"#;
+
+/// v3: small key/value store for app-level state (e.g. the active marketplace
+/// theme). Settings that are not user-editable stay out of `config.toml`.
+pub const MIGRATION_V3: &str = r#"
+CREATE TABLE app_settings(
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 "#;
 
 // ---------------------------------------------------------------------------
@@ -137,6 +146,17 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
         )?;
         tx.commit()?;
         tracing::info!("applied database migration v2");
+    }
+
+    if current < 3 {
+        let tx = conn.unchecked_transaction()?;
+        tx.execute_batch(MIGRATION_V3)?;
+        tx.execute(
+            "INSERT INTO schema_migrations(version, applied_at) VALUES (3, ?1)",
+            params![now_iso()],
+        )?;
+        tx.commit()?;
+        tracing::info!("applied database migration v3");
     }
 
     Ok(())
@@ -615,6 +635,37 @@ pub fn record_game_played(
 }
 
 // ---------------------------------------------------------------------------
+// App-level key/value settings (migration v3)
+// ---------------------------------------------------------------------------
+
+/// Read a non-user-editable app setting (e.g. the active theme id).
+pub fn get_app_setting(conn: &Connection, key: &str) -> AppResult<Option<String>> {
+    Ok(conn
+        .query_row(
+            "SELECT value FROM app_settings WHERE key = ?1",
+            params![key],
+            |row| row.get(0),
+        )
+        .optional()?)
+}
+
+/// Insert or replace an app setting.
+pub fn set_app_setting(conn: &Connection, key: &str, value: &str) -> AppResult<()> {
+    conn.execute(
+        "INSERT INTO app_settings(key, value) VALUES (?1, ?2) \
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![key, value],
+    )?;
+    Ok(())
+}
+
+/// Remove an app setting (used when the active theme is reset).
+pub fn delete_app_setting(conn: &Connection, key: &str) -> AppResult<()> {
+    conn.execute("DELETE FROM app_settings WHERE key = ?1", params![key])?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Sessions
 // ---------------------------------------------------------------------------
 
@@ -808,7 +859,8 @@ mod tests {
         .unwrap();
         assert_eq!(schema_version(&conn).unwrap(), 1);
         migrate(&conn).unwrap();
-        assert_eq!(schema_version(&conn).unwrap(), 2);
+        assert_eq!(schema_version(&conn).unwrap(), SCHEMA_VERSION);
+        assert_eq!(schema_version(&conn).unwrap(), 3);
         let has_client: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM pragma_table_info('games') WHERE name = 'client'",

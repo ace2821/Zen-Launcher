@@ -5,12 +5,15 @@ import type {
   CandidatePatch,
   CandidateStatus,
   CoverCandidate,
+  DetectConflictsResult,
   EventMap,
   EventName,
   Game,
   GamePatch,
   GamepadList,
   LaunchInfo,
+  MarketplaceInstallResult,
+  MarketplaceList,
   ModInstallResult,
   ModsStatus,
   LoaderUpdate,
@@ -95,6 +98,24 @@ export interface LauncherApi {
   /** Connected pads, used for the Big Picture glyph theme under `auto`. */
   listGamepads(): Promise<GamepadList>;
 
+  /* ------------------------------------------------------------- marketplace */
+
+  /** The catalog of installable themes and addons. `stale` true means the
+   * catalog was served from cache / offline and may not reflect the server. */
+  marketplace_list(): Promise<MarketplaceList>;
+
+  /** Downloads and installs one catalog item. Returns what was installed. */
+  marketplace_install(itemId: number): Promise<MarketplaceInstallResult>;
+
+  /** Removes an installed item. */
+  marketplace_uninstall(itemId: number): Promise<void>;
+
+  /** Sets the active theme. `null` resets to no theme. */
+  marketplace_set_active_theme(id: number | null): Promise<void>;
+
+  /** Detects file conflicts between installed mods/addons for a game. */
+  detect_conflicts(gameId: number): Promise<DetectConflictsResult>;
+
   /** `tauri-plugin-dialog` `open({ directory: true })`, or a canned path in mock mode. */
   pickDirectory(options?: { title?: string }): Promise<string | null>;
   /** The same dialog for files, e.g. a cover image. */
@@ -136,3 +157,13 @@ export const api: LauncherApi =
   resolveApiKind() === "mock" ? createMockApi() : createTauriApi();
 
 export const isMock = api.kind === "mock";
+
+/**
+ * Subscribes to `app://navigate`, which the core emits for deep links such as
+ * `zenlauncher://marketplace`. The caller decides what each page name means.
+ */
+export function onNavigate(
+  handler: (event: EventMap["app://navigate"]) => void,
+): Promise<UnlistenFn> {
+  return api.on("app://navigate", handler);
+}

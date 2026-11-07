@@ -1,10 +1,8 @@
-import { RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GlyphRow } from "../components/bigpicture/Glyph";
 import page from "../components/page/page.module.css";
 import { Badge } from "../components/ui/Badge";
-import { Button } from "../components/ui/Button";
 import {
   Segmented,
   SwitchField,
@@ -13,11 +11,19 @@ import {
 } from "../components/ui/Field";
 import { Skeleton } from "../components/ui/Feedback";
 import { isMock } from "../lib/api";
+import {
+  ACCENT_IDS,
+  FONT_IDS,
+  normalizeAccent,
+  normalizeFont,
+  type AccentId,
+  type FontId,
+} from "../lib/appearance";
 import { useGlyphTheme } from "../lib/hooks";
 import { STORAGE_PATHS } from "../lib/paths";
 import type { BigPictureLayout, Language } from "../lib/types";
 import { useLibraryStore } from "../store/library";
-import { useOnboardingStore } from "../store/onboarding";
+import { useShellStore, type LayoutMode } from "../store/shell";
 
 /** The four face buttons, in the order a poster's controller paints them. */
 const GLYPH_PREVIEW = ["north", "west", "south", "east"] as const;
@@ -100,23 +106,19 @@ function ModsMaxMbField() {
 }
 
 /**
- * Settings. Holds the persisted values that have a control here — language, the
- * window-behaviour switches, what a launch is wrapped with, the archive rules,
- * the cover lookup and the console-mode glyphs — plus read-only facts, and a way
- * back into the setup tour.
- *
- * Font and accent are settings too, but their controls live in the tour (the
- * only place a choice can be previewed against real type and a real accent), so
- * this screen points at it rather than growing a second, worse editor for the
- * same two values.
+ * Settings. Holds the persisted values that have a control here — language,
+ * appearance (font, accent, library view), the window-behaviour switches, what a
+ * launch is wrapped with, the archive rules, the cover lookup and the
+ * console-mode glyphs — plus read-only facts.
  */
 export function SettingsView() {
   const { t } = useTranslation();
   const settings = useLibraryStore((state) => state.settings);
   const updateSettings = useLibraryStore((state) => state.updateSettings);
   const saving = useLibraryStore((state) => state.busy["settings:update"] === true);
-  const requestRerun = useOnboardingStore((state) => state.requestRerun);
   const layout = settings?.bigPictureLayout ?? "auto";
+  const libraryLayout = useShellStore((state) => state.layout);
+  const setLibraryLayout = useShellStore((state) => state.setLayout);
   const { theme, pads } = useGlyphTheme(layout);
 
   if (settings === null) {
@@ -130,6 +132,48 @@ export function SettingsView() {
   const languageOptions: readonly SegmentedOption<Language>[] = [
     { value: "en", label: t("settings.languageEn") },
     { value: "pl", label: t("settings.languagePl") },
+    { value: "fr", label: t("settings.languageFr") },
+    { value: "ru", label: t("settings.languageRu") },
+    { value: "de", label: t("settings.languageDe") },
+    { value: "fi", label: t("settings.languageFi") },
+    { value: "tr", label: t("settings.languageTr") },
+  ];
+
+  const fontOptions: readonly SegmentedOption<FontId>[] = FONT_IDS.map(
+    (value) => ({
+      value,
+      label:
+        value === "maple-mono"
+          ? t("onboarding.fontMapleMono")
+          : value === "instrument-sans"
+            ? t("onboarding.fontInstrumentSans")
+            : value === "custom"
+              ? "Własna czcionka"
+              : t("onboarding.fontSystem"),
+    }),
+  );
+
+  const accentOptions: readonly SegmentedOption<AccentId>[] = ACCENT_IDS.map(
+    (value) => ({
+      value,
+      label:
+        value === "jade"
+          ? t("onboarding.accentJade")
+          : value === "plum"
+            ? t("onboarding.accentPlum")
+            : value === "azure"
+              ? t("onboarding.accentAzure")
+              : value === "ember"
+                ? t("onboarding.accentEmber")
+                : value === "rose"
+                  ? t("onboarding.accentRose")
+                  : t("onboarding.accentNeutral"),
+    }),
+  );
+
+  const libraryViewOptions: readonly SegmentedOption<LayoutMode>[] = [
+    { value: "grid", label: t("header.layoutGrid") },
+    { value: "list", label: t("header.layoutList") },
   ];
 
   const layoutOptions: readonly SegmentedOption<BigPictureLayout>[] = [
@@ -137,6 +181,8 @@ export function SettingsView() {
     { value: "xbox", label: t("settings.layoutXbox") },
     { value: "playstation", label: t("settings.layoutPlaystation") },
   ];
+
+  const isCustom = settings.font === "custom";
 
   // What `auto` actually resolved to, said in the settings rather than left to
   // be discovered on the couch.
@@ -289,18 +335,42 @@ export function SettingsView() {
           </div>
         </section>
 
-        {/* ------------------------------------------------- setup tour --- */}
+        {/* ------------------------------------------------ appearance --- */}
         <section className={page.panel}>
-          <div className={page.panelHead}>
-            <div className={page.panelText}>
-              <h2 className="sectionTitle">{t("settings.onboardingTitle")}</h2>
-              <p className="sectionHint">{t("settings.onboardingDescription")}</p>
-            </div>
-            <div className={page.panelActions}>
-              <Button icon={RotateCcw} onClick={requestRerun}>
-                {t("settings.onboardingRun")}
-              </Button>
-            </div>
+          <div className={page.panelText}>
+            <h2 className="sectionTitle">{t("settings.appearanceTitle")}</h2>
+            <p className="sectionHint">{t("settings.appearanceDescription")}</p>
+          </div>
+          <div className={page.fields}>
+            <Segmented
+              label={t("onboarding.fontTitle")}
+              value={normalizeFont(settings.font)}
+              options={fontOptions}
+              onChange={(font) => void updateSettings({ font })}
+            />
+            {isCustom && (
+              <TextField
+                label="Nazwa czcionki CSS"
+                value={settings.customFont ?? ""}
+                onChange={(event) =>
+                  void updateSettings({ customFont: event.target.value })
+                }
+                disabled={saving}
+              />
+            )}
+            <Segmented
+              label={t("onboarding.accentTitle")}
+              value={normalizeAccent(settings.accent)}
+              options={accentOptions}
+              onChange={(accent) => void updateSettings({ accent })}
+            />
+            <Segmented
+              label={t("settings.libraryViewTitle")}
+              value={libraryLayout}
+              options={libraryViewOptions}
+              onChange={setLibraryLayout}
+            />
+            <p className="sectionHint">{t("settings.libraryViewDescription")}</p>
           </div>
         </section>
 

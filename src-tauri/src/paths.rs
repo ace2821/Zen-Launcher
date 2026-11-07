@@ -12,6 +12,7 @@ pub const DB_FILE: &str = "library.db";
 pub const LOGS_DIR: &str = "logs";
 pub const COVERS_DIR: &str = "covers";
 pub const GAMES_DIR: &str = "games";
+pub const ADDONS_DIR: &str = "addons";
 
 /// Per-game state (`<dataDir>/games/<gameId>/`), created on demand. Holds the
 /// loader install record used by the update checker.
@@ -49,12 +50,18 @@ pub fn covers_dir() -> AppResult<PathBuf> {
     Ok(data_dir()?.join(COVERS_DIR))
 }
 
-/// Create the config and data directories (including `logs/` and `covers/`)
-/// if missing.
+/// Marketplace install root (`<dataDir>/addons/<itemId>/`).
+pub fn addons_dir() -> AppResult<PathBuf> {
+    Ok(data_dir()?.join(ADDONS_DIR))
+}
+
+/// Create the config and data directories (including `logs/`, `covers/` and
+/// `addons/`) if missing.
 pub fn ensure_dirs() -> AppResult<()> {
     std::fs::create_dir_all(config_dir()?)?;
     std::fs::create_dir_all(data_dir()?)?;
     std::fs::create_dir_all(logs_dir()?)?;
     std::fs::create_dir_all(covers_dir()?)?;
+    std::fs::create_dir_all(addons_dir()?)?;
     Ok(())
 }

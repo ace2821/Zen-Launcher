@@ -1,4 +1,4 @@
-import { FolderInput, Library, Settings, type LucideIcon } from "lucide-react";
+import { FolderInput, Layout, Library, Settings, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isMock } from "../../lib/api";
@@ -6,7 +6,6 @@ import { useLibraryStore } from "../../store/library";
 import { useShellStore } from "../../store/shell";
 import { Badge, CountBadge } from "../ui/Badge";
 import styles from "./layout.module.css";
-import { ZenMark } from "./ZenMark";
 
 interface NavItemProps {
   icon: LucideIcon;
@@ -44,6 +43,7 @@ export function Sidebar() {
   const goToLibrary = useShellStore((state) => state.goToLibrary);
   const goToImport = useShellStore((state) => state.goToImport);
   const goToSettings = useShellStore((state) => state.goToSettings);
+  const goToMarketplace = useShellStore((state) => state.goToMarketplace);
   const pendingCount = useLibraryStore((state) =>
     state.candidates.reduce(
       (total, candidate) => (candidate.status === "pending" ? total + 1 : total),
@@ -54,7 +54,7 @@ export function Sidebar() {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
-        <ZenMark className={styles.brandMark} />
+        <span className={styles.brandMark} aria-hidden />
         <span className={styles.brandText}>
           <span className={styles.brandName}>{t("app.name")}</span>
           <span className={styles.brandMeta}>{t("app.subtitle")}</span>
@@ -83,6 +83,12 @@ export function Sidebar() {
           label={t("nav.settings")}
           active={view === "settings"}
           onClick={goToSettings}
+        />
+        <NavItem
+          icon={Layout}
+          label={t("marketplace.title")}
+          active={view === "marketplace"}
+          onClick={goToMarketplace}
         />
       </nav>
 

@@ -7,6 +7,11 @@ pub fn now_iso() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
+/// Current time as whole Unix seconds (cache timestamps).
+pub fn now_unix() -> u64 {
+    Utc::now().timestamp().max(0) as u64
+}
+
 /// Parse an ISO-8601 timestamp produced by [`now_iso`].
 pub fn parse_iso(value: &str) -> Option<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(value)

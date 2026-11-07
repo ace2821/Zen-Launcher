@@ -1,15 +1,33 @@
 import i18next, { type TOptions } from "i18next";
 import { initReactI18next } from "react-i18next";
 import type { Language } from "../lib/types";
+import { de } from "./de";
 import { en } from "./en";
+import { fi } from "./fi";
+import { fr } from "./fr";
 import { pl } from "./pl";
+import { ru } from "./ru";
+import { tr } from "./tr";
 
-export const LANGUAGES: readonly Language[] = ["en", "pl"];
+export const LANGUAGES: readonly Language[] = [
+  "en",
+  "pl",
+  "fr",
+  "ru",
+  "de",
+  "fi",
+  "tr",
+];
 export const DEFAULT_LANGUAGE: Language = "en";
 
 const resources = {
   en: { translation: en },
   pl: { translation: pl },
+  fr: { translation: fr },
+  ru: { translation: ru },
+  de: { translation: de },
+  fi: { translation: fi },
+  tr: { translation: tr },
 };
 
 /**
