@@ -1,6 +1,6 @@
 [package]
 name = "zinc-launcher"
-version = "1.2.6"
+version = "1.2.0"
 description = "Local-first game library manager and launcher"
 authors = ["ace"]
 edition = "2024"
