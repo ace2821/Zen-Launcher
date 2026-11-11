@@ -5841,7 +5841,7 @@ dependencies = [
 
 [[package]]
 name = "zinc-launcher"
-version = "1.2.2"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "dirs 5.0.1",
