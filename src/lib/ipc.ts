@@ -21,6 +21,8 @@ import type {
   ModsStatus,
   PlaytimeStats,
   PlaytimeTotal,
+  RuntimeAvailableDownload,
+  RuntimeInfo,
   ScanSummary,
   Session,
   Settings,
@@ -139,6 +141,22 @@ export function createTauriApi(): LauncherApi {
 
     updateSettings(patch: SettingsPatch) {
       return invoke<Settings>("update_settings", { patch });
+    },
+
+    listRuntimes() {
+      return invoke<RuntimeInfo[]>("list_runtimes");
+    },
+
+    runtimeAvailableDownloads() {
+      return invoke<RuntimeAvailableDownload[]>("runtime_available_downloads");
+    },
+
+    runtimeDownload(kind) {
+      return invoke<void>("runtime_download", { kind });
+    },
+
+    runtimeCancelDownload(kind) {
+      return invoke<void>("runtime_cancel_download", { kind });
     },
 
     fetchCoverCandidates(query) {

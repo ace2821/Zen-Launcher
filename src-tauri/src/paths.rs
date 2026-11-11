@@ -13,6 +13,8 @@ pub const LOGS_DIR: &str = "logs";
 pub const COVERS_DIR: &str = "covers";
 pub const GAMES_DIR: &str = "games";
 pub const ADDONS_DIR: &str = "addons";
+pub const RUNTIMES_DIR: &str = "runtimes";
+pub const RUNTIME_DOWNLOADS_DIR: &str = "downloads";
 
 /// Per-game state (`<dataDir>/games/<gameId>/`), created on demand. Holds the
 /// loader install record used by the update checker.
@@ -55,6 +57,17 @@ pub fn addons_dir() -> AppResult<PathBuf> {
     Ok(data_dir()?.join(ADDONS_DIR))
 }
 
+/// Launcher-managed runtime root (`<dataDir>/runtimes/<name>/`).
+pub fn runtimes_dir() -> AppResult<PathBuf> {
+    Ok(data_dir()?.join(RUNTIMES_DIR))
+}
+
+/// Where runtime tarballs are staged while downloading
+/// (`<dataDir>/runtimes/downloads/`).
+pub fn runtime_downloads_dir() -> AppResult<PathBuf> {
+    Ok(runtimes_dir()?.join(RUNTIME_DOWNLOADS_DIR))
+}
+
 /// Create the config and data directories (including `logs/`, `covers/` and
 /// `addons/`) if missing.
 pub fn ensure_dirs() -> AppResult<()> {
@@ -63,5 +76,6 @@ pub fn ensure_dirs() -> AppResult<()> {
     std::fs::create_dir_all(logs_dir()?)?;
     std::fs::create_dir_all(covers_dir()?)?;
     std::fs::create_dir_all(addons_dir()?)?;
+    std::fs::create_dir_all(runtimes_dir()?)?;
     Ok(())
 }

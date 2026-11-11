@@ -779,10 +779,7 @@ pub fn playtime_stats(conn: &Connection) -> AppResult<PlaytimeStats> {
     // Two decimal places keeps the JSON stable for the UI (e.g. 1.25).
     let total_hours = ((total_sec as f64 / 3600.0) * 100.0).round() / 100.0;
 
-    Ok(PlaytimeStats {
-        total_hours,
-        games,
-    })
+    Ok(PlaytimeStats { total_hours, games })
 }
 
 /// Total playtime of one game in seconds (finished sessions only).
@@ -1252,7 +1249,14 @@ mod tests {
         finish_session(&conn, second.id, "2026-10-18T10:15:00Z", 900, Some(0)).unwrap();
 
         let beta_session = insert_session(&conn, beta.id, "2026-10-19T10:00:00Z").unwrap();
-        finish_session(&conn, beta_session.id, "2026-10-19T10:45:00Z", 2700, Some(0)).unwrap();
+        finish_session(
+            &conn,
+            beta_session.id,
+            "2026-10-19T10:45:00Z",
+            2700,
+            Some(0),
+        )
+        .unwrap();
 
         // A running session (duration NULL) never counts towards the totals.
         insert_session(&conn, alpha.id, "2026-10-20T10:00:00Z").unwrap();
@@ -1310,14 +1314,15 @@ mod tests {
         assert_eq!(stored.duration_seconds, None);
         // The already-closed session is untouched.
         assert_eq!(
-            get_session(&conn, finished.id)
-                .unwrap()
-                .duration_seconds,
+            get_session(&conn, finished.id).unwrap().duration_seconds,
             Some(1800)
         );
         // An unknown-duration session contributes nothing to statistics.
         assert_eq!(game_playtime(&conn, game.id).unwrap(), 1800);
-        assert_eq!(close_open_sessions(&conn, "2026-10-21T09:00:00Z").unwrap(), 0);
+        assert_eq!(
+            close_open_sessions(&conn, "2026-10-21T09:00:00Z").unwrap(),
+            0
+        );
     }
 
     #[test]

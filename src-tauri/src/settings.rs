@@ -6,7 +6,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
-use crate::models::{Language, Settings, SettingsPatch};
+use crate::models::{Language, Settings, SettingsPatch, TranslationLayer};
 use crate::paths;
 
 /// On-disk representation. Every field has a default so a hand-edited or
@@ -27,6 +27,9 @@ struct SettingsFile {
     use_game_mode: bool,
     use_mango_hud: bool,
     big_picture_layout: String,
+    translation_layer: TranslationLayer,
+    custom_runtime_path: Option<String>,
+    runtime_override_path: Option<String>,
 }
 
 impl Default for SettingsFile {
@@ -52,6 +55,9 @@ impl From<Settings> for SettingsFile {
             use_game_mode: settings.use_game_mode,
             use_mango_hud: settings.use_mango_hud,
             big_picture_layout: settings.big_picture_layout,
+            translation_layer: settings.translation_layer,
+            custom_runtime_path: settings.custom_runtime_path,
+            runtime_override_path: settings.runtime_override_path,
         }
     }
 }
@@ -72,6 +78,9 @@ impl From<SettingsFile> for Settings {
             use_game_mode: file.use_game_mode,
             use_mango_hud: file.use_mango_hud,
             big_picture_layout: file.big_picture_layout,
+            translation_layer: file.translation_layer,
+            custom_runtime_path: file.custom_runtime_path,
+            runtime_override_path: file.runtime_override_path,
         }
     }
 }
@@ -164,6 +173,25 @@ pub fn apply_patch(settings: &mut Settings, patch: SettingsPatch) {
     if let Some(big_picture_layout) = patch.big_picture_layout {
         settings.big_picture_layout = big_picture_layout;
     }
+    if let Some(translation_layer) = patch.translation_layer {
+        settings.translation_layer = translation_layer;
+    }
+    // An empty path clears the value; a non-empty one is stored trimmed.
+    if let Some(path) = patch.custom_runtime_path {
+        settings.custom_runtime_path = normalize_optional_path(path);
+    }
+    if let Some(path) = patch.runtime_override_path {
+        settings.runtime_override_path = normalize_optional_path(path);
+    }
+}
+
+fn normalize_optional_path(value: String) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }
 
 #[cfg(test)]
@@ -189,6 +217,9 @@ mod tests {
             use_game_mode: false,
             use_mango_hud: true,
             big_picture_layout: "playstation".to_string(),
+            translation_layer: TranslationLayer::WineGe,
+            custom_runtime_path: Some("/opt/wine/bin/wine".to_string()),
+            runtime_override_path: None,
         };
         save_to(&path, &settings).unwrap();
         assert_eq!(load_from(&path), settings);
@@ -207,6 +238,8 @@ mod tests {
         assert!(loaded.use_game_mode);
         assert!(!loaded.use_mango_hud);
         assert_eq!(loaded.big_picture_layout, "auto");
+        assert_eq!(loaded.translation_layer, TranslationLayer::ProtonGe);
+        assert_eq!(loaded.custom_runtime_path, None);
     }
 
     #[test]

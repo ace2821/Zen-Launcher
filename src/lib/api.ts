@@ -20,6 +20,9 @@ import type {
   LoaderUpdate,
   PlaytimeStats,
   PlaytimeTotal,
+  RuntimeAvailableDownload,
+  RuntimeDownloadKind,
+  RuntimeInfo,
   ScanSummary,
   Session,
   Settings,
@@ -76,6 +79,17 @@ export interface LauncherApi {
 
   getSettings(): Promise<Settings>;
   updateSettings(patch: SettingsPatch): Promise<Settings>;
+  /** Compatibility-tool runtimes discovered for the translation-layer picker. */
+  listRuntimes(): Promise<RuntimeInfo[]>;
+  /** Latest downloadable build per translation layer (network lookup). */
+  runtimeAvailableDownloads(): Promise<RuntimeAvailableDownload[]>;
+  /**
+   * Starts a background download. Progress and completion arrive as
+   * `runtime-download-progress` / `runtime-download-finished` events.
+   */
+  runtimeDownload(kind: RuntimeDownloadKind): Promise<void>;
+  /** Stops the running download for `kind` and removes the partial archive. */
+  runtimeCancelDownload(kind: RuntimeDownloadKind): Promise<void>;
 
   /* -------------------------------------------------------------- artwork */
 

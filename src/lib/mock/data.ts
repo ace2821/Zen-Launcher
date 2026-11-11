@@ -17,6 +17,7 @@ import type {
   Session,
   Settings,
   Source,
+  TranslationLayer,
 } from "../types";
 
 /**
@@ -42,6 +43,9 @@ export const DEFAULT_SETTINGS: Settings = {
   useGameMode: true,
   useMangoHud: false,
   bigPictureLayout: "auto",
+  translationLayer: "protonGe",
+  customRuntimePath: null,
+  runtimeOverridePath: null,
 };
 
 /** The default pad the mock "sees" plugged in (see `MockOptions.gamepads`). */
@@ -98,6 +102,27 @@ export function loadSettings(seed: Partial<Settings> = {}): Settings {
       seed.bigPictureLayout,
       DEFAULT_SETTINGS.bigPictureLayout,
     ) as BigPictureLayout,
+    translationLayer: pick(
+      seed.translationLayer,
+      [
+        "protonGe",
+        "wineGe",
+        "protonExperimental",
+        "normalWine",
+        "custom",
+      ],
+      DEFAULT_SETTINGS.translationLayer,
+    ) as TranslationLayer,
+    customRuntimePath:
+      typeof seed.customRuntimePath === "string" &&
+      seed.customRuntimePath.trim().length > 0
+        ? seed.customRuntimePath.trim()
+        : null,
+    runtimeOverridePath:
+      typeof seed.runtimeOverridePath === "string" &&
+      seed.runtimeOverridePath.trim().length > 0
+        ? seed.runtimeOverridePath.trim()
+        : null,
   };
 }
 

@@ -297,6 +297,12 @@
   color: var(--accent);
 }
 
+/* Small muted line used inside dialogs. */
+.dialogHint {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
 /* -------------------------------------------------------------- toasts --- */
 
 .toaster {

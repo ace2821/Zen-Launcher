@@ -18,8 +18,10 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::db;
 use crate::error::{AppError, AppResult};
-use crate::models::{ClientKind, Game, GameType, SessionEnded, SessionStarted, events};
-use crate::paths;
+use crate::models::{
+    ClientKind, Game, GameType, RuntimeInfo, SessionEnded, SessionStarted, TranslationLayer, events,
+};
+use crate::runtime;
 use crate::state::AppState;
 use crate::time;
 
@@ -67,6 +69,43 @@ impl LaunchExtras {
     }
 }
 
+/// Everything the planner needs to resolve the Windows translation layer.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TranslationConfig {
+    pub layer: TranslationLayer,
+    /// Binary/script used by [`TranslationLayer::Custom`].
+    pub custom_runtime_path: Option<String>,
+    /// Pins a specific runtime directory, bypassing newest-match selection.
+    pub runtime_override_path: Option<String>,
+    /// Already-scanned runtimes (`runtime::scan_runtimes`).
+    pub runtimes: Vec<RuntimeInfo>,
+    /// `STEAM_COMPAT_CLIENT_INSTALL_PATH`; `None` when no Steam client exists.
+    pub steam_client_dir: Option<PathBuf>,
+    /// `<dataDir>/prefixes`; per-game prefixes live below it.
+    pub prefixes_dir: PathBuf,
+}
+
+impl TranslationConfig {
+    /// Plain system `wine` with per-game prefixes (used by tests and callers
+    /// without settings). Production passes the config built from settings.
+    pub fn normal_wine(prefixes_dir: PathBuf) -> Self {
+        Self {
+            layer: TranslationLayer::NormalWine,
+            custom_runtime_path: None,
+            runtime_override_path: None,
+            runtimes: Vec::new(),
+            steam_client_dir: None,
+            prefixes_dir,
+        }
+    }
+}
+
+/// Environment additions required to run a build through its `proton` script.
+struct ProtonEnv {
+    compatdata: PathBuf,
+    steam_client: PathBuf,
+}
+
 /// True when `name` is an executable found on PATH.
 fn on_path(name: &str) -> bool {
     let Ok(path_var) = std::env::var("PATH") else {
@@ -78,8 +117,13 @@ fn on_path(name: &str) -> bool {
     })
 }
 
-/// Pure planning step — no side effects except the `.AppImage` exec bit fixup.
-pub fn build_spawn_plan(game: &Game, extras: &LaunchExtras) -> AppResult<SpawnPlan> {
+/// Pure planning step — no side effects except the `.AppImage` exec bit fixup
+/// and creating the Proton compatdata directory.
+pub fn build_spawn_plan(
+    game: &Game,
+    extras: &LaunchExtras,
+    translation: &TranslationConfig,
+) -> AppResult<SpawnPlan> {
     let executable = db::resolve_executable(&game.install_path, &game.executable);
     if !executable.exists() {
         return Err(AppError::launch_failed(format!(
@@ -113,6 +157,7 @@ pub fn build_spawn_plan(game: &Game, extras: &LaunchExtras) -> AppResult<SpawnPl
         .map(|name| name.to_string_lossy().to_ascii_lowercase())
         .unwrap_or_default();
 
+    let mut proton_env = None;
     let (program, mut args) = match game.game_type {
         GameType::Native => {
             if file_name.ends_with(".sh") {
@@ -133,15 +178,10 @@ pub fn build_spawn_plan(game: &Game, extras: &LaunchExtras) -> AppResult<SpawnPl
             }
         }
         GameType::Windows => {
-            // `.bat`/`.cmd` entry points run through `cmd /c`; `.exe` (and
-            // anything else) starts directly. Wine creates the prefix on
-            // first run.
-            let mut wine_args = vec![executable.to_string_lossy().into_owned()];
-            if file_name.ends_with(".bat") || file_name.ends_with(".cmd") {
-                wine_args.insert(0, "/c".to_string());
-                wine_args.insert(0, "cmd".to_string());
-            }
-            (PathBuf::from("wine"), wine_args)
+            let (program, args, env) =
+                build_windows_runner(game, &executable, &file_name, translation)?;
+            proton_env = env;
+            (program, args)
         }
         other => {
             return Err(AppError::unsupported(format!(
@@ -155,10 +195,23 @@ pub fn build_spawn_plan(game: &Game, extras: &LaunchExtras) -> AppResult<SpawnPl
 
     let mut env = game.env.clone();
     if game.game_type == GameType::Windows {
-        if !env.contains_key("WINEPREFIX") {
-            let prefix = paths::data_dir()?
-                .join("prefixes")
-                .join(game.id.to_string());
+        if let Some(proton) = &proton_env {
+            // Proton manages its own prefix inside STEAM_COMPAT_DATA_PATH.
+            // It also creates the prefix on first run, so no wineboot is run.
+            env.insert(
+                "STEAM_COMPAT_CLIENT_INSTALL_PATH".to_string(),
+                proton.steam_client.to_string_lossy().into_owned(),
+            );
+            env.insert(
+                "STEAM_COMPAT_DATA_PATH".to_string(),
+                proton.compatdata.to_string_lossy().into_owned(),
+            );
+            env.insert(
+                "WINEPREFIX".to_string(),
+                proton.compatdata.join("pfx").to_string_lossy().into_owned(),
+            );
+        } else if !env.contains_key("WINEPREFIX") {
+            let prefix = translation.prefixes_dir.join(game.id.to_string());
             env.insert(
                 "WINEPREFIX".to_string(),
                 prefix.to_string_lossy().into_owned(),
@@ -220,6 +273,132 @@ pub fn build_spawn_plan(game: &Game, extras: &LaunchExtras) -> AppResult<SpawnPl
     };
 
     Ok(plan)
+}
+
+/// Resolve the program/args/environment for a `windows` game under the
+/// configured translation layer. Proton runs get a [`ProtonEnv`]; Wine runs
+/// keep the per-game `WINEPREFIX` handled by the caller.
+fn build_windows_runner(
+    game: &Game,
+    executable: &Path,
+    file_name: &str,
+    translation: &TranslationConfig,
+) -> AppResult<(PathBuf, Vec<String>, Option<ProtonEnv>)> {
+    let exe = executable.to_string_lossy().into_owned();
+
+    match translation.layer {
+        TranslationLayer::NormalWine => Ok((
+            PathBuf::from("wine"),
+            wine_launch_args(&exe, file_name),
+            None,
+        )),
+        TranslationLayer::Custom => {
+            let raw = translation.custom_runtime_path.as_deref().ok_or_else(|| {
+                AppError::validation(
+                    "translation layer 'custom' needs customRuntimePath (a wine binary or proton script)",
+                )
+            })?;
+            let path = PathBuf::from(raw);
+            if !path.exists() {
+                return Err(AppError::validation(format!(
+                    "custom runtime path does not exist: {}",
+                    path.display()
+                )));
+            }
+            if runtime::is_proton_script(&path) {
+                let proton = if path.is_dir() {
+                    path.join("proton")
+                } else {
+                    path.clone()
+                };
+                let env = build_proton_env(game, translation)?;
+                Ok((proton, proton_launch_args(&exe), Some(env)))
+            } else {
+                Ok((path, wine_launch_args(&exe, file_name), None))
+            }
+        }
+        TranslationLayer::WineGe => {
+            let info = runtime::select_wine_runtime(
+                translation.runtime_override_path.as_deref(),
+                &translation.runtimes,
+            )
+            .ok_or_else(|| {
+                AppError::launch_failed(
+                    "no Wine runtime found; install a Wine-GE build into \
+                     ~/.local/share/Steam/compatibilitytools.d, ~/.local/share/lutris/runners/wine \
+                     or ~/.local/share/zinc-launcher/runtimes, or switch the translation layer",
+                )
+            })?;
+            let dir = PathBuf::from(&info.path);
+            let binary = runtime::wine_binary_path(&dir).ok_or_else(|| {
+                AppError::launch_failed(format!(
+                    "Wine runtime {} has no files/bin/wine or bin/wine",
+                    dir.display()
+                ))
+            })?;
+            Ok((binary, wine_launch_args(&exe, file_name), None))
+        }
+        TranslationLayer::ProtonGe | TranslationLayer::ProtonExperimental => {
+            let info = runtime::select_proton_runtime(
+                translation.layer,
+                translation.runtime_override_path.as_deref(),
+                &translation.runtimes,
+            )
+            .ok_or_else(|| {
+                AppError::launch_failed(
+                    "no Proton runtime found; install a Proton-GE/UMU build into \
+                     ~/.local/share/Steam/compatibilitytools.d (or set runtimeOverridePath), \
+                     or switch the translation layer",
+                )
+            })?;
+            let dir = PathBuf::from(&info.path);
+            let proton = dir.join("proton");
+            if !proton.is_file() {
+                return Err(AppError::launch_failed(format!(
+                    "Proton runtime {} has no proton script",
+                    dir.display()
+                )));
+            }
+            let env = build_proton_env(game, translation)?;
+            Ok((proton, proton_launch_args(&exe), Some(env)))
+        }
+    }
+}
+
+fn wine_launch_args(exe: &str, file_name: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    if file_name.ends_with(".bat") || file_name.ends_with(".cmd") {
+        args.push("cmd".to_string());
+        args.push("/c".to_string());
+    }
+    args.push(exe.to_string());
+    args
+}
+
+fn proton_launch_args(exe: &str) -> Vec<String> {
+    vec!["run".to_string(), exe.to_string()]
+}
+
+/// `STEAM_COMPAT_DATA_PATH` is `<prefixes>/proton-<gameId>`; it must exist
+/// before Proton starts. Proton creates `<compatdata>/pfx` itself.
+fn build_proton_env(game: &Game, translation: &TranslationConfig) -> AppResult<ProtonEnv> {
+    let steam_client = translation.steam_client_dir.clone().ok_or_else(|| {
+        AppError::launch_failed(
+            "Steam client not found at ~/.local/share/Steam or ~/.steam/steam; \
+             it is required for Proton (STEAM_COMPAT_CLIENT_INSTALL_PATH)",
+        )
+    })?;
+    let compatdata = translation.prefixes_dir.join(format!("proton-{}", game.id));
+    std::fs::create_dir_all(&compatdata).map_err(|err| {
+        AppError::launch_failed(format!(
+            "could not create Proton compatdata {}: {err}",
+            compatdata.display()
+        ))
+    })?;
+    Ok(ProtonEnv {
+        compatdata,
+        steam_client,
+    })
 }
 
 /// Per-client connection flags. Only SA-MP takes them; FiveM/MTA are launched
@@ -453,6 +632,10 @@ mod tests {
         }
     }
 
+    fn normal_wine_config() -> TranslationConfig {
+        TranslationConfig::normal_wine(crate::paths::data_dir().unwrap().join("prefixes"))
+    }
+
     fn write_executable(path: &Path, contents: &[u8]) {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).unwrap();
@@ -474,7 +657,7 @@ mod tests {
             nick: Some("Zinc".into()),
         });
 
-        let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
+        let plan = build_spawn_plan(&g, &LaunchExtras::off(), &normal_wine_config()).unwrap();
         let trailing: Vec<&str> = plan.args[1..].iter().map(String::as_str).collect();
         assert_eq!(
             trailing,
@@ -505,7 +688,7 @@ mod tests {
         assert_eq!(client.kind, ClientKind::Samp);
         g.client = Some(client);
 
-        let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
+        let plan = build_spawn_plan(&g, &LaunchExtras::off(), &normal_wine_config()).unwrap();
         assert!(plan.args.iter().any(|arg| arg == "-h"));
         assert!(!plan.args.iter().any(|arg| arg == "-p"));
     }
@@ -523,7 +706,7 @@ mod tests {
                 port: Some(1234),
                 nick: Some("ignored".into()),
             });
-            let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
+            let plan = build_spawn_plan(&g, &LaunchExtras::off(), &normal_wine_config()).unwrap();
             let expected = vec![
                 dir.path()
                     .join("CitizenFX.exe")
@@ -544,6 +727,7 @@ mod tests {
         let plan = build_spawn_plan(
             &game(dir.path(), "run.sh", GameType::Native),
             &LaunchExtras::off(),
+            &normal_wine_config(),
         )
         .unwrap();
         assert_eq!(plan.program, PathBuf::from("sh"));
@@ -562,6 +746,7 @@ mod tests {
         let err = build_spawn_plan(
             &game(dir.path(), "game.x86_64", GameType::Native),
             &LaunchExtras::off(),
+            &normal_wine_config(),
         )
         .unwrap_err();
         assert_eq!(err.code, crate::error::LAUNCH_FAILED);
@@ -570,6 +755,7 @@ mod tests {
         let plan = build_spawn_plan(
             &game(dir.path(), "game.x86_64", GameType::Native),
             &LaunchExtras::off(),
+            &normal_wine_config(),
         )
         .unwrap();
         assert_eq!(plan.program, binary);
@@ -584,6 +770,7 @@ mod tests {
         let plan = build_spawn_plan(
             &game(dir.path(), "Game.AppImage", GameType::Native),
             &LaunchExtras::off(),
+            &normal_wine_config(),
         )
         .unwrap();
         assert_eq!(plan.program, appimage);
@@ -598,6 +785,7 @@ mod tests {
         let plan = build_spawn_plan(
             &game(dir.path(), "game.exe", GameType::Windows),
             &LaunchExtras::off(),
+            &normal_wine_config(),
         )
         .unwrap();
         assert_eq!(plan.program, PathBuf::from("wine"));
@@ -624,6 +812,7 @@ mod tests {
         let plan = build_spawn_plan(
             &game(dir.path(), "launcher.bat", GameType::Windows),
             &LaunchExtras::off(),
+            &normal_wine_config(),
         )
         .unwrap();
         assert_eq!(plan.program, PathBuf::from("wine"));
@@ -644,7 +833,7 @@ mod tests {
         g.env
             .insert("WINEPREFIX".to_string(), "/custom/prefix".to_string());
 
-        let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
+        let plan = build_spawn_plan(&g, &LaunchExtras::off(), &normal_wine_config()).unwrap();
         assert_eq!(
             plan.env.get("WINEPREFIX"),
             Some(&"/custom/prefix".to_string())
@@ -658,12 +847,14 @@ mod tests {
         let err = build_spawn_plan(
             &game(dir.path(), "game.x86_64", GameType::Retro),
             &LaunchExtras::off(),
+            &normal_wine_config(),
         )
         .unwrap_err();
         assert_eq!(err.code, crate::error::UNSUPPORTED);
         let err = build_spawn_plan(
             &game(dir.path(), "game.x86_64", GameType::Mod),
             &LaunchExtras::off(),
+            &normal_wine_config(),
         )
         .unwrap_err();
         assert_eq!(err.code, crate::error::UNSUPPORTED);
@@ -675,6 +866,7 @@ mod tests {
         let err = build_spawn_plan(
             &game(dir.path(), "nope.x86_64", GameType::Native),
             &LaunchExtras::off(),
+            &normal_wine_config(),
         )
         .unwrap_err();
         assert_eq!(err.code, crate::error::LAUNCH_FAILED);
@@ -687,6 +879,7 @@ mod tests {
         let plan = build_spawn_plan(
             &game(dir.path(), "bin/game.x86_64", GameType::Native),
             &LaunchExtras::off(),
+            &normal_wine_config(),
         )
         .unwrap();
         assert_eq!(plan.program, dir.path().join("bin/game.x86_64"));
@@ -705,6 +898,7 @@ mod tests {
         let plan = build_spawn_plan(
             &game(dir.path(), "game.exe", GameType::Windows),
             &LaunchExtras::off(),
+            &normal_wine_config(),
         )
         .unwrap();
         let overrides = plan.env.get("WINEDLLOVERRIDES").unwrap();
@@ -743,7 +937,7 @@ mod tests {
         let mut g = game(root, "bin/game.exe", GameType::Windows);
         g.install_path = root.to_string_lossy().into_owned();
 
-        let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
+        let plan = build_spawn_plan(&g, &LaunchExtras::off(), &normal_wine_config()).unwrap();
         let overrides = plan.env.get("WINEDLLOVERRIDES").unwrap();
         assert!(overrides.contains("winhttp=n,b"), "{overrides}");
         assert!(overrides.contains("dinput8=n,b"), "{overrides}");
@@ -760,7 +954,7 @@ mod tests {
             "mscoree,mshtml=;winhttp=n,b".to_string(),
         );
 
-        let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
+        let plan = build_spawn_plan(&g, &LaunchExtras::off(), &normal_wine_config()).unwrap();
         assert_eq!(
             plan.env.get("WINEDLLOVERRIDES"),
             Some(&"mscoree,mshtml=;winhttp=n,b".to_string())
@@ -780,5 +974,243 @@ mod tests {
         assert!(prefix.is_dir());
         // No WINEPREFIX planned → no-op.
         ensure_prefix_dir(&BTreeMap::new()).unwrap();
+    }
+
+    fn write_proton_runtime(root: &Path, name: &str) -> PathBuf {
+        let dir = root.join(name);
+        write_executable(&dir.join("proton"), b"#!/bin/sh\n");
+        write_executable(&dir.join("files/bin/wine"), b"#!/bin/sh\n");
+        dir
+    }
+
+    fn write_wine_runtime(root: &Path, name: &str) -> PathBuf {
+        let dir = root.join(name);
+        write_executable(&dir.join("files/bin/wine"), b"#!/bin/sh\n");
+        dir
+    }
+
+    fn translation_from(
+        root: &Path,
+        prefixes: PathBuf,
+        layer: TranslationLayer,
+        steam: Option<PathBuf>,
+    ) -> TranslationConfig {
+        TranslationConfig {
+            layer,
+            custom_runtime_path: None,
+            runtime_override_path: None,
+            runtimes: crate::runtime::scan_roots(&[root.to_path_buf()]),
+            steam_client_dir: steam,
+            prefixes_dir: prefixes,
+        }
+    }
+
+    #[test]
+    fn proton_layer_runs_newest_ge_build_through_proton_run() {
+        let dir = tempdir().unwrap();
+        let runtimes = dir.path().join("runtimes");
+        write_proton_runtime(&runtimes, "GE-Proton9-20");
+        write_proton_runtime(&runtimes, "UMU-Proton-10.0-4");
+        let steam = dir.path().join("steam");
+        std::fs::create_dir_all(&steam).unwrap();
+        let prefixes = dir.path().join("prefixes");
+        let translation = translation_from(
+            &runtimes,
+            prefixes.clone(),
+            TranslationLayer::ProtonGe,
+            Some(steam.clone()),
+        );
+
+        let game_dir = dir.path().join("game");
+        std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("game.exe"), b"MZ").unwrap();
+        let g = game(&game_dir, "game.exe", GameType::Windows);
+
+        let plan = build_spawn_plan(&g, &LaunchExtras::off(), &translation).unwrap();
+        let runtime = runtimes.join("UMU-Proton-10.0-4");
+        assert_eq!(plan.program, runtime.join("proton"));
+        assert_eq!(
+            plan.args,
+            vec![
+                "run".to_string(),
+                game_dir.join("game.exe").to_string_lossy().into_owned(),
+                "--flag".to_string(),
+            ]
+        );
+        let compatdata = prefixes.join("proton-1");
+        assert!(compatdata.is_dir());
+        assert_eq!(
+            plan.env.get("STEAM_COMPAT_DATA_PATH"),
+            Some(&compatdata.to_string_lossy().into_owned())
+        );
+        assert_eq!(
+            plan.env.get("STEAM_COMPAT_CLIENT_INSTALL_PATH"),
+            Some(&steam.to_string_lossy().into_owned())
+        );
+        assert_eq!(
+            plan.env.get("WINEPREFIX"),
+            Some(&compatdata.join("pfx").to_string_lossy().into_owned())
+        );
+        // Existing game env is preserved alongside Proton variables.
+        assert_eq!(plan.env.get("ZINC"), Some(&"1".to_string()));
+    }
+
+    #[test]
+    fn proton_experimental_layer_selects_experimental_build() {
+        let dir = tempdir().unwrap();
+        let runtimes = dir.path().join("runtimes");
+        write_proton_runtime(&runtimes, "GE-Proton9-20");
+        write_proton_runtime(&runtimes, "Proton-Experimental");
+        let steam = dir.path().join("steam");
+        std::fs::create_dir_all(&steam).unwrap();
+        let translation = translation_from(
+            &runtimes,
+            dir.path().join("prefixes"),
+            TranslationLayer::ProtonExperimental,
+            Some(steam),
+        );
+        let game_dir = dir.path().join("game");
+        std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("game.exe"), b"MZ").unwrap();
+
+        let plan = build_spawn_plan(
+            &game(&game_dir, "game.exe", GameType::Windows),
+            &LaunchExtras::off(),
+            &translation,
+        )
+        .unwrap();
+        assert_eq!(
+            plan.program,
+            runtimes.join("Proton-Experimental").join("proton")
+        );
+    }
+
+    #[test]
+    fn proton_without_steam_client_is_a_descriptive_launch_error() {
+        let dir = tempdir().unwrap();
+        let runtimes = dir.path().join("runtimes");
+        write_proton_runtime(&runtimes, "UMU-Proton-10.0-4");
+        let translation = translation_from(
+            &runtimes,
+            dir.path().join("prefixes"),
+            TranslationLayer::ProtonGe,
+            None,
+        );
+        let game_dir = dir.path().join("game");
+        std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("game.exe"), b"MZ").unwrap();
+
+        let err = build_spawn_plan(
+            &game(&game_dir, "game.exe", GameType::Windows),
+            &LaunchExtras::off(),
+            &translation,
+        )
+        .unwrap_err();
+        assert_eq!(err.code, crate::error::LAUNCH_FAILED);
+        assert!(err.message.contains("Steam"), "{}", err.message);
+    }
+
+    #[test]
+    fn wine_ge_layer_runs_runtime_wine_with_per_game_prefix() {
+        let dir = tempdir().unwrap();
+        let runtimes = dir.path().join("runtimes");
+        let runtime = write_wine_runtime(&runtimes, "Wine-GE-Proton8-26");
+        let prefixes = dir.path().join("prefixes");
+        let translation =
+            translation_from(&runtimes, prefixes.clone(), TranslationLayer::WineGe, None);
+        let game_dir = dir.path().join("game");
+        std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("game.exe"), b"MZ").unwrap();
+
+        let plan = build_spawn_plan(
+            &game(&game_dir, "game.exe", GameType::Windows),
+            &LaunchExtras::off(),
+            &translation,
+        )
+        .unwrap();
+        assert_eq!(plan.program, runtime.join("files/bin/wine"));
+        assert_eq!(
+            plan.env.get("WINEPREFIX"),
+            Some(&prefixes.join("1").to_string_lossy().into_owned())
+        );
+        assert!(!plan.env.contains_key("STEAM_COMPAT_DATA_PATH"));
+    }
+
+    #[test]
+    fn custom_layer_accepts_a_wine_binary() {
+        let dir = tempdir().unwrap();
+        let custom = dir.path().join("custom-wine");
+        write_executable(&custom, b"#!/bin/sh\n");
+        let mut translation = translation_from(
+            &dir.path().join("empty"),
+            dir.path().join("prefixes"),
+            TranslationLayer::Custom,
+            None,
+        );
+        translation.custom_runtime_path = Some(custom.to_string_lossy().into_owned());
+        let game_dir = dir.path().join("game");
+        std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("game.exe"), b"MZ").unwrap();
+
+        let plan = build_spawn_plan(
+            &game(&game_dir, "game.exe", GameType::Windows),
+            &LaunchExtras::off(),
+            &translation,
+        )
+        .unwrap();
+        assert_eq!(plan.program, custom);
+        assert_eq!(plan.args[0], game_dir.join("game.exe").to_string_lossy());
+    }
+
+    #[test]
+    fn custom_layer_accepts_a_proton_script() {
+        let dir = tempdir().unwrap();
+        let runtime = write_proton_runtime(&dir.path().join("runtimes"), "My-Proton");
+        let steam = dir.path().join("steam");
+        std::fs::create_dir_all(&steam).unwrap();
+        let mut translation = translation_from(
+            &dir.path().join("empty"),
+            dir.path().join("prefixes"),
+            TranslationLayer::Custom,
+            Some(steam),
+        );
+        translation.custom_runtime_path =
+            Some(runtime.join("proton").to_string_lossy().into_owned());
+        let game_dir = dir.path().join("game");
+        std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("game.exe"), b"MZ").unwrap();
+
+        let plan = build_spawn_plan(
+            &game(&game_dir, "game.exe", GameType::Windows),
+            &LaunchExtras::off(),
+            &translation,
+        )
+        .unwrap();
+        assert_eq!(plan.program, runtime.join("proton"));
+        assert_eq!(plan.args[0], "run");
+        assert!(plan.env.contains_key("STEAM_COMPAT_DATA_PATH"));
+    }
+
+    #[test]
+    fn missing_proton_runtime_is_a_descriptive_launch_error() {
+        let dir = tempdir().unwrap();
+        let translation = translation_from(
+            &dir.path().join("empty"),
+            dir.path().join("prefixes"),
+            TranslationLayer::ProtonGe,
+            Some(dir.path().to_path_buf()),
+        );
+        let game_dir = dir.path().join("game");
+        std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("game.exe"), b"MZ").unwrap();
+
+        let err = build_spawn_plan(
+            &game(&game_dir, "game.exe", GameType::Windows),
+            &LaunchExtras::off(),
+            &translation,
+        )
+        .unwrap_err();
+        assert_eq!(err.code, crate::error::LAUNCH_FAILED);
+        assert!(err.message.contains("Proton"), "{}", err.message);
     }
 }

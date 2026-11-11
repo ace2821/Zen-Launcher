@@ -238,10 +238,7 @@ fn store_cover(
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
-    let path = covers_dir.join(format!(
-        "{}-{game_id}-{stamp}.{ext}",
-        variant.prefix()
-    ));
+    let path = covers_dir.join(format!("{}-{game_id}-{stamp}.{ext}", variant.prefix()));
     std::fs::write(&path, bytes)?;
     remove_previous_covers(covers_dir, game_id, variant, &path);
     Ok(path)
@@ -251,12 +248,7 @@ fn store_cover(
 /// variant so the covers dir never grows unboundedly. Only removes
 /// `<prefix>-<id>-*` files, so the library poster and the Big Picture hero art
 /// can coexist for one game.
-fn remove_previous_covers(
-    covers_dir: &Path,
-    game_id: i64,
-    variant: CoverVariant,
-    keep: &Path,
-) {
+fn remove_previous_covers(covers_dir: &Path, game_id: i64, variant: CoverVariant, keep: &Path) {
     let prefix = format!("{}-{game_id}-", variant.prefix());
     let Ok(entries) = std::fs::read_dir(covers_dir) else {
         return;
@@ -348,16 +340,19 @@ mod tests {
 
         assert!(library.is_file());
         assert!(hero.is_file());
-        assert!(library
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .starts_with("cover-7-"));
-        assert!(hero
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .starts_with("hero-7-"));
+        assert!(
+            library
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("cover-7-")
+        );
+        assert!(
+            hero.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("hero-7-")
+        );
 
         // Rewriting the hero art must not prune the library poster, and vice
         // versa.

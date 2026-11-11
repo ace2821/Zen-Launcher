@@ -19,6 +19,9 @@ import type {
   MarketplaceList,
   ModsStatus,
   PlaytimeStats,
+  RuntimeAvailableDownload,
+  RuntimeDownloadKind,
+  RuntimeInfo,
   ScanSummary,
   Session,
   Settings,
@@ -187,6 +190,9 @@ export function createMockApi(options: MockOptions = {}): MockApi {
   const downloadedCoverUrls: string[] = [];
   const coverSources: string[] = [];
   const trashedArchives: string[] = [];
+  /** Runtime kinds the mocked launcher has "downloaded" this session. */
+  const installedRuntimes = new Set<RuntimeDownloadKind>();
+  const activeRuntimeDownloads = new Set<RuntimeDownloadKind>();
   function emit<K extends EventName>(event: K, payload: EventMap[K]): void {
     const registered = listeners.get(event);
     if (!registered) return;
@@ -340,6 +346,8 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       downloadedCoverUrls.length = 0;
       coverSources.length = 0;
       trashedArchives.length = 0;
+      installedRuntimes.clear();
+      activeRuntimeDownloads.clear();
       state = createSeedState(options.settings);
     },
     sendGamepadEvent(event: GamepadEvent) {
@@ -748,8 +756,117 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       if (patch.bigPictureLayout !== undefined) {
         next.bigPictureLayout = patch.bigPictureLayout;
       }
+      if (patch.translationLayer !== undefined) {
+        if (
+          ![
+            "protonGe",
+            "wineGe",
+            "protonExperimental",
+            "normalWine",
+            "custom",
+          ].includes(patch.translationLayer)
+        ) {
+          throw uiError(
+            "VALIDATION",
+            `Unsupported translation layer: ${patch.translationLayer}`,
+          );
+        }
+        next.translationLayer = patch.translationLayer;
+      }
+      if (patch.customRuntimePath !== undefined) {
+        const trimmed = patch.customRuntimePath.trim();
+        next.customRuntimePath = trimmed.length > 0 ? trimmed : null;
+      }
+      if (patch.runtimeOverridePath !== undefined) {
+        const trimmed = patch.runtimeOverridePath.trim();
+        next.runtimeOverridePath = trimmed.length > 0 ? trimmed : null;
+      }
       state.settings = next;
       return { ...state.settings };
+    },
+
+    async listRuntimes() {
+      // Representative fixtures: the mock cannot scan the host filesystem.
+      const runtimes: RuntimeInfo[] = [
+        {
+          path: "/home/oliwier/.local/share/Steam/compatibilitytools.d/UMU-Proton-10.0-4",
+          kind: "proton",
+          name: "UMU-Proton-10.0-4",
+          version: "10.0.4",
+        },
+        {
+          path: "/home/oliwier/.local/share/Steam/compatibilitytools.d/GE-Proton9-20",
+          kind: "proton",
+          name: "GE-Proton9-20",
+          version: "9.20",
+        },
+      ];
+      return runtimes;
+    },
+
+    async runtimeAvailableDownloads() {
+      // Fixtures mirror the live GitHub assets (see docs/INTERFACES.md §Runtimes).
+      const rows: RuntimeAvailableDownload[] = [
+        {
+          kind: "protonGe",
+          name: "GE-Proton11-12",
+          version: "11.12",
+          sizeBytes: 566_859_228,
+          url: "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton11-12/GE-Proton11-12-x86_64.tar.gz",
+          installed: installedRuntimes.has("protonGe"),
+          downloadable: true,
+          reason: null,
+        },
+        {
+          kind: "wineGe",
+          name: "wine-lutris-GE-Proton8-26",
+          version: "8.26",
+          sizeBytes: 233_577_252,
+          url: "https://github.com/GloriousEggroll/wine-ge-custom/releases/download/GE-Proton8-26/wine-lutris-GE-Proton8-26-x86_64.tar.xz",
+          installed: installedRuntimes.has("wineGe"),
+          downloadable: true,
+          reason: null,
+        },
+        {
+          kind: "protonExperimental",
+          name: "Proton Experimental",
+          version: null,
+          sizeBytes: null,
+          url: null,
+          installed: false,
+          downloadable: false,
+          reason: "steam-only",
+        },
+      ];
+      return rows;
+    },
+
+    async runtimeDownload(kind) {
+      if (kind === "protonExperimental") {
+        throw uiError("UNSUPPORTED", "Proton Experimental is delivered by Steam.");
+      }
+      if (activeRuntimeDownloads.has(kind)) {
+        throw uiError("VALIDATION", `${kind} is already downloading.`);
+      }
+      activeRuntimeDownloads.add(kind);
+      try {
+        await delay(networkMs);
+      } finally {
+        activeRuntimeDownloads.delete(kind);
+      }
+      installedRuntimes.add(kind);
+      emit("runtime-download-finished", { kind, ok: true });
+    },
+
+    async runtimeCancelDownload(kind) {
+      if (!activeRuntimeDownloads.delete(kind)) {
+        throw uiError("VALIDATION", `${kind} is not downloading.`);
+      }
+      emit("runtime-download-finished", {
+        kind,
+        ok: false,
+        error: { code: "VALIDATION", message: "download cancelled" },
+      });
     },
 
     /* -------------------------------------------------------- covers (artwork) */

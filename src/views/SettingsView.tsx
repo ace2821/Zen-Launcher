@@ -10,7 +10,7 @@ import {
   type SegmentedOption,
 } from "../components/ui/Field";
 import { Skeleton } from "../components/ui/Feedback";
-import { isMock } from "../lib/api";
+import { api, isMock } from "../lib/api";
 import {
   ACCENT_IDS,
   FONT_IDS,
@@ -21,9 +21,17 @@ import {
 } from "../lib/appearance";
 import { useGlyphTheme } from "../lib/hooks";
 import { STORAGE_PATHS } from "../lib/paths";
-import type { BigPictureLayout, Language } from "../lib/types";
+import type {
+  BigPictureLayout,
+  Language,
+  RuntimeInfo,
+  TranslationLayer,
+} from "../lib/types";
 import { useLibraryStore } from "../store/library";
 import { useShellStore, type LayoutMode } from "../store/shell";
+import { confirmDialog } from "../store/confirm";
+import { toastInfo } from "../store/toasts";
+import { RuntimeDownloadDialog } from "../components/ui/RuntimeDownloadDialog";
 
 /** The four face buttons, in the order a poster's controller paints them. */
 const GLYPH_PREVIEW = ["north", "west", "south", "east"] as const;
@@ -193,6 +201,62 @@ export function SettingsView() {
         ? t("settings.glyphDetectedPad", { pad: pads[0].name })
         : t("settings.glyphNoPad");
 
+  const layer: TranslationLayer = settings.translationLayer;
+  const [runtimes, setRuntimes] = useState<RuntimeInfo[]>([]);
+  const [pendingDownload, setPendingDownload] = useState<{
+    kind: string;
+    name: string;
+  } | null>(null);
+
+  useEffect(() => {
+    void api.listRuntimes().then(setRuntimes);
+  }, []);
+
+  /** Runtime download API (added by the core in the same milestone). */
+  const downloadsApi = api as unknown as {
+    runtimeAvailableDownloads(): Promise<Array<{
+      kind: string;
+      name: string;
+      version: string | null;
+      size_bytes: number;
+      url: string;
+      installed: boolean;
+      downloadable: boolean;
+      reason?: string;
+    }>>;
+  };
+
+  const translationLayerOptions: readonly SegmentedOption<TranslationLayer>[] = [
+    { value: "protonGe", label: t("settings.translationLayerProtonGe") },
+    { value: "wineGe", label: t("settings.translationLayerWineGe") },
+    {
+      value: "protonExperimental",
+      label: t("settings.translationLayerProtonExperimental"),
+    },
+    { value: "normalWine", label: t("settings.translationLayerNormalWine") },
+    { value: "custom", label: t("settings.translationLayerCustom") },
+  ];
+
+  const layerDescriptionKeys: Record<TranslationLayer, string> = {
+    protonGe: "settings.translationLayerProtonGeHint",
+    wineGe: "settings.translationLayerWineGeHint",
+    protonExperimental: "settings.translationLayerProtonExperimentalHint",
+    normalWine: "settings.translationLayerNormalWineHint",
+    custom: "settings.translationLayerCustomHint",
+  };
+
+  const isRuntimeLayer = (value: string) =>
+    ["protonGe", "wineGe", "protonExperimental"].includes(value);
+
+  const chooseCustomPath = async () => {
+    const picked = await api.pickDirectory({
+      title: t("settings.translationLayerCustomPathLabel"),
+    });
+    if (picked) {
+      void updateSettings({ customRuntimePath: picked });
+    }
+  };
+
   return (
     <div className={page.scroll}>
       <div className={[page.page, page.narrow].join(" ")}>
@@ -257,6 +321,126 @@ export function SettingsView() {
               disabled={saving}
               onChange={(checked) => void updateSettings({ useMangoHud: checked })}
             />
+          </div>
+        </section>
+
+        {/* ---------------------------------------- translation layer --- */}
+        <section className={page.panel}>
+          <div className={page.panelText}>
+            <h2 className="sectionTitle">{t("settings.translationLayerTitle")}</h2>
+            <p className="sectionHint">{t("settings.translationLayerDescription")}</p>
+          </div>
+          <div className={page.fields}>
+            <Segmented
+              label={t("settings.translationLayerTitle")}
+              value={layer}
+              options={translationLayerOptions}
+              onChange={async (next) => {
+                if (pendingDownload !== null) return;
+                if (
+                  isRuntimeLayer(next) &&
+                  next !== layer
+                ) {
+                  try {
+                    const downloads = await downloadsApi.runtimeAvailableDownloads();
+                    const entry = downloads.find((d) => d.kind === next);
+                    if (entry) {
+                      if (entry.installed) {
+                        void updateSettings({ translationLayer: next });
+                        return;
+                      }
+                      if (!entry.downloadable) {
+                        void toastInfo(
+                          t("settings.runtimeDownloadSteamRequired"),
+                          entry.reason ?? undefined,
+                        );
+                        return;
+                      }
+                      const confirmed = await confirmDialog({
+                        title: t("settings.runtimeDownloadAskTitle", {
+                          name: entry.name,
+                        }),
+                        body: t("settings.runtimeDownloadAskBody", {
+                          name: entry.name,
+                        }),
+                        confirmLabel: t("common.confirm"),
+                        cancelLabel: t("common.cancel"),
+                      });
+                      if (!confirmed) return;
+                      setPendingDownload({ kind: next, name: entry.name });
+                      return;
+                    }
+                  } catch {
+                    // Runtime download API not yet available — fall through.
+                  }
+                }
+                void updateSettings({ translationLayer: next });
+              }}
+            />
+            <p className={page.hint}>{t(layerDescriptionKeys[layer])}</p>
+
+            {layer === "custom" && (
+              <>
+                <TextField
+                  label={t("settings.translationLayerCustomPathLabel")}
+                  hint={t("settings.translationLayerCustomPathHint")}
+                  value={settings.customRuntimePath ?? ""}
+                  onChange={(event) =>
+                    void updateSettings({ customRuntimePath: event.target.value })
+                  }
+                  disabled={saving}
+                />
+                <button
+                  type="button"
+                  onClick={chooseCustomPath}
+                  disabled={saving}
+                  className={page.hint}
+                >
+                  {t("settings.translationLayerBrowse")}
+                </button>
+              </>
+            )}
+
+            {isRuntimeLayer(layer) && (
+              <>
+                <p className={page.hint}>{t("settings.runtimesTitle")}</p>
+                <div role="radiogroup" aria-label={t("settings.runtimesTitle")}>
+                  <label>
+                    <input
+                      type="radio"
+                      name="translation-runtime"
+                      checked={settings.runtimeOverridePath === null}
+                      onChange={() => void updateSettings({ runtimeOverridePath: "" })}
+                      disabled={saving}
+                    />
+                    {t("settings.runtimeAuto")}
+                  </label>
+                  {runtimes.map((runtime) => (
+                    <label key={runtime.path}>
+                      <input
+                        type="radio"
+                        name="translation-runtime"
+                        checked={settings.runtimeOverridePath === runtime.path}
+                        onChange={() =>
+                          void updateSettings({ runtimeOverridePath: runtime.path })
+                        }
+                        disabled={saving}
+                      />
+                      {runtime.name}
+                      {runtime.version ? ` (${runtime.version})` : null}
+                      <Badge tone="quiet">
+                        {runtime.kind === "proton"
+                          ? t("settings.runtimeKindProton")
+                          : t("settings.runtimeKindWine")}
+                      </Badge>
+                    </label>
+                  ))}
+                </div>
+                {runtimes.length === 0 && (
+                  <p className="sectionHint">{t("settings.runtimesEmpty")}</p>
+                )}
+              </>
+            )}
           </div>
         </section>
 
@@ -411,6 +595,24 @@ export function SettingsView() {
             <p className="sectionHint">{t("settings.modeMockHint")}</p>
           ) : null}
         </section>
+
+        {/* Runtime download progress dialog (opened when a runtime layer is
+            selected but not yet installed on disk). */}
+        {pendingDownload !== null && (
+          <RuntimeDownloadDialog
+            kind={pendingDownload.kind}
+            name={pendingDownload.name}
+            open={true}
+            onClose={() => setPendingDownload(null)}
+            onFinished={() => {
+              setPendingDownload(null);
+              void updateSettings({
+                translationLayer: pendingDownload.kind as TranslationLayer,
+              });
+              void api.listRuntimes().then(setRuntimes);
+            }}
+          />
+        )}
       </div>
     </div>
   );

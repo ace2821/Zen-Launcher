@@ -329,6 +329,63 @@ impl std::fmt::Display for Language {
     }
 }
 
+/// Translation layer used for `windows` games. Global, persisted in settings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum TranslationLayer {
+    /// Newest GE/UMU Proton build from the scanned runtime roots (default).
+    #[default]
+    ProtonGe,
+    /// Newest Wine-GE build.
+    WineGe,
+    /// Newest Proton Experimental build.
+    ProtonExperimental,
+    /// System `wine` binary from PATH.
+    NormalWine,
+    /// Explicit binary/script path in `customRuntimePath`.
+    Custom,
+}
+
+impl TranslationLayer {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TranslationLayer::ProtonGe => "protonGe",
+            TranslationLayer::WineGe => "wineGe",
+            TranslationLayer::ProtonExperimental => "protonExperimental",
+            TranslationLayer::NormalWine => "normalWine",
+            TranslationLayer::Custom => "custom",
+        }
+    }
+}
+
+impl std::fmt::Display for TranslationLayer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Runtime kind reported by `list_runtimes`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RuntimeKind {
+    Proton,
+    Wine,
+}
+
+/// One runtime directory discovered by `list_runtimes`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeInfo {
+    /// Absolute directory path.
+    pub path: String,
+    /// `proton` when the folder carries a `proton` script, otherwise `wine`.
+    pub kind: RuntimeKind,
+    /// Directory name, e.g. `UMU-Proton-10.0-4`.
+    pub name: String,
+    /// Best-effort version parsed from the name, when present.
+    pub version: Option<String>,
+}
+
 /// Default UI font id; must match a font exposed by the frontend
 /// (`maple-mono`, `instrument-sans`, `system`).
 pub const DEFAULT_FONT_ID: &str = "maple-mono";
@@ -361,6 +418,13 @@ pub struct Settings {
     pub use_mango_hud: bool,
     /// Big Picture face-button glyph theme: `auto` | `xbox` | `playstation`.
     pub big_picture_layout: String,
+    /// Global translation layer for Windows games (default `protonGe`).
+    pub translation_layer: TranslationLayer,
+    /// Binary/script used when `translation_layer == custom`.
+    pub custom_runtime_path: Option<String>,
+    /// Optional override that pins a specific runtime directory, bypassing the
+    /// "newest matching" selection.
+    pub runtime_override_path: Option<String>,
 }
 
 /// Default `modsMaxMb` (1 GiB mod archives).
@@ -382,6 +446,9 @@ impl Default for Settings {
             use_game_mode: true,
             use_mango_hud: false,
             big_picture_layout: "auto".to_string(),
+            translation_layer: TranslationLayer::ProtonGe,
+            custom_runtime_path: None,
+            runtime_override_path: None,
         }
     }
 }
@@ -443,6 +510,9 @@ pub struct SettingsPatch {
     pub use_game_mode: Option<bool>,
     pub use_mango_hud: Option<bool>,
     pub big_picture_layout: Option<String>,
+    pub translation_layer: Option<TranslationLayer>,
+    pub custom_runtime_path: Option<String>,
+    pub runtime_override_path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

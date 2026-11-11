@@ -92,6 +92,17 @@ interface Settings {
   customFont: string | null;    // CSS font-family name when font === "custom"; default null
   accent: string;               // accent preset id; default "jade"
   onboardingCompleted: boolean; // default false; set by the first-run wizard
+  translationLayer: "protonGe" | "wineGe" | "protonExperimental" | "normalWine" | "custom";
+                                // default "protonGe"
+  customRuntimePath: string | null;   // wine binary / proton script for "custom"; default null
+  runtimeOverridePath: string | null; // pins a runtime dir, bypassing newest-match; default null
+}
+
+interface RuntimeInfo {
+  path: string;                          // absolute runtime directory
+  kind: "proton" | "wine";               // `proton` script vs. wine binary
+  name: string;                          // directory name, e.g. "UMU-Proton-10.0-4"
+  version: string | null;                // parsed from the name, e.g. "10.0.4"
 }
 
 interface ScanSummary {
@@ -142,6 +153,10 @@ interface PlaytimeTotal {
 | `get_playtime` | `{ gameId }` | `PlaytimeTotal` (unknown id → `NOT_FOUND`) |
 | `get_settings` | — | `Settings` |
 | `update_settings` | `{ patch }` | `Settings` |
+| `list_runtimes` | — | `RuntimeInfo[]` (scanned compatibility-tool folders) |
+| `runtime_available_downloads` | — | `RuntimeAvailableDownload[]` (latest release per kind; network) |
+| `runtime_download` | `{ kind }` | — (background; emits progress/finished events) |
+| `runtime_cancel_download` | `{ kind }` | — (stops the running job, removes the partial archive) |
 
 Editable `update_game` fields: `title`, `sortTitle`, `type`, `executable`,
 `args`, `env`, `workDir`, `tags`, `favorite`, `hidden`, `notes`, `coverPath`,
@@ -165,7 +180,83 @@ these fields loads them as defaults. Persisted settings now also carry:
 (integer, default `1024`), `useGameMode` (bool, default `true` — wraps
 launches with `gamemoderun` when available), `useMangoHud` (bool, default
 `false` — injects `MANGOHUD=1`), `bigPictureLayout` (`"auto" | "xbox" |
-"playstation"`, default `"auto"`).
+"playstation"`, default `"auto"`), `translationLayer` (see below, default
+`"protonGe"`), `customRuntimePath` (string, default `null`; an empty string
+clears it) and `runtimeOverridePath` (string, default `null`; empty string
+clears it).
+
+### Translation layer
+
+`settings.translationLayer` is global and applies to every `windows` launch:
+
+- `"normalWine"` — system `wine` from PATH, per-game prefix
+  (`<dataDir>/prefixes/<gameId>`); unchanged M1 behaviour.
+- `"wineGe"` — newest Wine runtime's `files/bin/wine` (fallback `bin/wine`),
+  per-game prefix as above.
+- `"custom"` — `customRuntimePath` used directly. A `proton` script (or a
+  directory containing one) is handled like the Proton modes below; any other
+  binary is treated as `wine`.
+- `"protonGe"` / `"protonExperimental"` — a Proton build is selected and run as
+  `<runtime>/proton run <exe> ...game args`. `protonGe` prefers a name
+  containing `GE`/`UMU`; `protonExperimental` prefers `experimental`; both fall
+  back to any Proton runtime, then fail with `LAUNCH_FAILED` and an install
+  hint. `runtimeOverridePath`, when set, wins over the newest-match selection.
+
+`list_runtimes` scans one level below these roots (missing roots are skipped,
+child names matched case-insensitively, results deduped by canonical path):
+`~/.local/share/Steam/compatibilitytools.d`, `~/.steam/steam/compatibilitytools.d`,
+`~/.local/share/lutris/runners/wine`, `~/Games/runners`,
+`<dataDir>/runtimes` (launcher-managed installs). A directory with an executable
+`proton` is `kind: "proton"` (checked first); otherwise `files/bin/wine` or
+`bin/wine` makes it `kind: "wine"`.
+
+### Runtime downloads
+
+`runtime_available_downloads` resolves the latest release for each
+`RuntimeDownloadKind` (`"protonGe" | "wineGe" | "protonExperimental"`) and
+returns:
+
+```ts
+{
+  kind: RuntimeDownloadKind;
+  name: string;              // release name, e.g. "GE-Proton11-12"
+  version: string | null;    // parsed from the name
+  sizeBytes: number | null;
+  url: string | null;
+  installed: boolean;        // a matching scanned build already exists
+  downloadable: boolean;     // false for Steam-only builds
+  reason: string | null;     // e.g. "steam-only"
+}
+```
+
+- `protonGe` → GitHub `GloriousEggroll/proton-ge-custom` latest release,
+  asset `GE-Proton*-x86_64.tar.gz` (aarch64 never selected).
+- `wineGe` → GitHub `GloriousEggroll/wine-ge-custom` latest release, asset
+  `wine-lutris-GE-Proton*-x86_64.tar.xz`.
+- `protonExperimental` → `{ downloadable: false, reason: "steam-only" }`: Valve
+  ships Experimental through Steam, `ValveSoftware/Proton` GitHub releases
+  carry no tarball assets. Nothing is fabricated.
+
+`installed` matches scanned names by kind + flavor: `protonGe` = Proton with
+`GE`/`UMU`, `wineGe` = Wine with `GE`, `protonExperimental` = Proton with
+`experimental`.
+
+`runtime_download { kind }` starts a background job and returns immediately.
+The archive streams to `<dataDir>/runtimes/downloads/`, is size-checked,
+unpacked traversal-safely (tar.gz via `flate2`, tar.xz via `liblzma`) into
+`<dataDir>/runtimes/<archive-root>/`, then removed (the archive's real
+top-level directory is kept, e.g. `GE-Proton11-12-x86_64`). A second job for
+the same kind is rejected with `VALIDATION`; `runtime_cancel_download { kind }`
+aborts the active job and removes the partial archive. Both failure and
+cancellation end with `runtime-download-finished { ok: false, error }`.
+
+Proton launch environment: `STEAM_COMPAT_CLIENT_INSTALL_PATH` = an existing
+`~/.local/share/Steam` (fallback `~/.steam/steam`; absent → descriptive
+`LAUNCH_FAILED`), `STEAM_COMPAT_DATA_PATH` =
+`<dataDir>/prefixes/proton-<gameId>` (created during planning),
+`WINEPREFIX` = `<compatdata>/pfx`. The game's stored `env` (`WINEDLLOVERRIDES`,
+`MANGOHUD`, …) is preserved. Proton creates its own prefix on first run, so no
+`wineboot` is run for Proton launches.
 
 ## Events (Rust → UI)
 
@@ -178,6 +269,8 @@ launches with `gamemoderun` when available), `useMangoHud` (bool, default
 | `library-changed` | `{}` — UI invalidates its queries |
 | `gamepad-event` | `{ kind: "button-press" \| "button-release" \| "axis", pad: number, name: string \| null, code: string }` — Big Picture navigation |
 | `app://navigate` | `{ page: string }` — open a page from a `zinclaucher://page/<name>` deep link; unknown pages are ignored |
+| `runtime-download-progress` | `{ kind, downloadedBytes, totalBytes: number \| null, etaSeconds: number \| null }` — at most once per 1% or 2 MB; `etaSeconds` starts `null` until the speed average forms |
+| `runtime-download-finished` | `{ kind, ok, error?: { code, message } }` — terminal for one `runtime_download` job |
 
 ## Plugins & capabilities
 

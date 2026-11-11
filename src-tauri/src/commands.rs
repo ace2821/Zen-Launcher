@@ -15,8 +15,8 @@ use crate::error::{AppError, AppResult};
 use crate::launch;
 use crate::models::{
     Candidate, CandidatePatch, CandidateStatus, Game, GamePatch, LaunchInfo, PlaytimeStats,
-    PlaytimeTotal, ScanFinished, ScanProgress, ScanSummary, Session, Settings, SettingsPatch, Source,
-    events,
+    PlaytimeTotal, RuntimeInfo, ScanFinished, ScanProgress, ScanSummary, Session, Settings,
+    SettingsPatch, Source, events,
 };
 use crate::scanner;
 use crate::settings;
@@ -345,17 +345,25 @@ pub async fn launch_game(app: AppHandle, id: i64) -> AppResult<LaunchInfo> {
         db::get_game(&conn, id)?
     };
     let hide_on_launch = { state.lock_settings()?.hide_on_launch };
-    let launch_extras = {
-        let settings = state.lock_settings()?;
-        launch::LaunchExtras {
-            game_mode: settings.use_game_mode,
-            mango_hud: settings.use_mango_hud,
-        }
+    // Snapshot the settings first, then scan runtimes without holding the
+    // settings lock; the DB mutex is not held here either.
+    let settings = state.lock_settings()?.clone();
+    let translation = launch::TranslationConfig {
+        layer: settings.translation_layer,
+        custom_runtime_path: settings.custom_runtime_path.clone(),
+        runtime_override_path: settings.runtime_override_path.clone(),
+        runtimes: crate::runtime::scan_runtimes(),
+        steam_client_dir: crate::runtime::steam_client_dir(),
+        prefixes_dir: crate::paths::data_dir()?.join("prefixes"),
+    };
+    let launch_extras = launch::LaunchExtras {
+        game_mode: settings.use_game_mode,
+        mango_hud: settings.use_mango_hud,
     };
 
     // Planning can fail (unsupported type, missing exec bit) — nothing is
     // persisted before it succeeds.
-    let plan = launch::build_spawn_plan(&game, &launch_extras)?;
+    let plan = launch::build_spawn_plan(&game, &launch_extras, &translation)?;
 
     let started_at = time::now_iso();
     let session = {
@@ -425,6 +433,37 @@ pub fn get_playtime(state: State<'_, AppState>, game_id: i64) -> AppResult<Playt
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
+
+/// Compatibility-tool runtimes found in the well-known folders. Read-only and
+/// independent of the database; the UI uses it for the translation-layer picker.
+#[tauri::command]
+pub fn list_runtimes() -> AppResult<Vec<RuntimeInfo>> {
+    Ok(crate::runtime::scan_runtimes())
+}
+
+/// Latest downloadable translation-layer builds (network). `installed` is
+/// derived from the same scan as `list_runtimes`.
+#[tauri::command]
+pub async fn runtime_available_downloads()
+-> AppResult<Vec<crate::runtime::RuntimeAvailableDownload>> {
+    tauri::async_runtime::spawn_blocking(crate::runtime::available_downloads)
+        .await
+        .map_err(|err| AppError::io(format!("runtime lookup task failed: {err}")))?
+}
+
+/// Starts a background download; progress/completion arrive as events.
+#[tauri::command]
+pub fn runtime_download(app: AppHandle, kind: String) -> AppResult<()> {
+    let kind = crate::runtime::RuntimeDownloadKind::parse(&kind)?;
+    crate::runtime::start_download(app, kind)
+}
+
+/// Stops the running download for `kind` and cleans up the partial archive.
+#[tauri::command]
+pub fn runtime_cancel_download(kind: String) -> AppResult<()> {
+    let kind = crate::runtime::RuntimeDownloadKind::parse(&kind)?;
+    crate::runtime::cancel_download(kind)
+}
 
 #[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> AppResult<Settings> {

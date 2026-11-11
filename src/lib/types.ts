@@ -34,6 +34,53 @@ export type BigPictureLayout = "auto" | "xbox" | "playstation";
 /** Device family a connected pad is read as, inferred by the core from its name. */
 export type GamepadKind = "xbox" | "playstation" | "unknown";
 
+/**
+ * Global translation layer for Windows games. `protonGe` (default) and
+ * `protonExperimental` run through a Proton build; `wineGe` uses a Wine-GE
+ * runner; `normalWine` uses the system `wine`; `custom` uses
+ * `settings.customRuntimePath`.
+ */
+export type TranslationLayer =
+  | "protonGe"
+  | "wineGe"
+  | "protonExperimental"
+  | "normalWine"
+  | "custom";
+
+/** One runtime directory discovered by `list_runtimes`. */
+export interface RuntimeInfo {
+  /** Absolute directory path. */
+  path: string;
+  /** `proton` when the folder carries a `proton` script, else `wine`. */
+  kind: "proton" | "wine";
+  /** Directory name, e.g. `UMU-Proton-10.0-4`. */
+  name: string;
+  /** Version parsed from the name, when present. */
+  version: string | null;
+}
+
+/** Translation-layer builds the launcher can fetch itself. */
+export type RuntimeDownloadKind = "protonGe" | "wineGe" | "protonExperimental";
+
+/** One row of `runtime_available_downloads`. */
+export interface RuntimeAvailableDownload {
+  kind: RuntimeDownloadKind;
+  /** Runtime directory name, e.g. `GE-Proton11-12`. */
+  name: string;
+  /** Version parsed from the asset name, when present. */
+  version: string | null;
+  /** Archive size in bytes; `null` when the build is not downloadable. */
+  sizeBytes: number | null;
+  /** Direct archive URL; `null` when the build is not downloadable. */
+  url: string | null;
+  /** A matching build already exists in a scanned root. */
+  installed: boolean;
+  /** `false` for Steam-only builds the launcher cannot fetch. */
+  downloadable: boolean;
+  /** Why `downloadable` is false, e.g. `"steam-only"`. */
+  reason: string | null;
+}
+
 export interface Source {
   id: number;
   path: string;
@@ -150,6 +197,12 @@ export interface Settings {
   useMangoHud: boolean;
   /** Default `"auto"`; the preserved value is one of the three glyph themes. */
   bigPictureLayout: BigPictureLayout;
+  /** Global translation layer for Windows games. Default `"protonGe"`. */
+  translationLayer: TranslationLayer;
+  /** Binary/script used when `translationLayer === "custom"`; default `null`. */
+  customRuntimePath: string | null;
+  /** Pins a specific runtime directory; default `null` (newest match). */
+  runtimeOverridePath: string | null;
 }
 
 export interface ScanSummary {
@@ -224,6 +277,11 @@ export interface SettingsPatch {
   useGameMode?: boolean;
   useMangoHud?: boolean;
   bigPictureLayout?: BigPictureLayout;
+  translationLayer?: TranslationLayer;
+  /** Empty string clears the stored custom runtime path. */
+  customRuntimePath?: string;
+  /** Empty string clears the stored runtime override. */
+  runtimeOverridePath?: string;
 }
 
 /* ---------------------------------------------------------------------------
@@ -436,6 +494,8 @@ export interface EventMap {
   "library-changed": Record<string, never>;
   "gamepad-event": GamepadEvent;
   "marketplace://install-started": MarketplaceInstallStartedEvent;
+  "runtime-download-progress": RuntimeDownloadProgressEvent;
+  "runtime-download-finished": RuntimeDownloadFinishedEvent;
 }
 
 export type EventName = keyof EventMap;
@@ -475,6 +535,24 @@ export interface MarketplaceInstallResult {
 
 export interface MarketplaceInstallStartedEvent {
   itemId: number;
+}
+
+/** Runtime download progress, emitted at most once per 1% or 2 MB. */
+export interface RuntimeDownloadProgressEvent {
+  kind: RuntimeDownloadKind;
+  downloadedBytes: number;
+  /** Archive size; `null` until the server reports it. */
+  totalBytes: number | null;
+  /** Smoothed estimate; `null` while the speed average is still forming. */
+  etaSeconds: number | null;
+}
+
+/** Terminal report for a `runtime_download` job. */
+export interface RuntimeDownloadFinishedEvent {
+  kind: RuntimeDownloadKind;
+  ok: boolean;
+  /** Present when `ok` is false. */
+  error?: { code: string; message: string };
 }
 
 export interface Conflict {

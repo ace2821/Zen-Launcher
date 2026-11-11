@@ -14,6 +14,7 @@ pub mod marketplace;
 pub mod models;
 pub mod mods;
 pub mod paths;
+pub mod runtime;
 pub mod scanner;
 pub mod settings;
 pub mod state;
@@ -180,6 +181,10 @@ pub fn run() {
             commands::get_playtime,
             commands::get_settings,
             commands::update_settings,
+            commands::list_runtimes,
+            commands::runtime_available_downloads,
+            commands::runtime_download,
+            commands::runtime_cancel_download,
             commands::fetch_cover_candidates,
             commands::download_cover,
             commands::set_cover_from_file,

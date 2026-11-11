@@ -1,6 +1,6 @@
 [package]
 name = "zinc-launcher"
-version = "1.2.0"
+version = "1.2.2"
 description = "Local-first game library manager and launcher"
 authors = ["ace"]
 edition = "2024"
@@ -35,6 +35,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 ureq = "2"
 zip = "4.1"
+flate2 = "1"
+liblzma = "0.4"
+tar = "0.4"
 sha2 = "0.10"
 rustls = "0.23"
 trash = "5"

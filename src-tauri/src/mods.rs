@@ -1406,14 +1406,7 @@ mod tests {
         std::fs::write(staging.join("assets/icon.png"), b"PNG").unwrap();
 
         let mut installed = Vec::new();
-        copy_staged_tree(
-            &staging,
-            &mods,
-            true,
-            Some("SampleMod"),
-            &mut installed,
-        )
-        .unwrap();
+        copy_staged_tree(&staging, &mods, true, Some("SampleMod"), &mut installed).unwrap();
 
         assert_eq!(installed, vec!["SampleMod"]);
         assert!(mods.join("SampleMod/mod.json").is_file());
@@ -1821,7 +1814,10 @@ mod tests {
             std::fs::canonicalize(&mods_dir).ok(),
             std::fs::canonicalize(&nml).ok()
         );
-        assert!(!game.join("Mods").exists(), "must not create a duplicate folder");
+        assert!(
+            !game.join("Mods").exists(),
+            "must not create a duplicate folder"
+        );
     }
 
     #[test]
@@ -1832,8 +1828,12 @@ mod tests {
         std::fs::write(game.join("Mods/LegacyMod/mod.json"), b"{}").unwrap();
 
         // Primary folder exists (even empty): StreamingAssets/mods wins.
-        std::fs::create_dir_all(game.join("worldbox_Data").join("StreamingAssets").join("mods"))
-            .unwrap();
+        std::fs::create_dir_all(
+            game.join("worldbox_Data")
+                .join("StreamingAssets")
+                .join("mods"),
+        )
+        .unwrap();
         let (primary, _) = detect_mods_dir(&game, "neomodloader");
         assert!(
             primary
