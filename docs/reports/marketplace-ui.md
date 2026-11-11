@@ -1,4 +1,4 @@
-# Raport: Marketplace UI (Zen Launcher v1.2)
+# Raport: Marketplace UI (Zinc Launcher v1.2)
 
 ## Status
 Zakończone — `tsc --noEmit` czyste, `bun run test` green (18 plików / 196 testów).
@@ -12,7 +12,7 @@ Zmienione: `src/store/shell.ts`, `src/store/marketplace.ts`, `src/lib/types.ts`,
 
 ## Braki po stronie backendu
 - Brak helpera `open_external_url` w API — używam `<a target="_blank">` dla installUrl http(s).
-- Backend nie emituje jeszcze eventu `marketplace://install-started` po deep linku `zenlauncher://install?id=` — listener w UI gotowy, event nie nadawany po stronie Rust.
+- Backend nie emituje jeszcze eventu `marketplace://install-started` po deep linku `zinclaucher://install?id=` — listener w UI gotowy, event nie nadawany po stronie Rust.
 
 ## Kryteria akceptacji
 ✓ Typy+API+mock z pełną listą itemów ✓ MarketplacePanel (tabs, karty, detail, spinner+toast, banner stale) ✓ Aktywacja tematu (jeden aktywny, CSS inject, reset) ✓ Konfliktów w szczegółach gry (info tylko) ✓ i18n en/pl ✓ ≥6 testów (7) ✓ tsc+testy green

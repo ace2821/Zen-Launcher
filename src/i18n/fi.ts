@@ -3,12 +3,13 @@ import type { TranslationShape } from "./en";
 /** Finnish strings. Typed as `TranslationShape`, so every `en.ts` key is required. */
 export const fi: TranslationShape = {
   app: {
-    name: "Zen Launcher",
+    name: "Zinc Launcher",
     subtitle: "Paikallinen pelikirjasto",
   },
 
   nav: {
     library: "Kirjasto",
+    statystyki: "Tilastot",
     sources: "Lähteet ja tuonti",
     settings: "Asetukset",
     pendingBadge: "Odottavat ehdokkaat",
@@ -78,6 +79,17 @@ export const fi: TranslationShape = {
     rejected: "Hylätty",
   },
 
+  statystyki: {
+    title: "Tilastot",
+    subtitle: "{{count}} pelattu, {{total}} yhteensä",
+    emptyTitle: "Ei vielä pelejä",
+    emptyBody:
+      "Lisää pelejä kirjastoon, jotta näet peliaikatilastot täällä.",
+    noDataTitle: "Pelaamista ei ole tallennettu",
+    noDataBody: "Pelaa joitakin pelejä, jotta näet tilastosi.",
+    totalPlaytime: "Yhteensä pelattu",
+  },
+
   library: {
     emptyTitle: "Kirjastosi on tyhjä",
     emptyBody:
@@ -121,7 +133,7 @@ export const fi: TranslationShape = {
   import: {
     title: "Lähteet ja tuonti",
     description:
-      "Skannausjuuret ovat kansioita, joita Zen Launcher käy läpi löytääkseen pelikansioita. Mitään ei lisätä kirjastoon ennen hyväksyntääsi.",
+      "Skannausjuuret ovat kansioita, joita Zinc Launcher käy läpi löytääkseen pelikansioita. Mitään ei lisätä kirjastoon ennen hyväksyntääsi.",
     sourcesTitle: "Skannausjuuret",
     sourcesEmptyTitle: "Ei vielä skannausjuurta",
     sourcesEmpty:
@@ -406,7 +418,7 @@ export const fi: TranslationShape = {
     fontSample: "Zażółć gęślą jaźń",
     previewSample:
       "Zażółć gęślą jaźń. Viekää tuo viekas veitikka vihdoin viimein veneellä.",
-    previewMeta: "~/.local/share/zen-launcher/library.db",
+    previewMeta: "~/.local/share/zinc-launcher/library.db",
     previewButton: "Pelaa",
 
     libraryTitle: "Miten kirjaston pitäisi avautua?",
@@ -434,7 +446,7 @@ export const fi: TranslationShape = {
 
     back: "Takaisin",
     next: "Seuraava",
-    finish: "Aloita Zen Launcherin käyttö",
+    finish: "Aloita Zinc Launcherin käyttö",
     skip: "Ohita",
     skipHint: "Ohita kiertue ja pidä oletukset.",
     footHint: "Valintasi tallennetaan sitä mukaa.",
@@ -467,7 +479,7 @@ export const fi: TranslationShape = {
     fileDialogTitle: "Valitse kansikuvatiedosto",
     fileFilter: "Kuvat",
     fileNote:
-      "Kuva kopioidaan Zen Launcherin omaan kansioon — valitsemasi tiedosto pysyy paikallaan.",
+      "Kuva kopioidaan Zinc Launcherin omaan kansioon — valitsemasi tiedosto pysyy paikallaan.",
     fileFailed: "Kuvan käyttö epäonnistui",
     dialogTitle: "Kansikuva",
     searchLabel: "Hae Steam-kaupasta",
@@ -483,6 +495,7 @@ export const fi: TranslationShape = {
     downloadFailed: "Kansikuvan tallennus epäonnistui",
     updated: "Kansikuva päivitetty",
     updatedBody: "”{{title}}” käyttää nyt valitsemaasi kuvaa.",
+    downloadForBigPicture: "Lataa Big Picture -tilaan",
   },
 
   mods: {
@@ -512,10 +525,10 @@ export const fi: TranslationShape = {
     installLoader: "Asenna {{loader}}",
 
     manualLoader:
-      "Asennetaan omalla asentajallaan — lataa se viralliselta sivulta, Zen tunnistaa sen jatkossakin.",
+      "Asennetaan omalla asentajallaan — lataa se viralliselta sivulta, Zinc tunnistaa sen jatkossakin.",
     officialDownload: "Virallinen lataus",
     asiRootNote: "ASI-modit päätyvät pelin suoritettavan tiedoston viereen.",
-    externalMods: "Modeja hallitaan tModLoaderissa — Zen vain tunnistaa ne täällä.",
+    externalMods: "Modeja hallitaan tModLoaderissa — Zinc vain tunnistaa ne täällä.",
     externalDocs: "tModLoaderin dokumentaatio",
 
     validationLabel: "Arkistovalidointi",
@@ -608,7 +621,24 @@ export const fi: TranslationShape = {
     hintShoulderLeft: "Edellinen välilehti",
     hintShoulderRight: "Seuraava välilehti",
     modsOpenFolder: "Avaa modikansio",
+    sectionLibrary: "Kirjastosi",
+    sectionLibraryHint: "Selaa asennettuja pelejä",
+    sectionMarketplace: "Marketplace",
+    sectionMarketplaceHint: "Teemat ja lisäosat",
     settings: "Asetukset",
+    dashboard: "Ohjauspaneeli",
+    tabGames: "Pelit",
+    tabMedia: "Mediat",
+    searchPlaceholder: "Etsi pelejä…",
+    profile: "Profiili",
+    onlineFriends: "Verkossa olevat ystävät",
+    accessibility: "Saavutettavuus",
+    trophies: "Palkinnot",
+    wishlist: "Toivelista",
+    store: "Kauppa",
+    playGame: "Pelaa peliä",
+    moreOptions: "Lisää asetuksia",
+    modsSection: "Modit pelille {{title}}",
   },
 
   marketplace: {

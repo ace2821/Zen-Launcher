@@ -7,12 +7,13 @@
  */
 export const en = {
   app: {
-    name: "Zen Launcher",
+    name: "Zinc Launcher",
     subtitle: "Local game library",
   },
 
   nav: {
     library: "Library",
+    statystyki: "Statistics",
     sources: "Sources & Import",
     settings: "Settings",
     pendingBadge: "Pending candidates",
@@ -82,10 +83,21 @@ export const en = {
     rejected: "Rejected",
   },
 
+  statystyki: {
+    title: "Statistics",
+    subtitle: "{{count}} played, {{total}} total",
+    emptyTitle: "No games yet",
+    emptyBody:
+      "Add games to the library to see playtime statistics here.",
+    noDataTitle: "No playtime recorded",
+    noDataBody: "Play some games to see your statistics.",
+    totalPlaytime: "Total playtime",
+  },
+
   library: {
     emptyTitle: "Your library is empty",
     emptyBody:
-      "Point Zen at the folder your games live in — the scanner will find the titles, and you decide what makes it into the library.",
+      "Point Zinc at the folder your games live in — the scanner will find the titles, and you decide what makes it into the library.",
     emptyAction: "Go to Sources & Import",
     noResultsTitle: "Nothing matches",
     noResultsBody: "No entry in the library matches “{{query}}”.",
@@ -125,7 +137,7 @@ export const en = {
   import: {
     title: "Sources & Import",
     description:
-      "Scan roots are folders Zen Launcher walks to find game folders. Nothing is added to the library until you approve it.",
+      "Scan roots are folders Zinc Launcher walks to find game folders. Nothing is added to the library until you approve it.",
     sourcesTitle: "Scan roots",
     sourcesEmptyTitle: "No scan root yet",
     sourcesEmpty:
@@ -411,7 +423,7 @@ export const en = {
     fontSample: "Zażółć gęślą jaźń",
     previewSample:
       "Zażółć gęślą jaźń. The quick brown fox jumps over the lazy dog.",
-    previewMeta: "~/.local/share/zen-launcher/library.db",
+    previewMeta: "~/.local/share/zinc-launcher/library.db",
     previewButton: "Play",
 
     libraryTitle: "How should the library open?",
@@ -439,7 +451,7 @@ export const en = {
 
     back: "Back",
     next: "Next",
-    finish: "Start using Zen Launcher",
+    finish: "Start using Zinc Launcher",
     skip: "Skip",
     skipHint: "Skip the tour and keep the defaults.",
     footHint: "Your choices are saved as you go.",
@@ -472,7 +484,7 @@ export const en = {
     fileDialogTitle: "Choose a cover image",
     fileFilter: "Images",
     fileNote:
-      "The image is copied into Zen Launcher's own folder — the file you pick stays where it is.",
+      "The image is copied into Zinc Launcher's own folder — the file you pick stays where it is.",
     fileFailed: "Could not use that image",
     dialogTitle: "Cover art",
     searchLabel: "Search the Steam store",
@@ -488,6 +500,7 @@ export const en = {
     downloadFailed: "Could not save the cover",
     updated: "Cover updated",
     updatedBody: "“{{title}}” now uses the artwork you picked.",
+    downloadForBigPicture: "Download for Big Picture",
   },
 
   mods: {
@@ -517,10 +530,10 @@ export const en = {
     installLoader: "Install {{loader}}",
 
     manualLoader:
-      "Installed by its own installer — download it from the official page, Zen keeps detecting it afterwards.",
+      "Installed by its own installer — download it from the official page, Zinc keeps detecting it afterwards.",
     officialDownload: "Official download",
     asiRootNote: "ASI mods land beside the game's executable.",
-    externalMods: "Mods are managed inside tModLoader — Zen only detects them here.",
+    externalMods: "Mods are managed inside tModLoader — Zinc only detects them here.",
     externalDocs: "tModLoader docs",
 
     validationLabel: "Archive validation",
@@ -592,6 +605,10 @@ export const en = {
     exit: "Back to the library",
     railLabel: "Games",
     tileLabel: "Open {{title}}",
+    sectionLibrary: "Your library",
+    sectionLibraryHint: "Browse your installed games",
+    sectionMarketplace: "Marketplace",
+    sectionMarketplaceHint: "Themes and add-ons",
     emptyTitle: "Nothing to launch",
     emptyBody:
       "The library is empty. Add a scan root in Sources & Import and approve a game first.",
@@ -614,6 +631,19 @@ export const en = {
     hintShoulderRight: "Next tab",
     modsOpenFolder: "Open mods folder",
     settings: "Settings",
+    dashboard: "Dashboard",
+    tabGames: "Games",
+    tabMedia: "Media",
+    searchPlaceholder: "Search games…",
+    profile: "Profile",
+    onlineFriends: "Online Friends",
+    accessibility: "Accessibility",
+    trophies: "Trophies",
+    wishlist: "Wishlist",
+    store: "Store",
+    playGame: "Play Game",
+    moreOptions: "More options",
+    modsSection: "Mods for {{title}}",
   },
 
   marketplace: {

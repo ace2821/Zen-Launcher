@@ -34,7 +34,7 @@ Zrobione i zweryfikowane lokalnie:
   jest trzymany przez czas oczekiwania na proces.
 - 15 komend IPC zgodnych z kontraktem (nazwy, argumenty, kształty odpowiedzi,
   kody błędów).
-- Tray: **Show Zen Launcher** (show + focus) i **Quit**; zamknięcie okna
+- Tray: **Show Zinc Launcher** (show + focus) i **Quit**; zamknięcie okna
   chowa do tray przy `closeToTray` (domyślnie włączone); `hideOnLaunch` przy
   starcie gry. Ustawienia w `config.toml`, logi dzienne w katalogu danych.
 - Uprawnienia: `dialog:allow-open`, `opener:allow-reveal-item-in-dir`.
@@ -95,7 +95,7 @@ używany przez Tauri 2.
 
 ### Smoke test M1 (ręczny, do wykonania)
 
-1. `cd ~/Projekty/ZenLauncher && bun run tauri dev` (pierwsze uruchomienie
+1. `cd ~/Projekty/ZincLauncher && bun run tauri dev` (pierwsze uruchomienie
    kompiluje ~1–3 min).
 2. **Sources & Import → Add folder** — wskaż folder z grami DRM-free
    (natywnymi), zeskanuj źródło.

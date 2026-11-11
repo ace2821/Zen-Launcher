@@ -1,4 +1,4 @@
-Maple Mono — bundled with Zen Launcher (self-hosted, no runtime network requests).
+Maple Mono — bundled with Zinc Launcher (self-hosted, no runtime network requests).
 
 Upstream:  https://github.com/subframe7536/maple-font
 Package:   @fontsource/maple-mono@5.3.0 (https://cdn.jsdelivr.net/npm/@fontsource/maple-mono@5.3.0/)

@@ -1,19 +1,19 @@
-# Zen Launcher — Flatpak packaging
+# Zinc Launcher — Flatpak packaging
 
-App ID: `io.github.ace2821.ZenLauncher` · runtime `org.gnome.Platform//51` ·
+App ID: `io.github.ace2821.ZincLauncher` · runtime `org.gnome.Platform//51` ·
 license MIT · only `x86_64` (see `flathub.json`).
 
 | File | Purpose |
 | --- | --- |
-| `io.github.ace2821.ZenLauncher.json` | **Final** Flathub manifest (wine module + app) |
+| `io.github.ace2821.ZincLauncher.json` | **Final** Flathub manifest (wine module + app) |
 | `smoke.local.json` | Same app module, **without** the wine module, built from the working tree |
 | `cargo-sources.json` | Vendored crates for `src-tauri/Cargo.lock` (offline cargo) |
 | `node-sources.json` | npm cache for `package-lock.json` (offline `npm ci`) |
 | `gen-sources.sh` | Regenerates both `*-sources.json` files |
 | `flathub.json` | Restricts the build to x86_64 |
 
-`../io.github.ace2821.ZenLauncher.metainfo.xml` (AppStream) and
-`../io.github.ace2821.ZenLauncher.desktop` (desktop entry) live in the repository
+`../io.github.ace2821.ZincLauncher.metainfo.xml` (AppStream) and
+`../io.github.ace2821.ZincLauncher.desktop` (desktop entry) live in the repository
 root so the app module can install them from the git checkout.
 
 ## Local smoke build
@@ -38,26 +38,26 @@ Build + install the app only (no wine, so it takes minutes instead of hours):
 # `--user`, or build against the system installation and install from the
 # local repo as below.
 flatpak run --command=flatpak-builder org.flatpak.Builder \
-  --force-clean --repo=/tmp/zen-repo /tmp/zen-build \
+  --force-clean --repo=/tmp/zinc-repo /tmp/zinc-build \
   flatpak/smoke.local.json
 
-sudo flatpak install -y --system /tmp/zen-repo io.github.ace2821.ZenLauncher
+sudo flatpak install -y --system /tmp/zinc-repo io.github.ace2821.ZincLauncher
 # or, no root needed:
-flatpak install -y --user /tmp/zen-repo io.github.ace2821.ZenLauncher
+flatpak install -y --user /tmp/zinc-repo io.github.ace2821.ZincLauncher
 
-flatpak run io.github.ace2821.ZenLauncher
+flatpak run io.github.ace2821.ZincLauncher
 ```
 
 `package-lock.json` (see below) must be generated **without** `node_modules/`
 present, otherwise it lacks `resolved`/`integrity` and `npm ci --offline` fails
 with `ENOTCACHED`; `gen-sources.sh` refuses to run in that case.
 
-## Deep links (`zenlauncher://`)
+## Deep links (`zinclaucher://`)
 
 The desktop entry in the repository root declares
-`MimeType=x-scheme-handler/zenlauncher` (and `Exec=zen-launcher %u`). The
+`MimeType=x-scheme-handler/zinclaucher` (and `Exec=zinc-launcher %u`). The
 flatpak installs that same file into `${FLATPAK_DEST}/share/applications/`, so
-`zenlauncher://install?id=<itemId>` works inside the sandbox without extra
+`zinclaucher://install?id=<itemId>` works inside the sandbox without extra
 `finish-args`; the URL arrives as a launch argument and is parsed by the
 `tauri-plugin-deep-link` integration. Remember to add the new
 `tauri-plugin-deep-link` crate to `cargo-sources.json` (`gen-sources.sh`) when
@@ -69,14 +69,14 @@ Lint (must be 0 errors; warnings are acceptable but should be reviewed):
 ```bash
 # manifest structure
 flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
-  manifest flatpak/io.github.ace2821.ZenLauncher.json
+  manifest flatpak/io.github.ace2821.ZincLauncher.json
 
 # AppStream metadata
 flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
-  appstream io.github.ace2821.ZenLauncher.metainfo.xml
+  appstream io.github.ace2821.ZincLauncher.metainfo.xml
 
 # desktop entry (host tool)
-desktop-file-validate io.github.ace2821.ZenLauncher.desktop
+desktop-file-validate io.github.ace2821.ZincLauncher.desktop
 ```
 
 Regenerate vendored sources after a `Cargo.lock` / `package-lock.json` change:
@@ -94,9 +94,9 @@ repository root (the project itself uses bun; the lockfile exists only so
 
 - `flatpak-builder-lint manifest` → **1 error, `appid-url-not-reachable`**.
   The linter derives `https://github.com/<owner>/<lowercased-app-id>` from the
-  app ID, i.e. `https://github.com/ace2821/zenlauncher`, but the upstream
-  repository is `ace2821/Zen-Launcher` (hyphen). Fix by renaming the GitHub
-  repository to `zenlauncher`, or ask Flathub for a linter exception in the
+  app ID, i.e. `https://github.com/ace2821/zinclaucher`, but the upstream
+  repository is `ace2821/Zinc-Launcher` (hyphen). Fix by renaming the GitHub
+  repository to `zinclaucher`, or ask Flathub for a linter exception in the
   submission PR; nothing in the manifest itself can silence it. All other
   manifest checks pass. `smoke.local.json` additionally reports
   `appid-filename-mismatch`, which is expected for a non-app-ID-named local
@@ -113,13 +113,13 @@ repository root (the project itself uses bun; the lockfile exists only so
    `commit` in the app module to the **tagged** full SHA (currently the 1.1.0
    UI commit `06c3ef4c…`, which is the intended tag target).
 2. Fork `flathub/flathub`, branch `new-pr` from `new-pr`:
-   `git checkout new-pr && git checkout -b zen-launcher`.
+   `git checkout new-pr && git checkout -b zinc-launcher`.
 3. Add to the PR branch:
-   - `io.github.ace2821.ZenLauncher.json` (the final manifest),
+   - `io.github.ace2821.ZincLauncher.json` (the final manifest),
    - `cargo-sources.json`, `node-sources.json`,
    - `flathub.json`.
 4. Open the PR against `flathub/flathub:new-pr` with the title
-   `Add io.github.ace2821.ZenLauncher`.
+   `Add io.github.ace2821.ZincLauncher`.
 5. Flathub's CI runs `flatpak-builder-lint` and builds the manifest. Keep the
    build under the time limit: the wine module is the expensive part (see
    below), the app module is a normal Rust + node build.
@@ -129,7 +129,7 @@ repository root (the project itself uses bun; the lockfile exists only so
 ### Screenshots
 
 The metainfo embeds three screenshots served from
-`https://raw.githubusercontent.com/ace2821/Zen-Launcher/main/assets/screenshots/`
+`https://raw.githubusercontent.com/ace2821/Zinc-Launcher/main/assets/screenshots/`
 (`library.png` as `type="default"`, plus `mods-installed.png` and
 `mods-install.png`). Keep them up to date with major UI changes; Flathub
 mirrors them during submission.
@@ -161,7 +161,7 @@ mirrors them during submission.
 - The tray icon needs `libayatana-appindicator`, which is not in the GNOME
   runtime. Tauri loads it dynamically, so the build succeeds and the app works;
   only the tray icon is missing inside the sandbox.
-- Startup class: `tauri.conf.json` sets `mainBinaryName` to `zen-launcher`, and
-  Tauri's generated desktop file uses `StartupWMClass=zen-launcher`, so the
-  hand-written entry does the same. `Exec=zen-launcher` matches
-  `command`/`/app/bin/zen-launcher`.
+- Startup class: `tauri.conf.json` sets `mainBinaryName` to `zinc-launcher`, and
+  Tauri's generated desktop file uses `StartupWMClass=zinc-launcher`, so the
+  hand-written entry does the same. `Exec=zinc-launcher` matches
+  `command`/`/app/bin/zinc-launcher`.

@@ -9,6 +9,7 @@ import type {
   EventName,
   Game,
   GamePatch,
+  GamePlaytime,
   GamepadEvent,
   GamepadInfo,
   GamepadList,
@@ -17,6 +18,7 @@ import type {
   MarketplaceInstallResult,
   MarketplaceList,
   ModsStatus,
+  PlaytimeStats,
   ScanSummary,
   Session,
   Settings,
@@ -632,6 +634,61 @@ export function createMockApi(options: MockOptions = {}): MockApi {
       );
     },
 
+    async getPlaytimeStats() {
+      const totals = new Map<number, { total: number; last: string | null }>();
+      for (const game of state.games) {
+        totals.set(game.id, { total: 0, last: null });
+      }
+      for (const session of state.sessions) {
+        // Mirrors the core: an unfinished / unknown-duration session is not
+        // playtime.
+        if (session.durationSeconds === null) continue;
+        const entry = totals.get(session.gameId);
+        if (!entry) continue;
+        entry.total += session.durationSeconds;
+        if (
+          session.endedAt !== null &&
+          (entry.last === null ||
+            Date.parse(session.endedAt) > Date.parse(entry.last))
+        ) {
+          entry.last = session.endedAt;
+        }
+      }
+      const games: GamePlaytime[] = state.games
+        .map((game) => {
+          const entry = totals.get(game.id) ?? { total: 0, last: null };
+          return {
+            gameId: game.id,
+            gameName: game.title,
+            total_sec: entry.total,
+            last_played: entry.last,
+          };
+        })
+        .sort((a, b) => {
+          if (b.total_sec !== a.total_sec) return b.total_sec - a.total_sec;
+          return a.gameName.localeCompare(b.gameName, "en", {
+            sensitivity: "base",
+          });
+        });
+      const totalSeconds = games.reduce((sum, game) => sum + game.total_sec, 0);
+      const stats: PlaytimeStats = {
+        total_hours: Math.round((totalSeconds / 3600) * 100) / 100,
+        games,
+      };
+      return stats;
+    },
+
+    async getPlaytime(gameId) {
+      requireGame(gameId);
+      const total = state.sessions
+        .filter(
+          (session) =>
+            session.gameId === gameId && session.durationSeconds !== null,
+        )
+        .reduce((sum, session) => sum + (session.durationSeconds ?? 0), 0);
+      return { total_sec: total };
+    },
+
     /* --------------------------------------------------------------- settings */
 
     async getSettings() {
@@ -910,7 +967,7 @@ export function createMockApi(options: MockOptions = {}): MockApi {
     async pickDirectory() {
       const taken = new Set(state.sources.map((source) => source.path));
       const available = state.pickablePaths.find((path) => !taken.has(path));
-      return available ?? `/home/oliwier/Downloads/zen-games-${state.nextSourceId}`;
+      return available ?? `/home/oliwier/Downloads/zinc-games-${state.nextSourceId}`;
     },
 
     async pickFile(options) {

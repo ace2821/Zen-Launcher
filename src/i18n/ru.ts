@@ -3,12 +3,13 @@ import type { TranslationShape } from "./en";
 /** Russian strings. Typed as `TranslationShape`, so every `en.ts` key is required. */
 export const ru: TranslationShape = {
   app: {
-    name: "Zen Launcher",
+    name: "Zinc Launcher",
     subtitle: "Локальная игровая библиотека",
   },
 
   nav: {
     library: "Библиотека",
+    statystyki: "Статистика",
     sources: "Источники и импорт",
     settings: "Настройки",
     pendingBadge: "Ожидающие кандидаты",
@@ -78,10 +79,21 @@ export const ru: TranslationShape = {
     rejected: "Отклонён",
   },
 
+  statystyki: {
+    title: "Статистика",
+    subtitle: "{{count}} игрено, {{total}} всего",
+    emptyTitle: "Игр еще нет",
+    emptyBody:
+      "Добавьте игры в библиотеку, чтобы посмотреть статистику здесь.",
+    noDataTitle: "Время игры не зарегистрировано",
+    noDataBody: "Поиграйте в несколько игр, чтобы увидеть статистику.",
+    totalPlaytime: "Всего времени в игре",
+  },
+
   library: {
     emptyTitle: "Ваша библиотека пуста",
     emptyBody:
-      "Укажите Zen папку, где лежат ваши игры — сканер найдёт названия, а вы решите, что попадёт в библиотеку.",
+      "Укажите Zinc папку, где лежат ваши игры — сканер найдёт названия, а вы решите, что попадёт в библиотеку.",
     emptyAction: "Перейти в Источники и импорт",
     noResultsTitle: "Ничего не найдено",
     noResultsBody: "Ни одна запись в библиотеке не соответствует «{{query}}».",
@@ -121,7 +133,7 @@ export const ru: TranslationShape = {
   import: {
     title: "Источники и импорт",
     description:
-      "Корни сканирования — папки, которые Zen Launcher обходит в поисках папок игр. Ничего не добавляется в библиотеку без вашего одобрения.",
+      "Корни сканирования — папки, которые Zinc Launcher обходит в поисках папок игр. Ничего не добавляется в библиотеку без вашего одобрения.",
     sourcesTitle: "Корни сканирования",
     sourcesEmptyTitle: "Корней сканирования пока нет",
     sourcesEmpty:
@@ -406,7 +418,7 @@ export const ru: TranslationShape = {
     fontSample: "Zażółć gęślą jaźń",
     previewSample:
       "Zażółć gęślą jaźń. Съешь же ещё этих мягких французских булок, да выпей чаю.",
-    previewMeta: "~/.local/share/zen-launcher/library.db",
+    previewMeta: "~/.local/share/zinc-launcher/library.db",
     previewButton: "Играть",
 
     libraryTitle: "Как должна открываться библиотека?",
@@ -434,7 +446,7 @@ export const ru: TranslationShape = {
 
     back: "Назад",
     next: "Далее",
-    finish: "Начать работу с Zen Launcher",
+    finish: "Начать работу с Zinc Launcher",
     skip: "Пропустить",
     skipHint: "Пропустить экскурсию и оставить значения по умолчанию.",
     footHint: "Ваши выборы сохраняются по ходу.",
@@ -467,7 +479,7 @@ export const ru: TranslationShape = {
     fileDialogTitle: "Выберите изображение обложки",
     fileFilter: "Изображения",
     fileNote:
-      "Изображение копируется в собственный каталог Zen Launcher — выбранный файл остаётся на месте.",
+      "Изображение копируется в собственный каталог Zinc Launcher — выбранный файл остаётся на месте.",
     fileFailed: "Не удалось использовать это изображение",
     dialogTitle: "Обложка",
     searchLabel: "Поиск в магазине Steam",
@@ -483,6 +495,7 @@ export const ru: TranslationShape = {
     downloadFailed: "Не удалось сохранить обложку",
     updated: "Обложка обновлена",
     updatedBody: "«{{title}}» теперь использует выбранную вами обложку.",
+    downloadForBigPicture: "Скачать для Big Picture",
   },
 
   mods: {
@@ -512,10 +525,10 @@ export const ru: TranslationShape = {
     installLoader: "Установить {{loader}}",
 
     manualLoader:
-      "Устанавливается своим установщиком — скачайте его с официальной страницы, Zen продолжит его обнаруживать.",
+      "Устанавливается своим установщиком — скачайте его с официальной страницы, Zinc продолжит его обнаруживать.",
     officialDownload: "Официальная загрузка",
     asiRootNote: "Моды ASI попадают рядом с исполняемым файлом игры.",
-    externalMods: "Моды управляются внутри tModLoader — Zen только обнаруживает их здесь.",
+    externalMods: "Моды управляются внутри tModLoader — Zinc только обнаруживает их здесь.",
     externalDocs: "Документация tModLoader",
 
     validationLabel: "Проверка архивов",
@@ -608,7 +621,24 @@ export const ru: TranslationShape = {
     hintShoulderLeft: "Предыдущая вкладка",
     hintShoulderRight: "Следующая вкладка",
     modsOpenFolder: "Открыть папку модов",
+    sectionLibrary: "Ваша библиотека",
+    sectionLibraryHint: "Просмотр установленных игр",
+    sectionMarketplace: "Marketplace",
+    sectionMarketplaceHint: "Темы и дополнения",
     settings: "Настройки",
+    dashboard: "Панель",
+    tabGames: "Игры",
+    tabMedia: "Медиа",
+    searchPlaceholder: "Поиск игр…",
+    profile: "Профиль",
+    onlineFriends: "Друзья в сети",
+    accessibility: "Доступность",
+    trophies: "Трофеи",
+    wishlist: "Список желаний",
+    store: "Магазин",
+    playGame: "Играть в игру",
+    moreOptions: "Еще варианты",
+    modsSection: "Моды для {{title}}",
   },
 
   marketplace: {

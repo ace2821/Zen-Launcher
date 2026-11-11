@@ -1,7 +1,7 @@
 //! Best-effort Wine prefix setup.
 //!
 //! Windows entries run through the system `wine` with a per-game prefix under
-//! `~/.local/share/zen-launcher/prefixes/<gameId>` (see `docs/INTERFACES.md`).
+//! `~/.local/share/zinc-launcher/prefixes/<gameId>` (see `docs/INTERFACES.md`).
 //! A prefix only becomes usable after `wineboot -u` has initialised it, and
 //! that first run costs tens of seconds — so instead of paying it on the
 //! first Play we prepare prefixes in the background: once at startup for

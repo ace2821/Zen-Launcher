@@ -24,11 +24,11 @@ use sha2::{Digest, Sha256};
 use crate::error::{AppError, AppResult};
 
 pub const CATALOG_URL: &str =
-    "https://raw.githubusercontent.com/ace2821/zen-marketplace/main/catalog.json";
+    "https://raw.githubusercontent.com/ace2821/zinc-marketplace/main/catalog.json";
 pub const CATALOG_SCHEMA_VERSION: u32 = 1;
 /// Catalog cache lifetime (seconds).
 pub const CACHE_TTL_SECS: u64 = 60 * 60;
-const USER_AGENT: &str = concat!("ZenLauncher/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("ZincLauncher/", env!("CARGO_PKG_VERSION"));
 const MAX_CATALOG_BYTES: usize = 8 * 1024 * 1024;
 const MAX_PACKAGE_BYTES: usize = 64 * 1024 * 1024;
 pub const MANIFEST_FILE: &str = "manifest.json";
@@ -132,8 +132,9 @@ fn agent() -> ureq::Agent {
 
 /// Parse `catalog.json`. Only schema version 1 is understood.
 pub fn parse_catalog(raw: &str) -> AppResult<Vec<CatalogItem>> {
-    let file: CatalogFile = serde_json::from_str(raw)
-        .map_err(|err| AppError::validation(format!("could not parse marketplace catalog: {err}")))?;
+    let file: CatalogFile = serde_json::from_str(raw).map_err(|err| {
+        AppError::validation(format!("could not parse marketplace catalog: {err}"))
+    })?;
     if file.schema_version != CATALOG_SCHEMA_VERSION {
         return Err(AppError::validation(format!(
             "unsupported marketplace schema version: {}",
@@ -209,7 +210,10 @@ where
             if let Err(err) = write_cache(addons_dir, now, &items) {
                 tracing::warn!("could not persist the marketplace cache: {err:?}");
             }
-            Ok(MarketplaceList { items, stale: false })
+            Ok(MarketplaceList {
+                items,
+                stale: false,
+            })
         }
         Err(err) => match cached {
             Some(cache) => {
@@ -258,7 +262,7 @@ pub fn ensure_compatible(item: &CatalogItem) -> AppResult<()> {
     let current = env!("CARGO_PKG_VERSION");
     if !version_at_least(current, &item.min_launcher_version) {
         return Err(AppError::validation(format!(
-            "{} {} requires Zen Launcher {} or newer (running {})",
+            "{} {} requires Zinc Launcher {} or newer (running {})",
             item.name, item.version, item.min_launcher_version, current
         )));
     }
@@ -341,15 +345,15 @@ pub fn validate_id(id: &str) -> AppResult<()> {
 // Deep links
 // ---------------------------------------------------------------------------
 
-/// URL scheme registered for `zenlauncher://` deep links.
-pub const DEEP_LINK_SCHEME: &str = "zenlauncher";
+/// URL scheme registered for `zinclaucher://` deep links.
+pub const DEEP_LINK_SCHEME: &str = "zinclaucher";
 
-/// Action encoded by a `zenlauncher://` URL.
+/// Action encoded by a `zinclaucher://` URL.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeepLinkAction {
-    /// `zenlauncher://install?id=<itemId>` — start a marketplace install.
+    /// `zinclaucher://install?id=<itemId>` — start a marketplace install.
     Install { item_id: String },
-    /// `zenlauncher://page/<name>` — ask the UI to open a page.
+    /// `zinclaucher://page/<name>` — ask the UI to open a page.
     Page { name: String },
 }
 
@@ -358,8 +362,8 @@ pub enum DeepLinkAction {
 /// installer).
 pub fn parse_deep_link(raw: &str) -> AppResult<DeepLinkAction> {
     let rest = raw
-        .strip_prefix("zenlauncher://")
-        .ok_or_else(|| AppError::validation(format!("not a zenlauncher:// URL: {raw}")))?;
+        .strip_prefix("zinclaucher://")
+        .ok_or_else(|| AppError::validation(format!("not a zinclaucher:// URL: {raw}")))?;
 
     let (path, query) = rest.split_once('?').unwrap_or((rest, ""));
     let path = path.trim_end_matches('/');
@@ -477,11 +481,7 @@ fn is_zip(bytes: &[u8]) -> bool {
     bytes.starts_with(b"PK\x03\x04") || bytes.starts_with(b"PK\x05\x06")
 }
 
-fn write_single_file(
-    staging: &Path,
-    item: &CatalogItem,
-    bytes: &[u8],
-) -> AppResult<Vec<String>> {
+fn write_single_file(staging: &Path, item: &CatalogItem, bytes: &[u8]) -> AppResult<Vec<String>> {
     let name = package_file_name(&item.install_url, item.kind);
     let target = staging.join(&name);
     std::fs::write(&target, bytes)?;
@@ -510,11 +510,7 @@ fn package_file_name(url: &str, kind: CatalogKind) -> String {
         && tail
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
-    if safe {
-        tail
-    } else {
-        fallback.to_string()
-    }
+    if safe { tail } else { fallback.to_string() }
 }
 
 /// Extract a ZIP payload traversal-safely; returns the stored relative paths.
@@ -807,21 +803,21 @@ mod tests {
     #[test]
     fn deep_link_install_with_id_parses() {
         assert_eq!(
-            parse_deep_link("zenlauncher://install?id=jade-dark").unwrap(),
+            parse_deep_link("zinclaucher://install?id=jade-dark").unwrap(),
             DeepLinkAction::Install {
                 item_id: "jade-dark".into()
             }
         );
         // Extra query params and a trailing slash are tolerated.
         assert_eq!(
-            parse_deep_link("zenlauncher://install/?id=jade-dark&ref=web").unwrap(),
+            parse_deep_link("zinclaucher://install/?id=jade-dark&ref=web").unwrap(),
             DeepLinkAction::Install {
                 item_id: "jade-dark".into()
             }
         );
         // Path-style page links.
         assert_eq!(
-            parse_deep_link("zenlauncher://page/library").unwrap(),
+            parse_deep_link("zinclaucher://page/library").unwrap(),
             DeepLinkAction::Page {
                 name: "library".into()
             }
@@ -830,20 +826,20 @@ mod tests {
 
     #[test]
     fn deep_link_install_without_id_is_rejected() {
-        let err = parse_deep_link("zenlauncher://install").unwrap_err();
+        let err = parse_deep_link("zinclaucher://install").unwrap_err();
         assert_eq!(err.code, crate::error::VALIDATION);
 
-        let err = parse_deep_link("zenlauncher://install?ref=web").unwrap_err();
+        let err = parse_deep_link("zinclaucher://install?ref=web").unwrap_err();
         assert_eq!(err.code, crate::error::VALIDATION);
 
         // An id that could escape the addons dir is refused before install.
-        let err = parse_deep_link("zenlauncher://install?id=../evil").unwrap_err();
+        let err = parse_deep_link("zinclaucher://install?id=../evil").unwrap_err();
         assert_eq!(err.code, crate::error::VALIDATION);
     }
 
     #[test]
     fn deep_link_unknown_path_or_scheme_is_rejected() {
-        let err = parse_deep_link("zenlauncher://bogus").unwrap_err();
+        let err = parse_deep_link("zinclaucher://bogus").unwrap_err();
         assert_eq!(err.code, crate::error::VALIDATION);
 
         let err = parse_deep_link("https://example.com/install?id=x").unwrap_err();

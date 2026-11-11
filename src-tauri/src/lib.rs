@@ -1,4 +1,4 @@
-//! Zen Launcher — Rust core.
+//! Zinc Launcher — Rust core.
 //!
 //! Local-first game library manager for Linux. The IPC surface is frozen in
 //! `docs/INTERFACES.md`; every module here implements a slice of it.
@@ -30,7 +30,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use crate::error::AppResult;
 use crate::state::AppState;
 
-/// Route an incoming `zenlauncher://` URL to the matching action.
+/// Route an incoming `zinclaucher://` URL to the matching action.
 fn handle_deep_link(app: &tauri::AppHandle, url: &str) {
     use tauri::Emitter;
 
@@ -59,7 +59,7 @@ fn init_logging(dir: Option<&Path>) {
     if let Some(dir) = dir
         && std::fs::create_dir_all(dir).is_ok()
     {
-        let appender = tracing_appender::rolling::daily(dir, "zen-launcher.log");
+        let appender = tracing_appender::rolling::daily(dir, "zinc-launcher.log");
         let (writer, guard) = tracing_appender::non_blocking(appender);
         let _ = LOG_GUARD.set(guard);
         if tracing_subscriber::fmt()
@@ -86,6 +86,15 @@ fn setup_app(app: &mut tauri::App) -> AppResult<()> {
     let db_path = paths::db_path()?;
     let conn = db::open(&db_path)?;
     tracing::info!("database ready at {}", db_path.display());
+
+    // A game still marked as running when the launcher starts means the last
+    // exit was unclean: stamp its `ended_at` now. The duration stays unknown
+    // (see `db::close_open_sessions`), so no phantom playtime is counted.
+    match db::close_open_sessions(&conn, &crate::time::now_iso()) {
+        Ok(0) => {}
+        Ok(closed) => tracing::info!("closed {closed} stale game session(s)"),
+        Err(err) => tracing::warn!("could not close stale sessions: {err}"),
+    }
 
     let config_path = paths::config_file()?;
     let settings = settings::load_from(&config_path);
@@ -121,7 +130,7 @@ fn setup_app(app: &mut tauri::App) -> AppResult<()> {
     // Console-menu navigation: gilrs polling thread → `gamepad-event`.
     input::spawn(app.handle().clone());
 
-    tracing::info!("Zen Launcher ready");
+    tracing::info!("Zinc Launcher ready");
     Ok(())
 }
 
@@ -136,7 +145,7 @@ pub fn run() {
         .setup(|app| {
             setup_app(app)?;
 
-            // `zenlauncher://install?id=...` — from the OS or from a URL the
+            // `zinclaucher://install?id=...` — from the OS or from a URL the
             // app was launched with. The plugin already parsed the launch
             // arguments; `on_open_url` covers later deliveries.
             let handle = app.handle().clone();
@@ -167,6 +176,8 @@ pub fn run() {
             commands::remove_game,
             commands::launch_game,
             commands::list_sessions,
+            commands::get_playtime_stats,
+            commands::get_playtime,
             commands::get_settings,
             commands::update_settings,
             commands::fetch_cover_candidates,
@@ -175,6 +186,8 @@ pub fn run() {
             commands::mods_status,
             commands::install_mod_loader,
             commands::install_mod_archive,
+            commands::install_mod_file,
+            commands::uninstall_mod_file,
             commands::check_loader_updates,
             commands::list_gamepads,
             commands::marketplace_list,

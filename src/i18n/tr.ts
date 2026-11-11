@@ -3,12 +3,13 @@ import type { TranslationShape } from "./en";
 /** Turkish strings. Typed as `TranslationShape`, so every `en.ts` key is required. */
 export const tr: TranslationShape = {
   app: {
-    name: "Zen Launcher",
+    name: "Zinc Launcher",
     subtitle: "Yerel oyun kütüphanesi",
   },
 
   nav: {
     library: "Kütüphane",
+    statystyki: "İstatistikler",
     sources: "Kaynaklar ve İçe Aktarma",
     settings: "Ayarlar",
     pendingBadge: "Bekleyen adaylar",
@@ -78,10 +79,21 @@ export const tr: TranslationShape = {
     rejected: "Reddedildi",
   },
 
+  statystyki: {
+    title: "İstatistikler",
+    subtitle: "{{count}} oynandı, {{total}} toplam",
+    emptyTitle: "Henüz oyun yok",
+    emptyBody:
+      "İstatistikleri buradan görmek için kütüphaneye oyun ekleyin.",
+    noDataTitle: "Oynanma süresi kaydedilmedi",
+    noDataBody: "İstatistiklerinizi görmek için birkaç oyun oynamalısınız.",
+    totalPlaytime: "Toplam oynanma süresi",
+  },
+
   library: {
     emptyTitle: "Kütüphaneniz boş",
     emptyBody:
-      "Zen'e oyunlarınızın bulunduğu klasörü gösterin — tarayıcı başlıkları bulur ve kütüphaneye neyin gireceğine siz karar verirsiniz.",
+      "Zinc'e oyunlarınızın bulunduğu klasörü gösterin — tarayıcı başlıkları bulur ve kütüphaneye neyin gireceğine siz karar verirsiniz.",
     emptyAction: "Kaynaklar ve İçe Aktarma'ya git",
     noResultsTitle: "Eşleşme yok",
     noResultsBody: "Kütüphanedeki hiçbir kayıt “{{query}}” ile eşleşmiyor.",
@@ -121,7 +133,7 @@ export const tr: TranslationShape = {
   import: {
     title: "Kaynaklar ve İçe Aktarma",
     description:
-      "Tarama kökleri, Zen Launcher'ın oyun klasörlerini bulmak için dolaştığı klasörlerdir. Siz onaylamadan kütüphaneye hiçbir şey eklenmez.",
+      "Tarama kökleri, Zinc Launcher'ın oyun klasörlerini bulmak için dolaştığı klasörlerdir. Siz onaylamadan kütüphaneye hiçbir şey eklenmez.",
     sourcesTitle: "Tarama kökleri",
     sourcesEmptyTitle: "Henüz tarama kökü yok",
     sourcesEmpty:
@@ -294,7 +306,7 @@ export const tr: TranslationShape = {
     appearanceDescription:
       "Arayüz yazı tipi, vurgu rengi ve kütüphanenin nasıl açılacağı. Her değişiklik hemen uygulanır.",
     libraryViewTitle: "Kütüphane görünümü",
-    libraryViewDescription: "Koleksiyonunuzun açıldığı düzen.",
+    libraryViewDescription: "Koleksiyonunuzun açıldığı düzinc.",
     behaviourTitle: "Pencere davranışı",
     behaviourDescription: "Bir oyun çalışırken pencerenin nasıl tepki verdiği.",
     closeToTray: "Kapanırken sistem tepsisinde çalışmaya devam et",
@@ -406,7 +418,7 @@ export const tr: TranslationShape = {
     fontSample: "Zażółć gęślą jaźń",
     previewSample:
       "Zażółć gęślą jaźń. Pijamalı hasta yağız şoföre çabucak güvendi.",
-    previewMeta: "~/.local/share/zen-launcher/library.db",
+    previewMeta: "~/.local/share/zinc-launcher/library.db",
     previewButton: "Oyna",
 
     libraryTitle: "Kütüphane nasıl açılmalı?",
@@ -434,7 +446,7 @@ export const tr: TranslationShape = {
 
     back: "Geri",
     next: "İleri",
-    finish: "Zen Launcher'ı kullanmaya başla",
+    finish: "Zinc Launcher'ı kullanmaya başla",
     skip: "Atla",
     skipHint: "Turu atla ve varsayılanları koru.",
     footHint: "Seçimleriniz ilerledikçe kaydedilir.",
@@ -467,7 +479,7 @@ export const tr: TranslationShape = {
     fileDialogTitle: "Kapak görseli seç",
     fileFilter: "Görseller",
     fileNote:
-      "Görsel Zen Launcher'ın kendi klasörüne kopyalanır — seçtiğiniz dosya olduğu yerde kalır.",
+      "Görsel Zinc Launcher'ın kendi klasörüne kopyalanır — seçtiğiniz dosya olduğu yerde kalır.",
     fileFailed: "Bu görsel kullanılamadı",
     dialogTitle: "Kapak görseli",
     searchLabel: "Steam mağazasında ara",
@@ -483,6 +495,7 @@ export const tr: TranslationShape = {
     downloadFailed: "Kapak görseli kaydedilemedi",
     updated: "Kapak görseli güncellendi",
     updatedBody: "“{{title}}” artık seçtiğiniz görseli kullanıyor.",
+    downloadForBigPicture: "Big Picture için indir",
   },
 
   mods: {
@@ -512,10 +525,10 @@ export const tr: TranslationShape = {
     installLoader: "{{loader}} kur",
 
     manualLoader:
-      "Kendi yükleyicisiyle kurulur — resmi sayfadan indirin, Zen sonrasında da onu algılamaya devam eder.",
+      "Kendi yükleyicisiyle kurulur — resmi sayfadan indirin, Zinc sonrasında da onu algılamaya devam eder.",
     officialDownload: "Resmi indirme",
     asiRootNote: "ASI modları oyunun çalıştırılabilir dosyasının yanına düşer.",
-    externalMods: "Modlar tModLoader içinde yönetilir — Zen bunları burada yalnızca algılar.",
+    externalMods: "Modlar tModLoader içinde yönetilir — Zinc bunları burada yalnızca algılar.",
     externalDocs: "tModLoader belgeleri",
 
     validationLabel: "Arşiv doğrulaması",
@@ -608,7 +621,24 @@ export const tr: TranslationShape = {
     hintShoulderLeft: "Önceki sekme",
     hintShoulderRight: "Sonraki sekme",
     modsOpenFolder: "Mod klasörünü aç",
+    sectionLibrary: "Kütüphaneniz",
+    sectionLibraryHint: "Yüklü oyunları göz atın",
+    sectionMarketplace: "Marketplace",
+    sectionMarketplaceHint: "Temalar ve eklentiler",
     settings: "Ayarlar",
+    dashboard: "Kontrol paneli",
+    tabGames: "Oyunlar",
+    tabMedia: "Medya",
+    searchPlaceholder: "Oyunlarda ara…",
+    profile: "Profil",
+    onlineFriends: "Çevrimiçi arkadaşlar",
+    accessibility: "Erişilebilirlik",
+    trophies: "Trofeler",
+    wishlist: "İstek listesi",
+    store: "Mağaza",
+    playGame: "Oyunu oyna",
+    moreOptions: "Daha fazla seçenek",
+    modsSection: "{{title}} için modlar",
   },
 
   marketplace: {

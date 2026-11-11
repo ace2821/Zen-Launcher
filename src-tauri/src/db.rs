@@ -12,8 +12,8 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    Candidate, CandidateStatus, ClientInfo, EngineKind, Game, GamePatch, GameStatus, GameType, Session,
-    Source,
+    Candidate, CandidateStatus, ClientInfo, EngineKind, Game, GamePatch, GamePlaytime, GameStatus,
+    GameType, PlaytimeStats, Session, Source,
 };
 use crate::time::now_iso;
 
@@ -735,6 +735,68 @@ pub fn list_sessions(
 }
 
 // ---------------------------------------------------------------------------
+// Playtime statistics
+// ---------------------------------------------------------------------------
+
+/// Close sessions left open by an unclean shutdown (launcher killed while a
+/// game was running). `ended_at` is stamped so the session no longer looks
+/// active, but `duration_seconds` stays `NULL`: the real stop time is unknown,
+/// and counting "start → next launch" would invent hours of playtime. Such
+/// sessions are excluded from every playtime total.
+///
+/// Returns the number of sessions that were closed. Call once at startup.
+pub fn close_open_sessions(conn: &Connection, ended_at: &str) -> AppResult<usize> {
+    let affected = conn.execute(
+        "UPDATE sessions SET ended_at = ?1 WHERE ended_at IS NULL",
+        params![ended_at],
+    )?;
+    Ok(affected)
+}
+
+/// Per-game totals derived from finished sessions (`duration_seconds` is not
+/// NULL). Includes library entries that were never played (total `0`) so the
+/// Statistics tab can list the whole library; sorted by playtime descending.
+pub fn playtime_stats(conn: &Connection) -> AppResult<PlaytimeStats> {
+    let mut stmt = conn.prepare(
+        "SELECT g.id, g.title, COALESCE(SUM(s.duration_seconds), 0) AS total_sec, \
+                MAX(s.ended_at) AS last_played \
+         FROM games g \
+         LEFT JOIN sessions s ON s.game_id = g.id AND s.duration_seconds IS NOT NULL \
+         GROUP BY g.id, g.title \
+         ORDER BY total_sec DESC, g.title COLLATE NOCASE ASC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(GamePlaytime {
+            game_id: row.get(0)?,
+            game_name: row.get(1)?,
+            total_sec: row.get(2)?,
+            last_played: row.get(3)?,
+        })
+    })?;
+    let games = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+
+    let total_sec: i64 = games.iter().map(|game| game.total_sec.max(0)).sum();
+    // Two decimal places keeps the JSON stable for the UI (e.g. 1.25).
+    let total_hours = ((total_sec as f64 / 3600.0) * 100.0).round() / 100.0;
+
+    Ok(PlaytimeStats {
+        total_hours,
+        games,
+    })
+}
+
+/// Total playtime of one game in seconds (finished sessions only).
+pub fn game_playtime(conn: &Connection, game_id: i64) -> AppResult<i64> {
+    let total: i64 = conn.query_row(
+        "SELECT COALESCE(SUM(duration_seconds), 0) FROM sessions \
+         WHERE game_id = ?1 AND duration_seconds IS NOT NULL",
+        params![game_id],
+        |row| row.get(0),
+    )?;
+    Ok(total.max(0))
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -889,7 +951,7 @@ mod tests {
                     kind: ClientKind::Samp,
                     host: Some("play.example.com".into()),
                     port: Some(7777),
-                    nick: Some("Zen".into()),
+                    nick: Some("Zinc".into()),
                 }),
             },
         )
@@ -1145,6 +1207,117 @@ mod tests {
         assert_eq!(candidates[0].source_id, None);
         assert_eq!(get_game(&conn, game.id).unwrap().id, game.id);
         assert!(delete_source(&conn, source.id).is_err());
+    }
+
+    /// Insert a throwaway library entry; the statistics only need its id/title.
+    fn temp_game(conn: &Connection, title: &str) -> Game {
+        let dir = tempdir().unwrap();
+        let executable = dir.path().join("game.x86_64");
+        std::fs::write(&executable, b"x").unwrap();
+        insert_game(
+            conn,
+            &NewGame {
+                title: title.into(),
+                sort_title: None,
+                game_type: GameType::Native,
+                install_path: dir.path().to_string_lossy().into_owned(),
+                executable: executable.to_string_lossy().into_owned(),
+                args: vec![],
+                env: BTreeMap::new(),
+                work_dir: None,
+                tags: vec![],
+                client: None,
+            },
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn playtime_stats_on_empty_library() {
+        let (_dir, conn) = open_temp();
+        let stats = playtime_stats(&conn).unwrap();
+        assert_eq!(stats.total_hours, 0.0);
+        assert!(stats.games.is_empty());
+    }
+
+    #[test]
+    fn playtime_stats_sums_finished_sessions_per_game_desc() {
+        let (_dir, conn) = open_temp();
+        let alpha = temp_game(&conn, "Alpha");
+        let beta = temp_game(&conn, "Beta");
+
+        let first = insert_session(&conn, alpha.id, "2026-10-17T10:00:00Z").unwrap();
+        finish_session(&conn, first.id, "2026-10-17T10:30:00Z", 1800, Some(0)).unwrap();
+        let second = insert_session(&conn, alpha.id, "2026-10-18T10:00:00Z").unwrap();
+        finish_session(&conn, second.id, "2026-10-18T10:15:00Z", 900, Some(0)).unwrap();
+
+        let beta_session = insert_session(&conn, beta.id, "2026-10-19T10:00:00Z").unwrap();
+        finish_session(&conn, beta_session.id, "2026-10-19T10:45:00Z", 2700, Some(0)).unwrap();
+
+        // A running session (duration NULL) never counts towards the totals.
+        insert_session(&conn, alpha.id, "2026-10-20T10:00:00Z").unwrap();
+
+        let stats = playtime_stats(&conn).unwrap();
+        assert_eq!(stats.games.len(), 2);
+        // Beta 2700 s > Alpha 1800 + 900 = 2700 s → tie broken by title.
+        assert_eq!(stats.games[0].game_id, alpha.id);
+        assert_eq!(stats.games[0].total_sec, 2700);
+        assert_eq!(stats.games[1].game_id, beta.id);
+        assert_eq!(stats.games[1].total_sec, 2700);
+        // 5400 s = 1.5 h.
+        assert_eq!(stats.total_hours, 1.5);
+        assert_eq!(
+            stats.games[0].last_played.as_deref(),
+            Some("2026-10-18T10:15:00Z")
+        );
+        assert_eq!(game_playtime(&conn, alpha.id).unwrap(), 2700);
+    }
+
+    #[test]
+    fn playtime_stats_orders_by_time_and_keeps_unplayed_games() {
+        let (_dir, conn) = open_temp();
+        let long = temp_game(&conn, "Long");
+        let short = temp_game(&conn, "Short");
+        let never = temp_game(&conn, "Never");
+
+        let a = insert_session(&conn, long.id, "2026-10-17T10:00:00Z").unwrap();
+        finish_session(&conn, a.id, "2026-10-17T12:00:00Z", 7200, Some(0)).unwrap();
+        let b = insert_session(&conn, short.id, "2026-10-17T10:00:00Z").unwrap();
+        finish_session(&conn, b.id, "2026-10-17T11:00:00Z", 3600, Some(0)).unwrap();
+
+        let stats = playtime_stats(&conn).unwrap();
+        let ids: Vec<i64> = stats.games.iter().map(|game| game.game_id).collect();
+        assert_eq!(ids, vec![long.id, short.id, never.id]);
+        assert_eq!(stats.games[2].total_sec, 0);
+        assert_eq!(stats.games[2].last_played, None);
+        assert_eq!(stats.total_hours, 3.0);
+        assert_eq!(game_playtime(&conn, never.id).unwrap(), 0);
+    }
+
+    #[test]
+    fn close_open_sessions_stamps_end_without_inventing_duration() {
+        let (_dir, conn) = open_temp();
+        let game = temp_game(&conn, "Alpha");
+        let session = insert_session(&conn, game.id, "2026-10-17T10:00:00Z").unwrap();
+        let finished = insert_session(&conn, game.id, "2026-10-17T11:00:00Z").unwrap();
+        finish_session(&conn, finished.id, "2026-10-17T11:30:00Z", 1800, Some(0)).unwrap();
+
+        let closed = close_open_sessions(&conn, "2026-10-20T09:00:00Z").unwrap();
+        assert_eq!(closed, 1);
+
+        let stored = get_session(&conn, session.id).unwrap();
+        assert_eq!(stored.ended_at.as_deref(), Some("2026-10-20T09:00:00Z"));
+        assert_eq!(stored.duration_seconds, None);
+        // The already-closed session is untouched.
+        assert_eq!(
+            get_session(&conn, finished.id)
+                .unwrap()
+                .duration_seconds,
+            Some(1800)
+        );
+        // An unknown-duration session contributes nothing to statistics.
+        assert_eq!(game_playtime(&conn, game.id).unwrap(), 1800);
+        assert_eq!(close_open_sessions(&conn, "2026-10-21T09:00:00Z").unwrap(), 0);
     }
 
     #[test]

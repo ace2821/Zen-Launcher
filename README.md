@@ -1,7 +1,7 @@
-# Zen Launcher
+# Zinc Launcher
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/ace2821/Zen-Launcher)](https://github.com/ace2821/Zen-Launcher/releases)
+[![Release](https://img.shields.io/github/v/release/ace2821/Zinc-Launcher)](https://github.com/ace2821/Zinc-Launcher/releases)
 [![Platform](https://img.shields.io/badge/platform-Linux-fcc624?logo=linux&logoColor=black)](-)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8DB?logo=tauri&logoColor=24C8DB)](https://v2.tauri.app/)
 
@@ -28,7 +28,7 @@ telemetry.
   and can install the download-installable ones straight from their GitHub
   releases; manual-install loaders get official-page links instead. Mod
   archives (`zip` / `7z` / `rar`) can be dropped onto the game and are unpacked
-  into the loader's mods folder with redundant-file handling. Loaders Zen
+  into the loader's mods folder with redundant-file handling. Loaders Zinc
   installed can be checked for updates and reinstalled.
 - **Multiplayer clients** — GTA SA/VC-style client installs are detected
   (SA-MP, FiveM, MTA) and surfaced as badges; SA-MP games get structured
@@ -39,11 +39,11 @@ telemetry.
 ## Install
 
 **AppImage** (works on any glibc-based distro) — grab the latest release from
-[Releases](https://github.com/ace2821/Zen-Launcher/releases), then:
+[Releases](https://github.com/ace2821/Zinc-Launcher/releases), then:
 
 ```bash
-chmod +x "Zen Launcher_*.AppImage"
-./"Zen Launcher_*.AppImage"
+chmod +x "Zinc Launcher_*.AppImage"
+./"Zinc Launcher_*.AppImage"
 ```
 
 **Flatpak** — the Flathub submission is in progress; this README gets the

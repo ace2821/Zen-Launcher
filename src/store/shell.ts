@@ -2,7 +2,15 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { GameSort } from "../lib/filter";
 
-export type ViewName = "library" | "import" | "settings" | "game" | "bigPicture" | "marketplace";
+export type ViewName =
+  | "library"
+  | "import"
+  | "settings"
+  | "game"
+  | "bigPicture"
+  | "bigPictureDashboard"
+  | "marketplace"
+  | "statystyki";
 export type LayoutMode = "grid" | "list";
 
 interface ShellState {
@@ -16,9 +24,12 @@ interface ShellState {
   goToImport(): void;
   goToSettings(): void;
   goToMarketplace(): void;
+  goToStatistics(): void;
   goToGame(gameId: number): void;
   /** Fullscreen couch view; `goToLibrary` (or Escape) is the way back. */
   goToBigPicture(): void;
+  /** PS5-style dashboard view; `goToLibrary` (or Escape) is the way back. */
+  goToBigPictureDashboard(): void;
   setSearch(value: string): void;
   setSort(sort: GameSort): void;
   setLayout(layout: LayoutMode): void;
@@ -42,13 +53,15 @@ export const useShellStore = create<ShellState>()(
       goToSettings: () => set({ view: "settings", selectedGameId: null }),
       goToGame: (gameId) => set({ view: "game", selectedGameId: gameId }),
       goToBigPicture: () => set({ view: "bigPicture" }),
-  goToMarketplace: () => set({ view: "marketplace", selectedGameId: null }),
+      goToBigPictureDashboard: () => set({ view: "bigPictureDashboard" }),
+      goToMarketplace: () => set({ view: "marketplace", selectedGameId: null }),
+      goToStatistics: () => set({ view: "statystyki", selectedGameId: null }),
       setSearch: (search) => set({ search }),
       setSort: (sort) => set({ sort }),
       setLayout: (layout) => set({ layout }),
     }),
     {
-      name: "zen-launcher.ui",
+      name: "zinc-launcher.ui",
       // Navigation and the transient search are deliberately not persisted.
       partialize: (state) => ({ sort: state.sort, layout: state.layout }),
     },

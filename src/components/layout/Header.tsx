@@ -27,7 +27,7 @@ export function Header() {
   const layout = useShellStore((state) => state.layout);
   const setLayout = useShellStore((state) => state.setLayout);
   const goToLibrary = useShellStore((state) => state.goToLibrary);
-  const goToBigPicture = useShellStore((state) => state.goToBigPicture);
+  const goToBigPictureDashboard = useShellStore((state) => state.goToBigPictureDashboard);
   const currentGame = useLibraryStore((state) => state.currentGame);
   const total = useLibraryStore((state) => state.games.length);
   const shown = useFilteredGames().length;
@@ -91,7 +91,7 @@ export function Header() {
               icon={Tv}
               label={t("bigPicture.enter")}
               iconSize={16}
-              onClick={goToBigPicture}
+              onClick={goToBigPictureDashboard}
             />
             <Segmented
               label={t("header.layoutGrid")}

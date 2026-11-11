@@ -1,0 +1,7 @@
+{
+  "name": "SampleMod",
+  "author": "Zinc",
+  "version": "1.0.0",
+  "description": "Fixture mod folder for NeoModLoader layout tests.",
+  "GUID": "ZINC_SAMPLE_MOD"
+}

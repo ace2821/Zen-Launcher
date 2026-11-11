@@ -3,7 +3,7 @@
  * Branding is an explicit post-V1 pass — this keeps the shell from looking
  * unbranded without pretending to be a final logo.
  */
-export function ZenMark({ className }: { className?: string }) {
+export function ZincMark({ className }: { className?: string }) {
   return (
     <svg
       width="24"

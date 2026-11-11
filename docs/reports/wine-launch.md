@@ -15,7 +15,7 @@ Zrobione i zweryfikowane lokalnie:
 - Uruchamianie gier `windows` przez systemowe `wine`:
   - `.exe` (i inne) startuje wprost: `wine <gra> <args>`,
   - `.bat` / `.cmd` przez `wine cmd /c <gra>`,
-  - per-growy prefix `~/.local/share/zen-launcher/prefixes/<gameId>`,
+  - per-growy prefix `~/.local/share/zinc-launcher/prefixes/<gameId>`,
   - domyślne `WINEDLLOVERRIDES=mscoree,mshtml=` (bez okien Mono/Gecko);
     `WINEPREFIX` / `WINEDLLOVERRIDES` nadpisywalne per gra przez `env`,
   - katalog prefixu tworzony przed spawnem — `wine` robi `chdir` do
@@ -60,8 +60,8 @@ Wynik komend (ostatni przebieg):
 ## Uruchamianie
 
 - Dev: `bun run tauri dev` → Play na dowolnej grze `windows`.
-- Prefixy: `~/.local/share/zen-launcher/prefixes/<id>`; ręczna weryfikacja
-  prefixu: `WINEPREFIX=~/.local/share/zen-launcher/prefixes/<id> wine cmd /c ver`.
+- Prefixy: `~/.local/share/zinc-launcher/prefixes/<id>`; ręczna weryfikacja
+  prefixu: `WINEPREFIX=~/.local/share/zinc-launcher/prefixes/<id> wine cmd /c ver`.
 
 ## Testy
 

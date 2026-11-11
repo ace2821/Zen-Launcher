@@ -6,6 +6,7 @@ import type {
   CandidatePatch,
   CandidateStatus,
   CoverCandidate,
+  CoverVariant,
   DetectConflictsResult,
   EventMap,
   EventName,
@@ -18,6 +19,8 @@ import type {
   MarketplaceList,
   ModInstallResult,
   ModsStatus,
+  PlaytimeStats,
+  PlaytimeTotal,
   ScanSummary,
   Session,
   Settings,
@@ -122,6 +125,14 @@ export function createTauriApi(): LauncherApi {
       return invoke<Session[]>("list_sessions", { gameId, limit: limit ?? null });
     },
 
+    getPlaytimeStats() {
+      return invoke<PlaytimeStats>("get_playtime_stats");
+    },
+
+    getPlaytime(gameId) {
+      return invoke<PlaytimeTotal>("get_playtime", { gameId });
+    },
+
     getSettings() {
       return invoke<Settings>("get_settings");
     },
@@ -134,8 +145,14 @@ export function createTauriApi(): LauncherApi {
       return invoke<CoverCandidate[]>("fetch_cover_candidates", { query });
     },
 
-    downloadCover(gameId, url) {
-      return invoke<Game>("download_cover", { gameId, url });
+    downloadCover(gameId, url, variant?: CoverVariant) {
+      return invoke<Game>("download_cover", {
+        gameId,
+        url,
+        // The core defaults a missing variant to "library", but sending it
+        // explicitly keeps old call sites unambiguous.
+        variant: variant ?? "library",
+      });
     },
 
     setCoverFromFile(gameId, sourcePath) {

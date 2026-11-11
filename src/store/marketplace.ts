@@ -6,7 +6,7 @@ import { toastError, toastInfo, toastSuccess } from "./toasts";
 import type { MarketplaceItem } from "../lib/types";
 
 /** id of the `<style>` element that holds the active theme's CSS. */
-const ACTIVE_THEME_STYLE_ID = "zen-active-theme";
+const ACTIVE_THEME_STYLE_ID = "zinc-active-theme";
 
 /** Injects a theme's CSS into `<head>`, replacing any previously active theme. */
 export function injectThemeCss(css: string): void {

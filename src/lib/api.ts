@@ -5,6 +5,7 @@ import type {
   CandidatePatch,
   CandidateStatus,
   CoverCandidate,
+  CoverVariant,
   DetectConflictsResult,
   EventMap,
   EventName,
@@ -17,6 +18,8 @@ import type {
   ModInstallResult,
   ModsStatus,
   LoaderUpdate,
+  PlaytimeStats,
+  PlaytimeTotal,
   ScanSummary,
   Session,
   Settings,
@@ -64,6 +67,13 @@ export interface LauncherApi {
   launchGame(id: number): Promise<LaunchInfo>;
   listSessions(gameId: number, limit?: number): Promise<Session[]>;
 
+  /* ------------------------------------------------------ playtime / stats */
+
+  /** Finished playtime per game, `total_sec` descending (Statistics tab). */
+  getPlaytimeStats(): Promise<PlaytimeStats>;
+  /** Finished playtime of one game; unknown ids are rejected with `NOT_FOUND`. */
+  getPlaytime(gameId: number): Promise<PlaytimeTotal>;
+
   getSettings(): Promise<Settings>;
   updateSettings(patch: SettingsPatch): Promise<Settings>;
 
@@ -71,8 +81,18 @@ export interface LauncherApi {
 
   /** Keyless Steam store search; an empty query returns no candidates. */
   fetchCoverCandidates(query: string): Promise<CoverCandidate[]>;
-  /** Downloads provider artwork, stores it and points `coverPath` at it. */
-  downloadCover(gameId: number, url: string): Promise<Game>;
+  /**
+   * Downloads provider artwork, stores it and points `coverPath` at it.
+   * `variant` selects the slot: `"library"` (default, poster) or
+   * `"bigPicture"` (wide hero art stored under a `hero-` prefix). Both share
+   * the same covers directory and never prune each other; there is no separate
+   * Big Picture DB field, so both end up in `coverPath`.
+   */
+  downloadCover(
+    gameId: number,
+    url: string,
+    variant?: CoverVariant,
+  ): Promise<Game>;
   /** Copies a local raster image in as the cover. The source file is not touched. */
   setCoverFromFile(gameId: number, sourcePath: string): Promise<Game>;
 
@@ -88,8 +108,8 @@ export interface LauncherApi {
   /** Extracts one mod archive into the mods folder and trashes the archive. */
   installModArchive(gameId: number, archivePath: string): Promise<ModInstallResult>;
   /**
-   * Compares the loader Zen installed for this game with the latest release.
-   * `null` when there is nothing Zen-installed to check (manual/detected loader).
+   * Compares the loader Zinc installed for this game with the latest release.
+   * `null` when there is nothing Zinc-installed to check (manual/detected loader).
    */
   checkLoaderUpdates(gameId: number): Promise<LoaderUpdate | null>;
 
@@ -160,7 +180,7 @@ export const isMock = api.kind === "mock";
 
 /**
  * Subscribes to `app://navigate`, which the core emits for deep links such as
- * `zenlauncher://marketplace`. The caller decides what each page name means.
+ * `zinclaucher://marketplace`. The caller decides what each page name means.
  */
 export function onNavigate(
   handler: (event: EventMap["app://navigate"]) => void,

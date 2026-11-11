@@ -6,12 +6,13 @@ import type { TranslationShape } from "./en";
  */
 export const pl: TranslationShape = {
   app: {
-    name: "Zen Launcher",
+    name: "Zinc Launcher",
     subtitle: "Lokalna biblioteka gier",
   },
 
   nav: {
     library: "Biblioteka",
+    statystyki: "Statystyki",
     sources: "Źródła i import",
     settings: "Ustawienia",
     pendingBadge: "Kandydaci do przejrzenia",
@@ -81,6 +82,17 @@ export const pl: TranslationShape = {
     rejected: "Odrzucony",
   },
 
+  statystyki: {
+    title: "Statystyki",
+    subtitle: "{{count}} rozegranych, {{total}} łącznie",
+    emptyTitle: "Brak gier",
+    emptyBody:
+      "Dodaj gry do biblioteki, aby zobaczyć statystyki czasu gry.",
+    noDataTitle: "Brak zarejestrowanego czasu",
+    noDataBody: "Zagraj w jakieś gry, aby zobaczyć swoje statystyki.",
+    totalPlaytime: "Łączny czas gry",
+  },
+
   library: {
     emptyTitle: "Biblioteka jest pusta",
     emptyBody:
@@ -124,7 +136,7 @@ export const pl: TranslationShape = {
   import: {
     title: "Źródła i import",
     description:
-      "Źródła to foldery, które Zen Launcher przeszukuje w poszukiwaniu gier. Nic nie trafia do biblioteki, dopóki tego nie zatwierdzisz.",
+      "Źródła to foldery, które Zinc Launcher przeszukuje w poszukiwaniu gier. Nic nie trafia do biblioteki, dopóki tego nie zatwierdzisz.",
     sourcesTitle: "Foldery źródłowe",
     sourcesEmptyTitle: "Brak folderu źródłowego",
     sourcesEmpty:
@@ -411,7 +423,7 @@ export const pl: TranslationShape = {
     fontSample: "Zażółć gęślą jaźń",
     previewSample:
       "Zażółć gęślą jaźń. The quick brown fox jumps over the lazy dog.",
-    previewMeta: "~/.local/share/zen-launcher/library.db",
+    previewMeta: "~/.local/share/zinc-launcher/library.db",
     previewButton: "Graj",
 
     libraryTitle: "Jak ma się otwierać biblioteka?",
@@ -472,7 +484,7 @@ export const pl: TranslationShape = {
     fileDialogTitle: "Wybierz obraz okładki",
     fileFilter: "Obrazy",
     fileNote:
-      "Obraz zostanie skopiowany do folderu Zen Launcher — wybrany plik zostaje tam, gdzie jest.",
+      "Obraz zostanie skopiowany do folderu Zinc Launcher — wybrany plik zostaje tam, gdzie jest.",
     fileFailed: "Nie udało się użyć tego obrazu",
     dialogTitle: "Okładka",
     searchLabel: "Szukaj w sklepie Steam",
@@ -490,6 +502,7 @@ export const pl: TranslationShape = {
     downloadFailed: "Nie udało się zapisać okładki",
     updated: "Okładka zaktualizowana",
     updatedBody: "„{{title}}” używa teraz wybranej grafiki.",
+    downloadForBigPicture: "Pobierz dla Big Picture",
   },
 
   mods: {
@@ -519,10 +532,10 @@ export const pl: TranslationShape = {
     installLoader: "Zainstaluj {{loader}}",
 
     manualLoader:
-      "Instaluje własnym instalatorem — pobierz ze strony oficjalnej, Zen wykryje go potem.",
+      "Instaluje własnym instalatorem — pobierz ze strony oficjalnej, Zinc wykryje go potem.",
     officialDownload: "Oficjalna strona",
     asiRootNote: "Pliki .asi lądują obok pliku wykonywalnego gry.",
-    externalMods: "Mody są zarządzane wewnątrz tModLoadera — Zen tylko je wykrywa.",
+    externalMods: "Mody są zarządzane wewnątrz tModLoadera — Zinc tylko je wykrywa.",
     externalDocs: "Dokumentacja tModLoadera",
 
     validationLabel: "Walidacja archiwów",
@@ -596,6 +609,10 @@ export const pl: TranslationShape = {
     exit: "Powrót do biblioteki",
     railLabel: "Gry",
     tileLabel: "Otwórz {{title}}",
+    sectionLibrary: "Twoja biblioteka",
+    sectionLibraryHint: "Przeglądaj zainstalowane gry",
+    sectionMarketplace: "Marketplace",
+    sectionMarketplaceHint: "Motywy i dodatki",
     emptyTitle: "Nie ma czego uruchomić",
     emptyBody:
       "Biblioteka jest pusta. Najpierw dodaj folder w Źródłach i imporcie i zatwierdź grę.",
@@ -618,6 +635,19 @@ export const pl: TranslationShape = {
     hintShoulderRight: "Następna zakładka",
     modsOpenFolder: "Otwórz folder modów",
     settings: "Ustawienia",
+    dashboard: "Panel główny",
+    tabGames: "Gry",
+    tabMedia: "Media",
+    searchPlaceholder: "Szukaj gier…",
+    profile: "Profil",
+    onlineFriends: "Znajomi online",
+    accessibility: "Dostępność",
+    trophies: "Trofea",
+    wishlist: "Lista życzeń",
+    store: "Sklep",
+    playGame: "Graj",
+    moreOptions: "Więcej opcji",
+    modsSection: "Mody dla gry: {{title}}",
   },
 
   marketplace: {

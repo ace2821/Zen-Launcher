@@ -24,16 +24,18 @@
 //! Absolute paths and `..` traversal are refused in both modes.
 
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
 
-const USER_AGENT: &str = concat!("ZenLauncher/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("ZincLauncher/", env!("CARGO_PKG_VERSION"));
 const MAX_LOADER_BYTES: usize = 256 * 1024 * 1024;
 const MAX_INSTALLED_ENTRIES: usize = 50;
+/// Hard cap for a single-file (`.dll`/`.asi`) mod install.
+pub const MAX_SINGLE_MOD_BYTES: u64 = 64 * 1024 * 1024;
 
 /// Catalog entry for an installable mod loader.
 #[derive(Debug, Clone)]
@@ -190,12 +192,12 @@ pub struct ModsStatus {
     pub suggested_loader: Option<&'static str>,
     pub loaders: Vec<LoaderInfo>,
     pub installed: Vec<String>,
-    /// Set when Zen installed the detected loader itself (see `loader.json`);
+    /// Set when Zinc installed the detected loader itself (see `loader.json`);
     /// `null` for manual/detected loaders.
     pub install_loader: Option<LoaderInstall>,
 }
 
-/// Record of a loader Zen downloaded, persisted in
+/// Record of a loader Zinc downloaded, persisted in
 /// `<dataDir>/games/<gameId>/loader.json`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -330,7 +332,16 @@ pub fn install_loader(
     let query = loader_release_query(spec.id)?;
     let asset = resolve_asset(&query)?;
     let bytes = download_bytes(&asset.url, MAX_LOADER_BYTES)?;
-    extract_loader_zip(game_root, &bytes)?;
+    // Some loaders ship a bare assembly (NeoModLoader) instead of an archive.
+    // Feeding those bytes to the zip reader used to fail with "loader archive
+    // is corrupt", so WorldBox never got its loader and every installed mod
+    // was silently ignored at startup. Drop-in DLLs go straight to the
+    // loader's own mods folder instead.
+    if query.suffix.eq_ignore_ascii_case(".dll") {
+        install_loader_dll(game_root, spec.id, &asset.name, &bytes)?;
+    } else {
+        extract_loader_zip(game_root, &bytes)?;
+    }
     ensure_loader_dirs(game_root, spec.id)?;
     if spec.id == "cleoredux" {
         ensure_asi_loader(game_root)?;
@@ -357,9 +368,7 @@ pub fn install_loader(
 /// yet) is always fine; CLEO Redux layers on top of the CLEO library; Frosty's
 /// ModData flow never touches other loaders' files.
 fn coinstall_ok(current: &str, next: &str) -> bool {
-    current == "none"
-        || next == "frosty"
-        || (next == "cleoredux" && current == "cleo")
+    current == "none" || next == "frosty" || (next == "cleoredux" && current == "cleo")
 }
 
 /// A loader with `markers` is only offered when the game root carries at
@@ -494,6 +503,8 @@ fn loader_release_query(loader_id: &str) -> AppResult<ReleaseQuery> {
 struct ResolvedAsset {
     url: String,
     tag: String,
+    /// Release asset file name (`NeoModLoader.dll`, `BepInEx_win_x64_*.zip`).
+    name: String,
 }
 
 /// Resolve `query` against the releases list: newest release whose asset
@@ -523,6 +534,7 @@ fn resolve_asset(query: &ReleaseQuery) -> AppResult<ResolvedAsset> {
                 return Ok(ResolvedAsset {
                     url: asset.browser_download_url.clone(),
                     tag: release.tag_name.clone(),
+                    name: asset.name.clone(),
                 });
             }
         }
@@ -591,7 +603,7 @@ fn write_loader_install(state_dir: &Path, install: &LoaderInstall) -> AppResult<
 }
 
 /// Compare the recorded loader against the latest matching GitHub release.
-/// `None` when Zen did not install a loader, the loader is manual, or the state
+/// `None` when Zinc did not install a loader, the loader is manual, or the state
 /// file is missing. Network failures surface as `IO` (the UI shows a retry).
 pub fn check_loader_updates(state_dir: &Path) -> AppResult<Option<LoaderUpdate>> {
     check_loader_updates_with(state_dir, resolve_asset)
@@ -637,7 +649,10 @@ fn ensure_asi_loader(game_root: &Path) -> AppResult<()> {
         32 * 1024 * 1024,
     )?;
     extract_loader_zip(game_root, &bytes)?;
-    tracing::info!("Ultimate ASI Loader installed for CLEO Redux into {}", game_root.display());
+    tracing::info!(
+        "Ultimate ASI Loader installed for CLEO Redux into {}",
+        game_root.display()
+    );
     Ok(())
 }
 
@@ -686,34 +701,104 @@ fn extract_loader_zip(game_root: &Path, bytes: &[u8]) -> AppResult<()> {
     Ok(())
 }
 
+/// WorldBox keeps its Unity data under a folder whose exact casing depends on
+/// the build/launcher (`worldbox_Data`, `WorldBox_Data`, …). Resolve it
+/// case-insensitively so detection works on case-sensitive filesystems.
+fn worldbox_data_dir(game_root: &Path) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(game_root).ok()?;
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
+        if name == "worldbox_data" && entry.path().is_dir() {
+            return Some(entry.path());
+        }
+    }
+    None
+}
+
+/// Find a directory in `root` by ASCII-case-insensitive name. Downloads and
+/// copies on Linux often produce a different casing (`StreamingAssets` vs
+/// `streamingassets`, `mods` vs `Mods`) than the Windows game expects.
+fn find_dir_ci(root: &Path, name: &str) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(root).ok()?;
+    entries.flatten().find_map(|entry| {
+        let entry_name = entry.file_name().to_string_lossy().into_owned();
+        (entry_name.eq_ignore_ascii_case(name) && entry.path().is_dir()).then(|| entry.path())
+    })
+}
+
+/// The folder NeoModLoader reads user mods from:
+/// `GAMEPATH/worldbox_Data/StreamingAssets/mods` (the same folder that holds
+/// `NeoModLoader.dll`). Resolve `worldbox_Data`, `StreamingAssets` and `mods`
+/// case-insensitively; fall back to the canonical spelling for a fresh copy.
+fn worldbox_mods_dir(game_root: &Path) -> PathBuf {
+    let data = worldbox_data_dir(game_root).unwrap_or_else(|| game_root.join("worldbox_Data"));
+    let streaming =
+        find_dir_ci(&data, "StreamingAssets").unwrap_or_else(|| data.join("StreamingAssets"));
+    find_dir_ci(&streaming, "mods").unwrap_or_else(|| streaming.join("mods"))
+}
+
+/// Legacy alternative: older Zinc builds wrote WorldBox mods to `GAMEPATH/Mods`.
+/// Only used when the StreamingAssets mods folder does not exist and this
+/// folder actually contains installed entries.
+fn worldbox_legacy_mods_dir(game_root: &Path) -> Option<PathBuf> {
+    let dir = find_dir_ci(game_root, "Mods")?;
+    (!top_level_entries(&dir).is_empty()).then_some(dir)
+}
+
+/// The folder a loader actually reads `.dll`/`.asi` mods from. Mirrors
+/// [`detect_mods_dir`] for loader ids (the install side).
+fn loader_mods_path(game_root: &Path, loader_id: &str) -> Option<PathBuf> {
+    Some(match loader_id {
+        "bepinex5" | "bepinex6mono" | "bepinex6il2cpp" => game_root.join("BepInEx").join("plugins"),
+        "melonloader" => game_root.join("MelonLoader").join("Mods"),
+        // NeoModLoader and user mods share `StreamingAssets/mods`; WorldBox's
+        // built-in loader picks both up at boot.
+        "neomodloader" => worldbox_mods_dir(game_root),
+        "mscloader" => game_root.join("Mod"),
+        "cleo5" | "cleo4" | "cleoredux" => game_root.join("CLEO"),
+        "frosty" => game_root.join("ModData"),
+        _ => return None,
+    })
+}
+
+/// Install a drop-in loader assembly (NeoModLoader) into the loader's mods
+/// folder under a safe file name. Loader assets come from GitHub releases, but
+/// the name is still validated so an asset cannot escape the target folder.
+fn install_loader_dll(
+    game_root: &Path,
+    loader_id: &str,
+    asset_name: &str,
+    bytes: &[u8],
+) -> AppResult<()> {
+    let dir = loader_mods_path(game_root, loader_id).ok_or_else(|| {
+        AppError::validation(format!("{loader_id} has no drop-in assembly target"))
+    })?;
+    let fallback = format!("{loader_id}.dll");
+    let file_name = Path::new(asset_name)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .filter(|name| !name.is_empty())
+        .unwrap_or(fallback);
+    if !file_name.to_ascii_lowercase().ends_with(".dll") {
+        return Err(AppError::validation("loader assembly must be a .dll file"));
+    }
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(dir.join(&file_name), bytes)?;
+    tracing::info!("{file_name} installed into {}", dir.display());
+    Ok(())
+}
+
 /// Make sure the drop target exists right after a fresh loader install, so
 /// the first archive drop cannot fail with "no mods folder".
 fn ensure_loader_dirs(game_root: &Path, loader_id: &str) -> AppResult<()> {
-    match loader_id {
-        "bepinex5" | "bepinex6mono" | "bepinex6il2cpp" => {
-            std::fs::create_dir_all(game_root.join("BepInEx").join("plugins"))?;
+    match loader_mods_path(game_root, loader_id) {
+        Some(dir) => std::fs::create_dir_all(dir)?,
+        // NeoModLoader can only be installed when the WorldBox data folder
+        // exists; fall back to the canonical name for a fresh game copy.
+        None if loader_id == "neomodloader" => {
+            std::fs::create_dir_all(worldbox_mods_dir(game_root))?;
         }
-        "melonloader" => {
-            std::fs::create_dir_all(game_root.join("MelonLoader").join("Mods"))?;
-        }
-        "neomodloader" => {
-            std::fs::create_dir_all(
-                game_root
-                    .join("worldbox_Data")
-                    .join("StreamingAssets")
-                    .join("mods"),
-            )?;
-        }
-        "mscloader" => {
-            std::fs::create_dir_all(game_root.join("Mod"))?;
-        }
-        "cleo5" | "cleo4" | "cleoredux" => {
-            std::fs::create_dir_all(game_root.join("CLEO"))?;
-        }
-        "frosty" => {
-            std::fs::create_dir_all(game_root.join("ModData"))?;
-        }
-        _ => {}
+        None => {}
     }
     Ok(())
 }
@@ -764,7 +849,16 @@ pub fn install_archive(
     let staging = staging_root.join(format!("mod-install-{stamp}"));
     std::fs::create_dir_all(&staging)?;
 
-    let outcome = extract_and_move(archive, &staging, &mods_dir, lenient);
+    // NeoModLoader identifies a mod by the folder that holds `mod.json`.
+    // Archives that ship `mod.json` at their root must be wrapped into a
+    // per-mod folder, otherwise every such archive would merge into `Mods/`
+    // and NML would treat the whole folder as one mod.
+    let wrap_into = (pre.loader == "neomodloader")
+        .then(|| archive.file_stem())
+        .flatten()
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .filter(|stem| !stem.is_empty());
+    let outcome = extract_and_move(archive, &staging, &mods_dir, lenient, wrap_into.as_deref());
     let _ = std::fs::remove_dir_all(&staging);
     let installed = outcome?;
 
@@ -783,18 +877,120 @@ pub fn install_archive(
     })
 }
 
+/// Install a single-file mod (`.dll`/`.asi`) into the mods folder the detected
+/// loader actually reads. The source file is *copied* (never moved/trashed):
+/// a single-file drop usually points at a download the user still wants.
+///
+/// Validation: regular file, not a symlink, `.dll`/`.asi`, at most
+/// [`MAX_SINGLE_MOD_BYTES`], and a loader that can actually inject it.
+pub fn install_file(game_root: &Path, source: &Path) -> AppResult<ModInstallResult> {
+    let metadata = std::fs::symlink_metadata(source)
+        .map_err(|err| AppError::io(format!("could not read mod file: {err}")))?;
+    if metadata.file_type().is_symlink() {
+        return Err(AppError::validation(
+            "mod file is a symlink — refusing to install",
+        ));
+    }
+    if !metadata.is_file() {
+        return Err(AppError::validation("mod path is not a regular file"));
+    }
+    let file_name = source
+        .file_name()
+        .ok_or_else(|| AppError::validation("mod file has no name"))?
+        .to_os_string();
+    let lower = file_name.to_string_lossy().to_ascii_lowercase();
+    if !(lower.ends_with(".dll") || lower.ends_with(".asi")) {
+        return Err(AppError::validation(
+            "single-file mods must be .dll or .asi",
+        ));
+    }
+    if metadata.len() > MAX_SINGLE_MOD_BYTES {
+        return Err(AppError::validation(format!(
+            "mod file is larger than {} MB",
+            MAX_SINGLE_MOD_BYTES / (1024 * 1024)
+        )));
+    }
+
+    let current = status(game_root);
+    require_loader_for_single_file(&current)?;
+    let Some(mods_dir) = current.mods_dir.clone() else {
+        return Err(AppError::validation(
+            "single-file mods cannot be installed for this game — its mods are managed elsewhere",
+        ));
+    };
+
+    let target = PathBuf::from(&mods_dir).join(&file_name);
+    std::fs::create_dir_all(&mods_dir)?;
+    std::fs::copy(source, &target)
+        .map_err(|err| AppError::io(format!("could not copy mod file: {err}")))?;
+
+    Ok(ModInstallResult {
+        installed: vec![file_name.to_string_lossy().into_owned()],
+        mods_dir,
+        trashed: false,
+    })
+}
+
+/// A `.dll`/`.asi` mod is only injected when its loader is present. GTA V/IV
+/// need Script Hook, GTA classics need CLEO/ASI Loader, Unity games a mod
+/// loader. `unknown` engines with a generic `Mods/` folder are left as-is.
+fn require_loader_for_single_file(current: &ModsStatus) -> AppResult<()> {
+    if current.loader != "none" {
+        return Ok(());
+    }
+    let hint = match current.engine {
+        "gta-v" => "Script Hook V",
+        "gta-iv" => "Script Hook IV",
+        "gta-classic" => "CLEO or an ASI Loader",
+        "unity-mono" | "unity-il2cpp" => "a mod loader (BepInEx, MelonLoader, …)",
+        _ => return Ok(()),
+    };
+    Err(AppError::validation(format!(
+        "install {hint} first — .dll/.asi mods cannot load without it"
+    )))
+}
+
+/// Remove one installed single-file mod. The file goes to the system trash
+/// (never `rm`) and only a bare file name inside the resolved mods folder is
+/// accepted, so `..`/absolute paths cannot escape.
+pub fn uninstall_file(game_root: &Path, name: &str) -> AppResult<()> {
+    let candidate = Path::new(name);
+    let mut components = candidate.components();
+    let single_component =
+        matches!(components.next(), Some(Component::Normal(_))) && components.next().is_none();
+    if candidate.is_absolute() || !single_component {
+        return Err(AppError::validation("mod name must be a single file name"));
+    }
+
+    let current = status(game_root);
+    let Some(mods_dir) = current.mods_dir.clone() else {
+        return Err(AppError::validation("no mods folder found"));
+    };
+    let target = PathBuf::from(&mods_dir).join(name);
+    let metadata = std::fs::symlink_metadata(&target)
+        .map_err(|err| AppError::validation(format!("mod not found: {name} ({err})")))?;
+    if metadata.file_type().is_symlink() {
+        return Err(AppError::validation(
+            "mod file is a symlink — refusing to remove",
+        ));
+    }
+    trash::delete(&target)
+        .map_err(|err| AppError::io(format!("could not move mod to the trash: {err}")))?;
+    Ok(())
+}
+
 fn detect_loader(game_root: &Path) -> &'static str {
     if game_root.join("BepInEx").is_dir() {
         "bepinex"
     } else if game_root.join("MelonLoader").is_dir() {
         "melonloader"
-    } else if game_root
-        .join("worldbox_Data")
-        .join("StreamingAssets")
-        .join("mods")
-        .join("NeoModLoader.dll")
-        .is_file()
-    {
+    } else if {
+        let mods = worldbox_mods_dir(game_root);
+        // NML may be dropped in directly or as a `NML/` sub-folder (the
+        // Steam Workshop layout).
+        has_entry_ci(&mods, "NeoModLoader.dll")
+            || has_entry_ci(&mods.join("NML"), "NeoModLoader.dll")
+    } {
         "neomodloader"
     } else if has_entry_ci(game_root, "MSCLoader.dll") {
         "mscloader"
@@ -806,7 +1002,8 @@ fn detect_loader(game_root: &Path) -> &'static str {
         "cleo"
     } else if has_entry_ci(game_root, "ScriptHookV.dll") {
         "scripthook-v"
-    } else if has_entry_ci(game_root, "ScriptHookIV.asi") || has_entry_ci(game_root, "ScriptHookIV.dll")
+    } else if has_entry_ci(game_root, "ScriptHookIV.asi")
+        || has_entry_ci(game_root, "ScriptHookIV.dll")
     {
         "scripthook-iv"
     } else if game_root.join("ModData").is_dir() {
@@ -835,41 +1032,43 @@ fn has_entry_ci(game_root: &Path, name: &str) -> bool {
 }
 
 fn detect_mods_dir(game_root: &Path, loader: &str) -> (Option<PathBuf>, &'static str) {
-    if loader == "bepinex" {
-        return (
+    match loader {
+        "bepinex" => (
             Some(game_root.join("BepInEx").join("plugins")),
             "bepinex-plugins",
-        );
-    }
-    match loader {
-        // NeoModLoader's mods live inside the game's asset stream folder.
+        ),
+        // MelonLoader always reads `MelonLoader/Mods`; return the canonical
+        // path even before the folder exists (a fresh loader install creates
+        // it, and `install_*` creates parents on demand).
+        "melonloader" => (Some(game_root.join("MelonLoader").join("Mods")), "mods"),
+        // NeoModLoader and user mods live in the game's asset stream folder
+        // (`worldbox_Data/StreamingAssets/mods`). Older Zinc builds wrote to
+        // `GAMEPATH/Mods`; only fall back there when the streaming folder is
+        // absent and that legacy folder actually contains entries.
         "neomodloader" => {
-            let dir = game_root
-                .join("worldbox_Data")
-                .join("StreamingAssets")
-                .join("mods");
-            (dir.exists().then_some(dir), "mods")
+            let primary = worldbox_mods_dir(game_root);
+            let dir = if primary.is_dir() {
+                primary
+            } else {
+                worldbox_legacy_mods_dir(game_root).unwrap_or(primary)
+            };
+            (Some(dir), "mods")
         }
         // tModLoader keeps mods in its own user-profile folder, outside the
         // game root; those are managed from inside the game.
         "tmodloader" => (None, "external"),
+        // MSC Mod Loader reads `Mod/`; older layouts use `Mods/`. Prefer an
+        // existing folder, otherwise report the canonical drop target.
         "mscloader" => {
-            for candidate in ["Mod", "Mods"] {
-                let dir = game_root.join(candidate);
-                if dir.is_dir() {
-                    return (Some(dir), "mods");
-                }
-            }
-            (None, "mods")
+            let dir = ["Mod", "Mods"]
+                .iter()
+                .map(|candidate| game_root.join(candidate))
+                .find(|dir| dir.is_dir())
+                .unwrap_or_else(|| game_root.join("Mod"));
+            (Some(dir), "mods")
         }
-        "cleo" | "cleoredux" => {
-            let dir = game_root.join("CLEO");
-            (dir.is_dir().then_some(dir), "mods")
-        }
-        "frosty-moddata" => {
-            let dir = game_root.join("ModData");
-            (dir.is_dir().then_some(dir), "mods")
-        }
+        "cleo" | "cleoredux" => (Some(game_root.join("CLEO")), "mods"),
+        "frosty-moddata" => (Some(game_root.join("ModData")), "mods"),
         // ASI scripts drop next to the DLL (GTA classic style layout).
         "scripthook-v" | "scripthook-iv" => (Some(game_root.to_path_buf()), "asi-root"),
         _ => {
@@ -907,9 +1106,17 @@ fn detect_engine(game_root: &Path) -> &'static str {
     } else if has_entry_ci(game_root, "Terraria.exe") {
         "terraria"
     } else if game_root.join("ModData").is_dir()
-        || ["fc24.exe", "fc25.exe", "fc26.exe", "fifa20.exe", "fifa21.exe", "fifa22.exe", "fifa23.exe"]
-            .iter()
-            .any(|exe| has_entry_ci(game_root, exe))
+        || [
+            "fc24.exe",
+            "fc25.exe",
+            "fc26.exe",
+            "fifa20.exe",
+            "fifa21.exe",
+            "fifa22.exe",
+            "fifa23.exe",
+        ]
+        .iter()
+        .any(|exe| has_entry_ci(game_root, exe))
     {
         "frostbite"
     } else {
@@ -947,6 +1154,7 @@ fn extract_and_move(
     staging: &Path,
     mods_dir: &Path,
     lenient: bool,
+    wrap_into: Option<&str>,
 ) -> AppResult<Vec<String>> {
     let paths = archive_entry_paths(archive)?;
     if !entry_paths_are_safe(&paths) {
@@ -962,7 +1170,7 @@ fn extract_and_move(
     ])?;
 
     let mut installed = Vec::new();
-    copy_staged_tree(staging, mods_dir, lenient, &mut installed)?;
+    copy_staged_tree(staging, mods_dir, lenient, wrap_into, &mut installed)?;
     installed.sort();
     Ok(installed)
 }
@@ -1022,12 +1230,25 @@ fn run_7z(args: &[String]) -> AppResult<()> {
 /// Move the extracted tree into the mods dir: regular files and dirs only.
 /// Symlinks: strict mode refuses with `VALIDATION`; lenient mode skips them
 /// with a warning. `__MACOSX` and dotfile noise is always skipped.
+///
+/// `wrap_into` (NeoModLoader) wraps a staged tree whose root already carries
+/// `mod.json` into `mods_dir/<wrap_into>/`, so the mod gets its own folder/
+/// declaration instead of merging loose files into the mods root.
 fn copy_staged_tree(
     staging: &Path,
     mods_dir: &Path,
     lenient: bool,
+    wrap_into: Option<&str>,
     installed: &mut Vec<String>,
 ) -> AppResult<()> {
+    let target_root = match wrap_into {
+        Some(name) if has_entry_ci(staging, "mod.json") => {
+            installed.push(name.to_string());
+            mods_dir.join(name)
+        }
+        _ => mods_dir.to_path_buf(),
+    };
+
     for entry in std::fs::read_dir(staging)?.flatten() {
         let file_name = entry.file_name();
         let name = file_name.to_string_lossy();
@@ -1044,14 +1265,17 @@ fn copy_staged_tree(
                 "archive contains symlinks — refusing (strict mode)",
             ));
         }
-        let target = mods_dir.join(&*file_name);
+        let target = target_root.join(&*file_name);
         if source.is_dir() {
             copy_dir_recursive(&source, &target, lenient)?;
         } else {
-            std::fs::create_dir_all(mods_dir)?;
+            std::fs::create_dir_all(&target_root)?;
             std::fs::copy(&source, &target)?;
         }
-        installed.push(name.into_owned());
+        // A wrapped tree is reported once as its folder, not file-by-file.
+        if wrap_into.is_none() || target_root.as_path() == mods_dir {
+            installed.push(name.into_owned());
+        }
     }
     Ok(())
 }
@@ -1159,13 +1383,53 @@ mod tests {
         std::fs::write(staging.join("__MACOSX/junk"), b"z").unwrap();
 
         let mut installed = Vec::new();
-        copy_staged_tree(&staging, &mods, true, &mut installed).unwrap();
+        copy_staged_tree(&staging, &mods, true, None, &mut installed).unwrap();
         installed.sort();
 
         assert_eq!(installed, vec!["MyMod", "loose.txt"]);
         assert!(mods.join("MyMod/sub/file.dll").is_file());
         assert!(mods.join("loose.txt").is_file());
         assert!(!mods.join("__MACOSX").exists());
+    }
+
+    #[test]
+    fn worldbox_loose_mod_archive_is_wrapped_into_a_per_mod_folder() {
+        let dir = tempdir().unwrap();
+        let staging = dir.path().join("staging");
+        let mods = dir.path().join("Mods");
+        std::fs::create_dir_all(&staging).unwrap();
+
+        // A mod archive that ships mod.json at its root (no enclosing folder).
+        std::fs::write(staging.join("mod.json"), b"{\"name\":\"Sample\"}").unwrap();
+        std::fs::write(staging.join("Sample.dll"), b"MZ").unwrap();
+        std::fs::create_dir_all(staging.join("assets")).unwrap();
+        std::fs::write(staging.join("assets/icon.png"), b"PNG").unwrap();
+
+        let mut installed = Vec::new();
+        copy_staged_tree(
+            &staging,
+            &mods,
+            true,
+            Some("SampleMod"),
+            &mut installed,
+        )
+        .unwrap();
+
+        assert_eq!(installed, vec!["SampleMod"]);
+        assert!(mods.join("SampleMod/mod.json").is_file());
+        assert!(mods.join("SampleMod/Sample.dll").is_file());
+        assert!(mods.join("SampleMod/assets/icon.png").is_file());
+        assert!(!mods.join("mod.json").exists());
+
+        // An archive that already has its own folder is not double-wrapped.
+        let staging2 = dir.path().join("staging2");
+        std::fs::create_dir_all(staging2.join("AlreadyWrapped")).unwrap();
+        std::fs::write(staging2.join("AlreadyWrapped/mod.json"), b"{}").unwrap();
+        let mut installed = Vec::new();
+        copy_staged_tree(&staging2, &mods, true, Some("Other"), &mut installed).unwrap();
+        assert_eq!(installed, vec!["AlreadyWrapped"]);
+        assert!(mods.join("AlreadyWrapped/mod.json").is_file());
+        assert!(!mods.join("Other").exists());
     }
 
     #[test]
@@ -1180,13 +1444,13 @@ mod tests {
         // Strict mode refuses outright.
         let mods = dir.path().join("ModsStrict");
         let mut installed = Vec::new();
-        assert!(copy_staged_tree(&staging, &mods, false, &mut installed).is_err());
+        assert!(copy_staged_tree(&staging, &mods, false, None, &mut installed).is_err());
         assert!(!mods.exists());
 
         // Lenient mode skips the link and keeps the real file.
         let mods = dir.path().join("ModsLenient");
         let mut installed = Vec::new();
-        copy_staged_tree(&staging, &mods, true, &mut installed).unwrap();
+        copy_staged_tree(&staging, &mods, true, None, &mut installed).unwrap();
         assert!(mods.join("real.dll").is_file());
         assert!(!mods.join("link.dll").exists());
     }
@@ -1287,13 +1551,21 @@ mod tests {
 
         // NeoModLoader inside the WorldBox asset stream.
         let wb = game_dir(&dir, "wb");
-        let mods = wb.join("worldbox_Data").join("StreamingAssets").join("mods");
+        let mods = wb
+            .join("worldbox_Data")
+            .join("StreamingAssets")
+            .join("mods");
         std::fs::create_dir_all(&mods).unwrap();
         std::fs::write(mods.join("NeoModLoader.dll"), b"Q1BAAQ==").unwrap();
         let found = status(&wb);
         assert_eq!(found.loader, "neomodloader");
         let mods_path = found.mods_dir.unwrap();
-        assert!(mods_path.contains("worldbox_Data/StreamingAssets/mods"));
+        assert!(
+            mods_path
+                .replace('\\', "/")
+                .ends_with("worldbox_Data/StreamingAssets/mods"),
+            "user mods live in StreamingAssets/mods: {mods_path}"
+        );
 
         // MSC Mod Loader.
         let msc = game_dir(&dir, "msc");
@@ -1381,6 +1653,7 @@ mod tests {
             Ok(ResolvedAsset {
                 url: "https://example.invalid/SA.CLEO-v1.2.3+Ultimate_ASI_Loader.zip".into(),
                 tag: "SA.CLEO-v1.2.3+Ultimate_ASI_Loader.zip".into(),
+                name: "SA.CLEO-v1.2.3+Ultimate_ASI_Loader.zip".into(),
             })
         })
         .unwrap()
@@ -1399,6 +1672,7 @@ mod tests {
             Ok(ResolvedAsset {
                 url: "https://example.invalid/x.zip".into(),
                 tag: "v1.0.0".into(),
+                name: "x.zip".into(),
             })
         })
         .unwrap()
@@ -1415,16 +1689,316 @@ mod tests {
             },
         )
         .unwrap();
-        let manual = check_loader_updates_with(&state, |_| panic!("manual loaders skip the lookup"))
-            .unwrap();
+        let manual =
+            check_loader_updates_with(&state, |_| panic!("manual loaders skip the lookup"))
+                .unwrap();
         assert_eq!(manual, None);
+    }
+
+    fn layout_fixture(name: &str) -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("mods_layouts")
+            .join(name)
+    }
+
+    #[test]
+    fn mods_dir_resolution_matches_each_loader_layout() {
+        // Fixtures mirror the folder layouts the loaders actually read.
+        let cases: [(&str, &str, &str, &str); 6] = [
+            (
+                "bepinex_game",
+                "bepinex",
+                "BepInEx/plugins",
+                "bepinex-plugins",
+            ),
+            (
+                "melonloader_game",
+                "melonloader",
+                "MelonLoader/Mods",
+                "mods",
+            ),
+            (
+                "worldbox_game",
+                "neomodloader",
+                "worldbox_Data/StreamingAssets/mods",
+                "mods",
+            ),
+            ("msc_game", "mscloader", "Mod", "mods"),
+            ("cleo_game", "cleo", "CLEO", "mods"),
+            ("frosty_game", "frosty-moddata", "ModData", "mods"),
+        ];
+        for (fixture, loader, suffix, kind) in cases {
+            let root = layout_fixture(fixture);
+            let found = status(&root);
+            assert_eq!(found.loader, loader, "{fixture}");
+            assert_eq!(found.mods_dir_kind, kind, "{fixture}");
+            let mods_dir = found.mods_dir.expect(fixture);
+            assert!(
+                mods_dir.replace('\\', "/").ends_with(suffix),
+                "{fixture}: {mods_dir} should end with {suffix}"
+            );
+        }
+
+        // ASI scripts drop beside the executable; tModLoader is external.
+        let hooks = status(&layout_fixture("scripthookv_game"));
+        assert_eq!(hooks.loader, "scripthook-v");
+        assert_eq!(hooks.mods_dir_kind, "asi-root");
+        assert_eq!(
+            std::fs::canonicalize(hooks.mods_dir.unwrap()).ok(),
+            std::fs::canonicalize(layout_fixture("scripthookv_game")).ok()
+        );
+
+        let tml = status(&layout_fixture("tmodloader_game"));
+        assert_eq!(tml.loader, "tmodloader");
+        assert_eq!(tml.mods_dir, None);
+        assert_eq!(tml.mods_dir_kind, "external");
+    }
+
+    #[test]
+    fn loader_mods_paths_cover_each_loader_family() {
+        let dir = tempdir().unwrap();
+        let game = game_dir(&dir, "loader-paths");
+        let cases = [
+            ("bepinex5", "BepInEx/plugins"),
+            ("bepinex6mono", "BepInEx/plugins"),
+            ("melonloader", "MelonLoader/Mods"),
+            ("mscloader", "Mod"),
+            ("cleo5", "CLEO"),
+            ("frosty", "ModData"),
+        ];
+        for (loader, suffix) in cases {
+            ensure_loader_dirs(&game, loader).unwrap();
+            let path = loader_mods_path(&game, loader).expect(loader);
+            assert!(path.is_dir(), "{loader} target must exist");
+            assert!(
+                path.to_string_lossy().replace('\\', "/").ends_with(suffix),
+                "{loader}: {}",
+                path.display()
+            );
+        }
+    }
+
+    #[test]
+    fn worldbox_data_folder_is_matched_case_insensitively() {
+        let dir = tempdir().unwrap();
+        let game = game_dir(&dir, "wb");
+        let mods = game
+            .join("WorldBox_Data")
+            .join("StreamingAssets")
+            .join("mods");
+        std::fs::create_dir_all(&mods).unwrap();
+        std::fs::write(mods.join("neomodLoader.DLL"), b"MZ").unwrap();
+
+        let found = status(&game);
+        assert_eq!(found.loader, "neomodloader");
+        let mods_dir = found.mods_dir.expect("mods dir");
+        assert!(
+            mods_dir
+                .replace('\\', "/")
+                .ends_with("WorldBox_Data/StreamingAssets/mods"),
+            "NML reads StreamingAssets/mods: {mods_dir}"
+        );
+    }
+
+    #[test]
+    fn worldbox_mods_folder_is_resolved_case_insensitively() {
+        let dir = tempdir().unwrap();
+        let game = game_dir(&dir, "wb");
+        let nml = game
+            .join("worldbox_data")
+            .join("streamingassets")
+            .join("MODS");
+        std::fs::create_dir_all(&nml).unwrap();
+        std::fs::write(nml.join("NeoModLoader.dll"), b"MZ").unwrap();
+        std::fs::create_dir_all(nml.join("SampleMod")).unwrap();
+
+        let found = status(&game);
+        assert_eq!(found.loader, "neomodloader");
+        let mods_dir = PathBuf::from(found.mods_dir.expect("mods dir"));
+        assert_eq!(
+            std::fs::canonicalize(&mods_dir).ok(),
+            std::fs::canonicalize(&nml).ok()
+        );
+        assert!(!game.join("Mods").exists(), "must not create a duplicate folder");
+    }
+
+    #[test]
+    fn legacy_root_mods_folder_is_only_a_fallback() {
+        let dir = tempdir().unwrap();
+        let game = game_dir(&dir, "wb");
+        std::fs::create_dir_all(game.join("Mods/LegacyMod")).unwrap();
+        std::fs::write(game.join("Mods/LegacyMod/mod.json"), b"{}").unwrap();
+
+        // Primary folder exists (even empty): StreamingAssets/mods wins.
+        std::fs::create_dir_all(game.join("worldbox_Data").join("StreamingAssets").join("mods"))
+            .unwrap();
+        let (primary, _) = detect_mods_dir(&game, "neomodloader");
+        assert!(
+            primary
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/")
+                .ends_with("worldbox_Data/StreamingAssets/mods")
+        );
+
+        // Primary folder absent: a populated legacy `Mods/` is used.
+        std::fs::remove_dir_all(game.join("worldbox_Data")).unwrap();
+        let (fallback, _) = detect_mods_dir(&game, "neomodloader");
+        assert!(
+            fallback
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/")
+                .ends_with("/Mods")
+        );
+    }
+
+    #[test]
+    fn bare_dll_loader_asset_lands_in_the_worldbox_mods_folder() {
+        let dir = tempdir().unwrap();
+        let game = game_dir(&dir, "wb");
+        std::fs::create_dir_all(game.join("worldbox_Data").join("StreamingAssets")).unwrap();
+
+        // NeoModLoader ships as a bare .dll; it must land in StreamingAssets/mods
+        // so WorldBox loads it (and the installed mods) at startup.
+        install_loader_dll(&game, "neomodloader", "NeoModLoader.dll", b"MZ").unwrap();
+        assert!(
+            game.join("worldbox_Data/StreamingAssets/mods/NeoModLoader.dll")
+                .is_file()
+        );
+
+        let found = status(&game);
+        assert_eq!(found.loader, "neomodloader");
+        assert_eq!(found.mods_dir_kind, "mods");
+        let mods_dir = PathBuf::from(found.mods_dir.expect("mods dir"));
+        assert!(
+            mods_dir
+                .to_string_lossy()
+                .replace('\\', "/")
+                .ends_with("worldbox_Data/StreamingAssets/mods"),
+            "user mods folder: {}",
+            mods_dir.display()
+        );
+        // `NeoModLoader.dll` sits in the same folder and is listed with the
+        // installed entries (the UI shows the loader there too).
+        assert!(found.installed.contains(&"NeoModLoader.dll".to_string()));
+
+        // Asset names cannot escape the target folder.
+        install_loader_dll(&game, "neomodloader", "../../evil.dll", b"MZ").unwrap();
+        assert!(
+            game.join("worldbox_Data/StreamingAssets/mods/evil.dll")
+                .is_file()
+        );
+    }
+
+    fn single_file_game(dir: &tempfile::TempDir, name: &str) -> PathBuf {
+        let game = dir.path().join(name);
+        std::fs::create_dir_all(&game).unwrap();
+        game
+    }
+
+    #[test]
+    fn single_dll_install_lands_in_the_loader_mods_dir_and_is_detectable() {
+        let dir = tempdir().unwrap();
+        let game = single_file_game(&dir, "unity");
+        std::fs::create_dir_all(game.join("BepInEx").join("plugins")).unwrap();
+        std::fs::create_dir_all(game.join("Foo_Data").join("Managed")).unwrap();
+        let source = dir.path().join("CoolPlugin.dll");
+        std::fs::write(&source, b"MZ").unwrap();
+
+        let result = install_file(&game, &source).unwrap();
+        assert_eq!(result.installed, vec!["CoolPlugin.dll".to_string()]);
+        assert!(game.join("BepInEx/plugins/CoolPlugin.dll").is_file());
+        assert!(
+            status(&game)
+                .installed
+                .contains(&"CoolPlugin.dll".to_string()),
+            "installed list must surface the new plugin"
+        );
+        // The source file is copied, not moved.
+        assert!(source.is_file());
+    }
+
+    #[test]
+    fn worldbox_single_dll_lands_in_streaming_assets_mods() {
+        let dir = tempdir().unwrap();
+        let game = single_file_game(&dir, "wb");
+        let nml = game
+            .join("worldbox_Data")
+            .join("StreamingAssets")
+            .join("mods");
+        std::fs::create_dir_all(&nml).unwrap();
+        std::fs::write(nml.join("NeoModLoader.dll"), b"MZ").unwrap();
+        std::fs::create_dir_all(game.join("worldbox_Data").join("Managed")).unwrap();
+
+        let source = dir.path().join("SampleMod.dll");
+        std::fs::write(&source, b"MZ").unwrap();
+
+        let result = install_file(&game, &source).unwrap();
+        assert_eq!(result.installed, vec!["SampleMod.dll".to_string()]);
+        assert!(nml.join("SampleMod.dll").is_file());
+        assert!(!game.join("Mods").exists());
+    }
+
+    #[test]
+    fn single_file_install_requires_its_loader() {
+        let dir = tempdir().unwrap();
+
+        // GTA V without Script Hook V → clear validation error.
+        let gta = single_file_game(&dir, "gta-v");
+        std::fs::write(gta.join("GTA5.exe"), b"MZ").unwrap();
+        let asi = dir.path().join("Sample.asi");
+        std::fs::write(&asi, b"x").unwrap();
+        let err = install_file(&gta, &asi).unwrap_err();
+        assert!(err.message.contains("Script Hook V"), "{}", err.message);
+
+        // With the hook present the .asi lands beside the executable.
+        std::fs::write(gta.join("ScriptHookV.dll"), b"MZ").unwrap();
+        let result = install_file(&gta, &asi).unwrap();
+        assert_eq!(result.installed, vec!["Sample.asi".to_string()]);
+        assert!(gta.join("Sample.asi").is_file());
+    }
+
+    #[test]
+    fn single_file_install_validates_extension_and_symlinks() {
+        let dir = tempdir().unwrap();
+        let game = single_file_game(&dir, "unity");
+        std::fs::create_dir_all(game.join("BepInEx").join("plugins")).unwrap();
+        std::fs::create_dir_all(game.join("Foo_Data").join("Managed")).unwrap();
+
+        let exe = dir.path().join("evil.exe");
+        std::fs::write(&exe, b"MZ").unwrap();
+        let err = install_file(&game, &exe).unwrap_err();
+        assert!(err.message.contains(".dll or .asi"), "{}", err.message);
+
+        #[cfg(unix)]
+        {
+            let real = dir.path().join("Real.dll");
+            std::fs::write(&real, b"MZ").unwrap();
+            let link = dir.path().join("Link.dll");
+            std::os::unix::fs::symlink(&real, &link).unwrap();
+            let err = install_file(&game, &link).unwrap_err();
+            assert!(err.message.contains("symlink"), "{}", err.message);
+        }
+
+        // Uninstall refuses traversal names before touching anything.
+        let err = uninstall_file(&game, "../plugins/CoolPlugin.dll").unwrap_err();
+        assert_eq!(err.code, crate::error::VALIDATION);
     }
 
     #[test]
     fn version_extraction_handles_release_tags_and_asset_names() {
         assert_eq!(extract_version("v1.2.3"), Some("1.2.3".into()));
-        assert_eq!(extract_version("SA.CLEO-v1.2.3+Ultimate_ASI_Loader.zip"), Some("1.2.3".into()));
-        assert_eq!(extract_version("BepInEx_win_x64_5.4.23.3"), Some("5.4.23.3".into()));
+        assert_eq!(
+            extract_version("SA.CLEO-v1.2.3+Ultimate_ASI_Loader.zip"),
+            Some("1.2.3".into())
+        );
+        assert_eq!(
+            extract_version("BepInEx_win_x64_5.4.23.3"),
+            Some("5.4.23.3".into())
+        );
         assert_eq!(extract_version("no-version-here"), None);
     }
 

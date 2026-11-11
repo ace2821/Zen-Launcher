@@ -55,10 +55,10 @@ describe("app shell", () => {
     ).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Big Picture" }));
 
-    expect(useShellStore.getState().view).toBe("bigPicture");
-    expect(await screen.findByRole("listbox", { name: "Games" })).toBeInTheDocument();
+    expect(useShellStore.getState().view).toBe("bigPictureDashboard");
+    expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
     // No sidebar, no library header: across a room neither is readable, and the
-    // rail is the whole screen.
+    // dashboard is the whole screen.
     expect(screen.queryByRole("navigation")).toBeNull();
     expect(screen.queryByRole("searchbox")).toBeNull();
 
@@ -265,8 +265,8 @@ describe("SettingsView", () => {
     await setupMockApp();
     render(<SettingsView />);
 
-    expect(await screen.findByText("~/.config/zen-launcher/config.toml")).toBeInTheDocument();
-    expect(screen.getByText("~/.local/share/zen-launcher/")).toBeInTheDocument();
+    expect(await screen.findByText("~/.config/zinc-launcher/config.toml")).toBeInTheDocument();
+    expect(screen.getByText("~/.local/share/zinc-launcher/")).toBeInTheDocument();
     expect(screen.getByText("Mock (in-memory)")).toBeInTheDocument();
   });
 

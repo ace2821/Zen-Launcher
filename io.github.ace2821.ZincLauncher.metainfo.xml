@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.ace2821.ZenLauncher</id>
+  <id>io.github.ace2821.ZincLauncher</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
-  <name>Zen Launcher</name>
+  <name>Zinc Launcher</name>
   <summary>Game library manager and mod loader helper for Linux</summary>
   <description>
     <p>
-      Zen Launcher is a local-first game library manager for Linux. It scans the
+      Zinc Launcher is a local-first game library manager for Linux. It scans the
       folders of games you already own — DRM-free purchases, freeware, mods,
       total conversions, retro titles and plain game directories — and keeps
       them in one library with artwork, play time and recent games. No store
@@ -26,10 +26,10 @@
       SA-MP, FiveM and MTA launch multiplayer clients for supported games.
     </p>
   </description>
-  <launchable type="desktop-id">io.github.ace2821.ZenLauncher.desktop</launchable>
-  <url type="homepage">https://github.com/ace2821/Zen-Launcher</url>
-  <url type="bugtracker">https://github.com/ace2821/Zen-Launcher/issues</url>
-  <url type="vcs-browser">https://github.com/ace2821/Zen-Launcher</url>
+  <launchable type="desktop-id">io.github.ace2821.ZincLauncher.desktop</launchable>
+  <url type="homepage">https://github.com/ace2821/Zinc-Launcher</url>
+  <url type="bugtracker">https://github.com/ace2821/Zinc-Launcher/issues</url>
+  <url type="vcs-browser">https://github.com/ace2821/Zinc-Launcher</url>
   <developer id="io.github.ace2821">
     <name>ace2821</name>
   </developer>
@@ -39,15 +39,15 @@
   -->
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/ace2821/Zen-Launcher/main/assets/screenshots/library.png</image>
+      <image>https://raw.githubusercontent.com/ace2821/Zinc-Launcher/main/assets/screenshots/library.png</image>
       <caption>Library view</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/ace2821/Zen-Launcher/main/assets/screenshots/mods-installed.png</image>
+      <image>https://raw.githubusercontent.com/ace2821/Zinc-Launcher/main/assets/screenshots/mods-installed.png</image>
       <caption>Mod loader detection — installed mods and drop zone</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/ace2821/Zen-Launcher/main/assets/screenshots/mods-install.png</image>
+      <image>https://raw.githubusercontent.com/ace2821/Zinc-Launcher/main/assets/screenshots/mods-install.png</image>
       <caption>Installable mod loaders straight from GitHub releases</caption>
     </screenshot>
   </screenshots>

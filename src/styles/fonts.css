@@ -2,7 +2,7 @@
  * Self-hosted fonts (SIL OFL 1.1 — assets/fonts/OFL.txt for Instrument Sans,
  * OFL-MapleMono.txt for Maple Mono, OFL-SpaceGrotesk.txt for Space Grotesk).
  *
- * Bundled rather than fetched from a CDN: Zen Launcher is local-first and must
+ * Bundled rather than fetched from a CDN: Zinc Launcher is local-first and must
  * render identically offline. Maple Mono carries the UI by default (see
  * `--font-ui` in tokens.css), Instrument Sans and system-ui are the two
  * alternates, and Space Grotesk keeps the display/heading voice — a grotesk

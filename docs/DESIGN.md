@@ -1,4 +1,4 @@
-# Zen Launcher — Design Document
+# Zinc Launcher — Design Document
 
 **Version:** 0.1 (draft for approval)
 **Date:** 2026-10-17
@@ -7,7 +7,7 @@
 
 ## 1. Vision
 
-Zen Launcher is a local-first, offline-capable game library manager and launcher
+Zinc Launcher is a local-first, offline-capable game library manager and launcher
 for Linux that organizes games you already have — DRM-free store purchases
 (GOG, itch.io, Humble), freeware and open-source titles, mods and total
 conversions, retro games through RetroArch, and plain game folders on disk —
@@ -17,7 +17,7 @@ It exists because game collections outside Steam deserve first-class
 management: launch profiles, artwork, mod handling, save backups — without
 store clients, accounts, telemetry, or lock-in.
 
-Scope note: Zen Launcher manages local content only. It does not download games
+Scope note: Zinc Launcher manages local content only. It does not download games
 and does not integrate with content sources or stores. Games enter the library
 from local folders (scan + approve) or manual entry.
 
@@ -51,15 +51,15 @@ from local folders (scan + approve) or manual entry.
 | Frontend | React + TypeScript + Vite; TanStack Query/Virtual; zustand; i18next; Framer Motion |
 | Backend | Rust: library/scanner/runners/process supervision/`gilrs` gamepad service |
 | Database | SQLite (rusqlite, bundled) + on-disk image/cache storage |
-| Config | TOML (`~/.config/zen-launcher/config.toml`) |
-| Packaging | AppImage (`ZenLauncher-<ver>-x86_64.AppImage`) |
+| Config | TOML (`~/.config/zinc-launcher/config.toml`) |
+| Packaging | AppImage (`ZincLauncher-<ver>-x86_64.AppImage`) |
 | License | MIT |
 
 Rationale: Rust core matches the owner's stack (ZincTM) and is strong for
 process/filesystem work; the web frontend gives the best tools for a polished,
 animated library UI; Tauri keeps binaries light and the Windows port cheap.
 
-Name check (2026-10-17): AUR has no `zen-launcher`; GitHub has only small,
+Name check (2026-10-17): AUR has no `zinc-launcher`; GitHub has only small,
 unrelated same-name repos (Minecraft/Android/personal). A play-store Android
 home-screen launcher uses the same name in a different category. Verdict:
 usable for a desktop game-library project.
@@ -139,7 +139,7 @@ usable for a desktop game-library project.
 - Per-game mods tab; mod dir detection (`mods/`, `Mods/`, `_mods/`, custom).
 - Install: ZIP or folder → placed in mod dir (strip single top-level folder),
   file manifest recorded for clean uninstall.
-- Enable/disable: files moved to stash (`~/.local/share/zen-launcher/mods/…`)
+- Enable/disable: files moved to stash (`~/.local/share/zinc-launcher/mods/…`)
   and restored on toggle; no destructive operations.
 - Conflicts: manifests compared; overlap warning with affected-file list.
 - Loaders: detect existing BepInEx/MelonLoader installs; guided install from a
@@ -148,7 +148,7 @@ usable for a desktop game-library project.
 
 ### 5.5 Saves
 - Auto-backup before each launch (if enabled) + manual backup button.
-- Versioned ZIP snapshots per game in `~/.local/share/zen-launcher/saves/<game>/`.
+- Versioned ZIP snapshots per game in `~/.local/share/zinc-launcher/saves/<game>/`.
 - Restore: pick snapshot, overwrite current save dirs (with pre-restore safety
   copy); retention keeps last N + pinned snapshots.
 - Save path detection: known native locations, Wine prefix paths, user-defined
@@ -171,14 +171,14 @@ usable for a desktop game-library project.
 
 ### 5.7 Extras
 - Tags/collections; favorites/recents; `.desktop` shortcut generation
-  (`~/.local/share/applications/zen-launcher-<slug>.desktop`).
+  (`~/.local/share/applications/zinc-launcher-<slug>.desktop`).
 - Export/import library as JSON (entries, tags, profiles, settings; images
   optional in archive).
 - Update check: GitHub Releases API poll (opt-in, info only).
 
 ### 5.8 Data and storage
-- `~/.config/zen-launcher/config.toml` — settings, provider keys (0600).
-- `~/.local/share/zen-launcher/` — `library.db`, `images/`, `saves/`,
+- `~/.config/zinc-launcher/config.toml` — settings, provider keys (0600).
+- `~/.local/share/zinc-launcher/` — `library.db`, `images/`, `saves/`,
   `mods/` (stash), `logs/`.
 - DB tables (sketch): `games`, `profiles`, `sources`, `candidates`, `mods`,
   `save_snapshots`, `sessions`, `tags`, `game_tags`, `collections`,
@@ -270,16 +270,16 @@ media, IGDB provider, loader auto-download, achievements/goals, theming editor.
 
 ## 10. Open questions for the owner
 
-1. ~~Name: keep **Zen Launcher** despite mild, category-different collisions?~~
+1. ~~Name: keep **Zinc Launcher** despite mild, category-different collisions?~~
    — resolved: keep.
 2. Save retention default: keep last 10 + pinned — OK?
 3. Tray quick-launch submenu (games list in tray menu) in V1 or later?
 
 ## 11. Project names and paths
 
-- Local directory: `~/Projekty/ZenLauncher`
-- Repo/binary: `zen-launcher` (GitHub), binary `zen-launcher`
-- Data: `~/.config/zen-launcher/`, `~/.local/share/zen-launcher/`
-- AppImage: `ZenLauncher-<version>-x86_64.AppImage`
+- Local directory: `~/Projekty/ZincLauncher`
+- Repo/binary: `zinc-launcher` (GitHub), binary `zinc-launcher`
+- Data: `~/.config/zinc-launcher/`, `~/.local/share/zinc-launcher/`
+- AppImage: `ZincLauncher-<version>-x86_64.AppImage`
 
 *— end of draft —*

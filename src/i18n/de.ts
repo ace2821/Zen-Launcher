@@ -3,12 +3,13 @@ import type { TranslationShape } from "./en";
 /** German strings. Typed as `TranslationShape`, so every `en.ts` key is required. */
 export const de: TranslationShape = {
   app: {
-    name: "Zen Launcher",
+    name: "Zinc Launcher",
     subtitle: "Lokale Spielebibliothek",
   },
 
   nav: {
     library: "Bibliothek",
+    statystyki: "Statistiken",
     sources: "Quellen & Import",
     settings: "Einstellungen",
     pendingBadge: "Ausstehende Kandidaten",
@@ -78,10 +79,21 @@ export const de: TranslationShape = {
     rejected: "Abgelehnt",
   },
 
+  statystyki: {
+    title: "Statistiken",
+    subtitle: "{{count}} gespielt, {{total}} insgesamt",
+    emptyTitle: "Noch keine Spiele",
+    emptyBody:
+      "Füge Spiele zur Bibliothek hinzu, um hier Spielstatistiken zu sehen.",
+    noDataTitle: "Keine Spielzeit erfasst",
+    noDataBody: "Spiele ein paar Spiele, um deine Statistiken zu sehen.",
+    totalPlaytime: "Gesamtspielzeit",
+  },
+
   library: {
     emptyTitle: "Deine Bibliothek ist leer",
     emptyBody:
-      "Zeige Zen den Ordner, in dem deine Spiele liegen — der Scanner findet die Titel und du entscheidest, was in die Bibliothek kommt.",
+      "Zeige Zinc den Ordner, in dem deine Spiele liegen — der Scanner findet die Titel und du entscheidest, was in die Bibliothek kommt.",
     emptyAction: "Zu Quellen & Import",
     noResultsTitle: "Keine Treffer",
     noResultsBody: "Kein Eintrag in der Bibliothek passt zu „{{query}}“.",
@@ -121,7 +133,7 @@ export const de: TranslationShape = {
   import: {
     title: "Quellen & Import",
     description:
-      "Scan-Wurzeln sind Ordner, die Zen Launcher durchsucht, um Spielordner zu finden. Nichts wird zur Bibliothek hinzugefügt, bevor du es genehmigst.",
+      "Scan-Wurzeln sind Ordner, die Zinc Launcher durchsucht, um Spielordner zu finden. Nichts wird zur Bibliothek hinzugefügt, bevor du es genehmigst.",
     sourcesTitle: "Scan-Wurzeln",
     sourcesEmptyTitle: "Noch keine Scan-Wurzel",
     sourcesEmpty:
@@ -406,7 +418,7 @@ export const de: TranslationShape = {
     fontSample: "Zażółć gęślą jaźń",
     previewSample:
       "Zażółć gęślą jaźń. Franz jagt im komplett verwahrlosten Taxi quer durch Bayern.",
-    previewMeta: "~/.local/share/zen-launcher/library.db",
+    previewMeta: "~/.local/share/zinc-launcher/library.db",
     previewButton: "Spielen",
 
     libraryTitle: "Wie soll die Bibliothek sich öffnen?",
@@ -434,7 +446,7 @@ export const de: TranslationShape = {
 
     back: "Zurück",
     next: "Weiter",
-    finish: "Zen Launcher starten",
+    finish: "Zinc Launcher starten",
     skip: "Überspringen",
     skipHint: "Tour überspringen und Standardwerte behalten.",
     footHint: "Deine Entscheidungen werden beim Vorangehen gespeichert.",
@@ -467,7 +479,7 @@ export const de: TranslationShape = {
     fileDialogTitle: "Cover-Bild wählen",
     fileFilter: "Bilder",
     fileNote:
-      "Das Bild wird in Zen Launchers eigenen Ordner kopiert — die gewählte Datei bleibt, wo sie ist.",
+      "Das Bild wird in Zinc Launchers eigenen Ordner kopiert — die gewählte Datei bleibt, wo sie ist.",
     fileFailed: "Dieses Bild konnte nicht verwendet werden",
     dialogTitle: "Cover-Art",
     searchLabel: "Im Steam-Shop suchen",
@@ -483,6 +495,7 @@ export const de: TranslationShape = {
     downloadFailed: "Cover konnte nicht gespeichert werden",
     updated: "Cover aktualisiert",
     updatedBody: "„{{title}}“ nutzt jetzt das gewählte Artwork.",
+    downloadForBigPicture: "Für Big Picture herunterladen",
   },
 
   mods: {
@@ -512,10 +525,10 @@ export const de: TranslationShape = {
     installLoader: "{{loader}} installieren",
 
     manualLoader:
-      "Wird von seinem eigenen Installer installiert — lade ihn von der offiziellen Seite, Zen erkennt ihn danach weiterhin.",
+      "Wird von seinem eigenen Installer installiert — lade ihn von der offiziellen Seite, Zinc erkennt ihn danach weiterhin.",
     officialDownload: "Offizieller Download",
     asiRootNote: "ASI-Mods landen neben dem Executable des Spiels.",
-    externalMods: "Mods werden in tModLoader verwaltet — Zen erkennt sie hier nur.",
+    externalMods: "Mods werden in tModLoader verwaltet — Zinc erkennt sie hier nur.",
     externalDocs: "tModLoader-Docs",
 
     validationLabel: "Archivprüfung",
@@ -608,7 +621,24 @@ export const de: TranslationShape = {
     hintShoulderLeft: "Vorheriger Tab",
     hintShoulderRight: "Nächster Tab",
     modsOpenFolder: "Mods-Ordner öffnen",
+    sectionLibrary: "Ihre Bibliothek",
+    sectionLibraryHint: "Installierte Spiele durchsuchen",
+    sectionMarketplace: "Marketplace",
+    sectionMarketplaceHint: "Themes und Add-ons",
     settings: "Einstellungen",
+    dashboard: "Dashboard",
+    tabGames: "Spiele",
+    tabMedia: "Medien",
+    searchPlaceholder: "Suche nach Spielen…",
+    profile: "Profil",
+    onlineFriends: "Online-Freunde",
+    accessibility: "Barrierefreiheit",
+    trophies: "Trophäen",
+    wishlist: "Wunschliste",
+    store: "Store",
+    playGame: "Spiel starten",
+    moreOptions: "Weitere Optionen",
+    modsSection: "Mods für {{title}}",
   },
 
   marketplace: {

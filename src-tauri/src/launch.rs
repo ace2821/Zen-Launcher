@@ -5,7 +5,7 @@
 //! - native `.AppImage` → ensure the exec bit, run directly
 //! - other native → run directly, requires the exec bit, else `LAUNCH_FAILED`
 //! - `windows` → system `wine` with a per-game prefix
-//!   (`~/.local/share/zen-launcher/prefixes/<gameId>`); `.bat`/`.cmd` entry
+//!   (`~/.local/share/zinc-launcher/prefixes/<gameId>`); `.bat`/`.cmd` entry
 //!   points run through `wine cmd /c`; wine creates the prefix on first run
 //! - default cwd = the executable's parent directory
 //! - `retro`/`mod` → `UNSUPPORTED` (their runners arrive later)
@@ -166,6 +166,29 @@ pub fn build_spawn_plan(game: &Game, extras: &LaunchExtras) -> AppResult<SpawnPl
         }
         env.entry("WINEDLLOVERRIDES".to_string())
             .or_insert_with(|| "mscoree,mshtml=".to_string());
+
+        // Mods only load when Wine is told to prefer the *native* proxy DLLs
+        // shipped with the loader (BepInEx/doorstop `winhttp.dll`, Ultimate ASI
+        // Loader `dinput8/version/vorbisFile/d3d9`, …). Without these
+        // overrides Wine keeps its builtin DLL, the loader never runs and the
+        // installed mods are silently ignored.
+        //
+        // Loader DLLs sit next to the executable for most games, but plenty of
+        // Unity/Unreal titles put the `.exe` in `bin/`/`x64/` while the loader
+        // (and its mods folders) live in the game root. Scan both so the
+        // override is not missed.
+        let mut native = native_proxy_dlls(executable.parent().unwrap_or(cwd.as_path()));
+        let game_root = Path::new(&game.install_path);
+        if game_root != cwd.as_path() && game_root != executable.parent().unwrap_or(Path::new("")) {
+            native.extend(native_proxy_dlls(game_root));
+        }
+        native.sort();
+        native.dedup();
+        let overrides = env.get("WINEDLLOVERRIDES").cloned().unwrap_or_default();
+        env.insert(
+            "WINEDLLOVERRIDES".to_string(),
+            with_native_overrides(overrides, &native),
+        );
     }
     if extras.mango_hud {
         env.entry("MANGOHUD".to_string())
@@ -209,7 +232,12 @@ fn append_client_args(game: &Game, args: &mut Vec<String>) {
     if client.kind != ClientKind::Samp {
         return;
     }
-    if let Some(host) = client.host.as_deref().map(str::trim).filter(|h| !h.is_empty()) {
+    if let Some(host) = client
+        .host
+        .as_deref()
+        .map(str::trim)
+        .filter(|h| !h.is_empty())
+    {
         args.push("-h".to_string());
         args.push(host.to_string());
     }
@@ -221,10 +249,79 @@ fn append_client_args(game: &Game, args: &mut Vec<String>) {
             args.push(port.to_string());
         }
     }
-    if let Some(nick) = client.nick.as_deref().map(str::trim).filter(|n| !n.is_empty()) {
+    if let Some(nick) = client
+        .nick
+        .as_deref()
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+    {
         args.push("-n".to_string());
         args.push(nick.to_string());
     }
+}
+
+/// Proxy DLL names through which mod loaders inject themselves on Windows.
+/// Only these get a native override — the game's own runtime DLLs must keep
+/// Wine's builtin implementation.
+const WINE_PROXY_DLLS: &[&str] = &[
+    "winhttp.dll",
+    "dinput8.dll",
+    "version.dll",
+    "vorbisfile.dll",
+    "d3d9.dll",
+    "d3d11.dll",
+    "xinput1_3.dll",
+    "xinput9_1_0.dll",
+    "dsound.dll",
+    "ddraw.dll",
+    "winmm.dll",
+    "dbghelp.dll",
+];
+
+/// Loader proxy DLLs present next to the executable (`winhttp.dll` for
+/// BepInEx/doorstop, `dinput8.dll` for Ultimate ASI Loader/Script Hook, …).
+fn native_proxy_dlls(dir: &Path) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut found: Vec<String> = entries
+        .flatten()
+        .map(|entry| entry.file_name().to_string_lossy().to_ascii_lowercase())
+        .filter(|name| WINE_PROXY_DLLS.iter().any(|dll| name == dll))
+        .collect();
+    found.sort();
+    found
+}
+
+/// Merge `dll=n,b` entries into a `WINEDLLOVERRIDES` value without dropping
+/// the existing overrides (`mscoree,mshtml=` by default) or user entries.
+///
+/// Wine's syntax separates override *groups* with `;` — a comma only groups
+/// DLL names that share the same setting (`mscoree,mshtml=`). Joining a new
+/// entry to `mscoree,mshtml=` with a comma produced
+/// `mscoree,mshtml=,winhttp=n,b`, which Wine parses as "msscoree/mshtml are
+/// disabled with the setting `,winhttp=n,b`" — the `winhttp` override was
+/// never applied, Wine kept its builtin DLL and BepInEx/doorstop (Ages of
+/// Conflict) silently ignored every installed mod.
+fn with_native_overrides(existing: String, native: &[String]) -> String {
+    let mut value = existing;
+    for dll in native {
+        let stem = dll.trim_end_matches(".dll");
+        let marker = format!("{stem}=");
+        // Existing entries live either in their own group (`;`) or share a
+        // group with other names (`,`).
+        let already = value
+            .split([';', ','])
+            .any(|part| part.trim().to_ascii_lowercase().starts_with(&marker));
+        if already {
+            continue;
+        }
+        if !value.is_empty() && !value.ends_with(';') {
+            value.push(';');
+        }
+        value.push_str(&format!("{stem}=n,b"));
+    }
+    value
 }
 
 /// Wine requires the `WINEPREFIX` directory to exist before it starts
@@ -340,7 +437,7 @@ mod tests {
             install_path: install_path.to_string_lossy().into_owned(),
             executable: executable.to_string(),
             args: vec!["--flag".into()],
-            env: BTreeMap::from([("ZEN".to_string(), "1".to_string())]),
+            env: BTreeMap::from([("ZINC".to_string(), "1".to_string())]),
             work_dir: None,
             tags: vec![],
             favorite: false,
@@ -374,14 +471,22 @@ mod tests {
             kind: ClientKind::Samp,
             host: Some("play.example.com".into()),
             port: Some(7777),
-            nick: Some("Zen".into()),
+            nick: Some("Zinc".into()),
         });
 
         let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
         let trailing: Vec<&str> = plan.args[1..].iter().map(String::as_str).collect();
         assert_eq!(
             trailing,
-            vec!["--flag", "-h", "play.example.com", "-p", "7777", "-n", "Zen"]
+            vec![
+                "--flag",
+                "-h",
+                "play.example.com",
+                "-p",
+                "7777",
+                "-n",
+                "Zinc"
+            ]
         );
     }
 
@@ -420,7 +525,10 @@ mod tests {
             });
             let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
             let expected = vec![
-                dir.path().join("CitizenFX.exe").to_string_lossy().into_owned(),
+                dir.path()
+                    .join("CitizenFX.exe")
+                    .to_string_lossy()
+                    .into_owned(),
                 "--flag".to_string(),
             ];
             assert_eq!(plan.args, expected);
@@ -442,7 +550,7 @@ mod tests {
         assert_eq!(plan.args[0], script.to_string_lossy());
         assert_eq!(plan.args[1], "--flag");
         assert_eq!(plan.cwd, dir.path());
-        assert_eq!(plan.env.get("ZEN"), Some(&"1".to_string()));
+        assert_eq!(plan.env.get("ZINC"), Some(&"1".to_string()));
     }
 
     #[test]
@@ -505,7 +613,7 @@ mod tests {
             plan.env.get("WINEDLLOVERRIDES"),
             Some(&"mscoree,mshtml=".to_string())
         );
-        assert_eq!(plan.env.get("ZEN"), Some(&"1".to_string()));
+        assert_eq!(plan.env.get("ZINC"), Some(&"1".to_string()));
     }
 
     #[test]
@@ -582,6 +690,81 @@ mod tests {
         )
         .unwrap();
         assert_eq!(plan.program, dir.path().join("bin/game.x86_64"));
+    }
+
+    #[test]
+    fn windows_loader_proxy_dlls_get_native_wine_overrides() {
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join("game.exe"), b"MZ").unwrap();
+        // BepInEx/doorstop + Ultimate ASI Loader proxies.
+        std::fs::write(dir.path().join("winhttp.dll"), b"MZ").unwrap();
+        std::fs::write(dir.path().join("dinput8.dll"), b"MZ").unwrap();
+        // Unrelated DLLs must not be overridden.
+        std::fs::write(dir.path().join("UnityPlayer.dll"), b"MZ").unwrap();
+
+        let plan = build_spawn_plan(
+            &game(dir.path(), "game.exe", GameType::Windows),
+            &LaunchExtras::off(),
+        )
+        .unwrap();
+        let overrides = plan.env.get("WINEDLLOVERRIDES").unwrap();
+        // Wine groups are `;`-separated; only names sharing one setting use
+        // commas. Joining with a comma made Wine ignore every later group
+        // (the Ages of Conflict "mods never load" bug).
+        assert_eq!(
+            overrides, "mscoree,mshtml=;dinput8=n,b;winhttp=n,b",
+            "{overrides}"
+        );
+        assert!(!overrides.contains("unityplayer"), "{overrides}");
+    }
+
+    #[test]
+    fn native_override_groups_are_semicolon_separated_not_comma_joined() {
+        // Regression: `mscoree,mshtml=,winhttp=n,b` is a single Wine group
+        // whose value is ",winhttp=n,b", so the proxy DLL stays builtin and
+        // BepInEx/doorstop never injects the mods.
+        let merged =
+            with_native_overrides("mscoree,mshtml=".to_string(), &["winhttp.dll".to_string()]);
+        assert_eq!(merged, "mscoree,mshtml=;winhttp=n,b");
+        let groups: Vec<&str> = merged.split(';').collect();
+        assert_eq!(groups, vec!["mscoree,mshtml=", "winhttp=n,b"]);
+        assert!(groups.iter().all(|group| group.matches('=').count() == 1));
+    }
+
+    #[test]
+    fn loader_dlls_in_the_game_root_get_overrides_even_when_the_exe_is_in_a_subfolder() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        // Loader proxies live in the game root; the entry point is in bin/.
+        std::fs::write(root.join("winhttp.dll"), b"MZ").unwrap();
+        std::fs::write(root.join("dinput8.dll"), b"MZ").unwrap();
+        write_executable(&root.join("bin/game.exe"), b"MZ");
+
+        let mut g = game(root, "bin/game.exe", GameType::Windows);
+        g.install_path = root.to_string_lossy().into_owned();
+
+        let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
+        let overrides = plan.env.get("WINEDLLOVERRIDES").unwrap();
+        assert!(overrides.contains("winhttp=n,b"), "{overrides}");
+        assert!(overrides.contains("dinput8=n,b"), "{overrides}");
+    }
+
+    #[test]
+    fn user_wine_overrides_are_preserved_and_merged() {
+        let dir = tempdir().unwrap();
+        std::fs::write(dir.path().join("game.exe"), b"MZ").unwrap();
+        std::fs::write(dir.path().join("winhttp.dll"), b"MZ").unwrap();
+        let mut g = game(dir.path(), "game.exe", GameType::Windows);
+        g.env.insert(
+            "WINEDLLOVERRIDES".to_string(),
+            "mscoree,mshtml=;winhttp=n,b".to_string(),
+        );
+
+        let plan = build_spawn_plan(&g, &LaunchExtras::off()).unwrap();
+        assert_eq!(
+            plan.env.get("WINEDLLOVERRIDES"),
+            Some(&"mscoree,mshtml=;winhttp=n,b".to_string())
+        );
     }
 
     #[test]

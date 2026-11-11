@@ -1,4 +1,4 @@
-import { FolderOpen, Play, Star, Trash2, TriangleAlert } from "lucide-react";
+import { FolderOpen, Play, Star, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isMock } from "../../lib/api";
 import { useFormatters, useGameLabels, useLaunchAvailability } from "../../lib/hooks";
@@ -9,7 +9,7 @@ import { Button, IconButton } from "../ui/Button";
 import { GameCover } from "./GameCover";
 import styles from "./library.module.css";
 
-export const CARD_TEXT_HEIGHT = 64;
+export const CARD_TEXT_HEIGHT = 100;
 
 export interface GameCardProps {
   game: Game;
@@ -23,7 +23,6 @@ export function GameCard({ game, coverHeight, onOpen }: GameCardProps) {
   const { playtime, relativeDate } = useFormatters();
   const launch = useLaunchAvailability(game);
   const launchGame = useLibraryStore((state) => state.launchGame);
-  const removeGame = useLibraryStore((state) => state.removeGame);
   const revealGame = useLibraryStore((state) => state.revealGame);
   const toggleFavorite = useLibraryStore((state) => state.toggleFavorite);
   const busy = useLibraryStore((state) => state.busy);
@@ -55,7 +54,6 @@ export function GameCard({ game, coverHeight, onOpen }: GameCardProps) {
         >
           <GameCover title={game.title} coverPath={game.coverPath} />
         </button>
-        <span className={styles.cardScrim} />
 
         {game.status === "missing" ? (
           <span className={styles.cardFlag}>
@@ -124,23 +122,19 @@ export function GameCard({ game, coverHeight, onOpen }: GameCardProps) {
               onClick={() => void revealGame(game)}
             />
           )}
-          <IconButton
-            icon={Trash2}
-            label={t("library.remove")}
-            tone="danger"
-            className={styles.cardActionGhost}
-            onClick={() => void removeGame(game.id)}
-          />
         </div>
       </div>
 
-      <div className={styles.cardCoverTitle} title={game.title}>
-        {game.title}
-      </div>
-
       <div className={styles.cardText}>
+        <div className={styles.cardTitle} title={game.title}>
+          {game.title}
+        </div>
         <div className={styles.cardMeta}>
-          <span>{relativeDate(game.lastPlayedAt)}</span>
+          <span>
+            {game.lastPlayedAt === null
+              ? game.title
+              : relativeDate(game.lastPlayedAt)}
+          </span>
         </div>
         <div className={styles.cardTags}>
           {game.tags.slice(0, 2).map((tag) => (

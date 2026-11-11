@@ -3,12 +3,13 @@ import type { TranslationShape } from "./en";
 /** French strings. Typed as `TranslationShape`, so every `en.ts` key is required. */
 export const fr: TranslationShape = {
   app: {
-    name: "Zen Launcher",
+    name: "Zinc Launcher",
     subtitle: "Bibliothèque de jeux locale",
   },
 
   nav: {
     library: "Bibliothèque",
+    statystyki: "Statistiques",
     sources: "Sources et import",
     settings: "Paramètres",
     pendingBadge: "Candidats en attente",
@@ -78,10 +79,21 @@ export const fr: TranslationShape = {
     rejected: "Rejeté",
   },
 
+  statystyki: {
+    title: "Statistiques",
+    subtitle: "{{count}} joués, {{total}} au total",
+    emptyTitle: "Aucun jeu pour l'instant",
+    emptyBody:
+      "Ajoutez des jeux à la bibliothèque pour voir les statistiques ici.",
+    noDataTitle: "Aucun temps de jeu enregistré",
+    noDataBody: "Jouez à quelques jeux pour voir vos statistiques.",
+    totalPlaytime: "Temps de jeu total",
+  },
+
   library: {
     emptyTitle: "Votre bibliothèque est vide",
     emptyBody:
-      "Indiquez à Zen le dossier où se trouvent vos jeux — le scanner trouvera les titres et vous déciderez de ce qui entre dans la bibliothèque.",
+      "Indiquez à Zinc le dossier où se trouvent vos jeux — le scanner trouvera les titres et vous déciderez de ce qui entre dans la bibliothèque.",
     emptyAction: "Aller à Sources et import",
     noResultsTitle: "Aucun résultat",
     noResultsBody: "Aucune entrée de la bibliothèque ne correspond à « {{query}} ».",
@@ -121,7 +133,7 @@ export const fr: TranslationShape = {
   import: {
     title: "Sources et import",
     description:
-      "Les racines de scan sont les dossiers que Zen Launcher parcourt pour trouver des dossiers de jeux. Rien n'est ajouté à la bibliothèque avant votre approbation.",
+      "Les racines de scan sont les dossiers que Zinc Launcher parcourt pour trouver des dossiers de jeux. Rien n'est ajouté à la bibliothèque avant votre approbation.",
     sourcesTitle: "Racines de scan",
     sourcesEmptyTitle: "Aucune racine de scan",
     sourcesEmpty:
@@ -406,7 +418,7 @@ export const fr: TranslationShape = {
     fontSample: "Zażółć gęślą jaźń",
     previewSample:
       "Zażółć gęślą jaźń. Portez ce vieux whisky au juge blond qui fume.",
-    previewMeta: "~/.local/share/zen-launcher/library.db",
+    previewMeta: "~/.local/share/zinc-launcher/library.db",
     previewButton: "Jouer",
 
     libraryTitle: "Comment la bibliothèque doit-elle s'ouvrir ?",
@@ -434,7 +446,7 @@ export const fr: TranslationShape = {
 
     back: "Retour",
     next: "Suivant",
-    finish: "Commencer avec Zen Launcher",
+    finish: "Commencer avec Zinc Launcher",
     skip: "Passer",
     skipHint: "Passer la visite et garder les valeurs par défaut.",
     footHint: "Vos choix sont enregistrés au fur et à mesure.",
@@ -467,7 +479,7 @@ export const fr: TranslationShape = {
     fileDialogTitle: "Choisir une image de couverture",
     fileFilter: "Images",
     fileNote:
-      "L'image est copiée dans le dossier propre à Zen Launcher — le fichier choisi reste où il est.",
+      "L'image est copiée dans le dossier propre à Zinc Launcher — le fichier choisi reste où il est.",
     fileFailed: "Impossible d'utiliser cette image",
     dialogTitle: "Illustration",
     searchLabel: "Rechercher dans la boutique Steam",
@@ -483,6 +495,7 @@ export const fr: TranslationShape = {
     downloadFailed: "Impossible d'enregistrer l'illustration",
     updated: "Illustration mise à jour",
     updatedBody: "« {{title}} » utilise désormais l'image choisie.",
+    downloadForBigPicture: "Télécharger pour Big Picture",
   },
 
   mods: {
@@ -512,10 +525,10 @@ export const fr: TranslationShape = {
     installLoader: "Installer {{loader}}",
 
     manualLoader:
-      "Installé par son propre installateur — téléchargez-le depuis la page officielle, Zen continuera à le détecter.",
+      "Installé par son propre installateur — téléchargez-le depuis la page officielle, Zinc continuera à le détecter.",
     officialDownload: "Téléchargement officiel",
     asiRootNote: "Les mods ASI atterrissent à côté de l'exécutable du jeu.",
-    externalMods: "Les mods sont gérés dans tModLoader — Zen ne fait que les détecter ici.",
+    externalMods: "Les mods sont gérés dans tModLoader — Zinc ne fait que les détecter ici.",
     externalDocs: "Docs tModLoader",
 
     validationLabel: "Validation des archives",
@@ -608,7 +621,24 @@ export const fr: TranslationShape = {
     hintShoulderLeft: "Onglet précédent",
     hintShoulderRight: "Onglet suivant",
     modsOpenFolder: "Ouvrir le dossier des mods",
+    sectionLibrary: "Votre bibliothèque",
+    sectionLibraryHint: "Parcourir vos jeux installés",
+    sectionMarketplace: "Marketplace",
+    sectionMarketplaceHint: "Thèmes et extensions",
     settings: "Paramètres",
+    dashboard: "Tableau de bord",
+    tabGames: "Jeux",
+    tabMedia: "Médias",
+    searchPlaceholder: "Rechercher des jeux…",
+    profile: "Profil",
+    onlineFriends: "Amis en ligne",
+    accessibility: "Accessibilité",
+    trophies: "Trophées",
+    wishlist: "Liste de souhaits",
+    store: "Boutique",
+    playGame: "Jouer au jeu",
+    moreOptions: "Plus d'options",
+    modsSection: "Mods pour {{title}}",
   },
 
   marketplace: {

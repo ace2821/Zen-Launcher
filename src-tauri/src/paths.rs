@@ -1,12 +1,12 @@
 //! Storage locations. Contract:
-//! - config: `~/.config/zen-launcher/config.toml`
-//! - data:   `~/.local/share/zen-launcher/` (`library.db`, `logs/`)
+//! - config: `~/.config/zinc-launcher/config.toml`
+//! - data:   `~/.local/share/zinc-launcher/` (`library.db`, `logs/`)
 
 use std::path::PathBuf;
 
 use crate::error::{AppError, AppResult};
 
-pub const APP_DIR: &str = "zen-launcher";
+pub const APP_DIR: &str = "zinc-launcher";
 pub const CONFIG_FILE: &str = "config.toml";
 pub const DB_FILE: &str = "library.db";
 pub const LOGS_DIR: &str = "logs";

@@ -77,8 +77,8 @@ export const ModsPanel = forwardRef<ModsPanelHandle, ModsPanelProps>(
   const [installingLoader, setInstallingLoader] = useState<string | null>(null);
   /** Name of the archive being extracted right now. */
   const [current, setCurrent] = useState<string | null>(null);
-  /** Update check for the loader Zen installed itself; `null` when there is
-     nothing to update or no Zen-installed loader at all. */
+  /** Update check for the loader Zinc installed itself; `null` when there is
+     nothing to update or no Zinc-installed loader at all. */
   const [loaderUpdate, setLoaderUpdate] = useState<LoaderUpdate | null>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [htmlDrag, setHtmlDrag] = useState(false);
@@ -203,8 +203,8 @@ export const ModsPanel = forwardRef<ModsPanelHandle, ModsPanelProps>(
     void refresh();
   }, [refresh]);
 
-  /** Whether the loader Zen installed itself has an update waiting. Only
-     checked for Zen-installed loaders — detected/manual loaders stay quiet. */
+  /** Whether the loader Zinc installed itself has an update waiting. Only
+     checked for Zinc-installed loaders — detected/manual loaders stay quiet. */
   useEffect(() => {
     if (status?.installLoader === null) {
       setLoaderUpdate(null);
@@ -460,7 +460,7 @@ export const ModsPanel = forwardRef<ModsPanelHandle, ModsPanelProps>(
           </div>
 
           {/*
-           * A loader Zen installed itself can go stale. When a newer release
+           * A loader Zinc installed itself can go stale. When a newer release
            * exists, say so and offer a reinstall — the same install path as a
            * first install, so the core validates and records it identically.
            */}

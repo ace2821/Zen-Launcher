@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use zen_launcher_lib::conflicts;
+use zinc_launcher_lib::conflicts;
 
 fn fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))

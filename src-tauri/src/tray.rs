@@ -1,6 +1,6 @@
 //! System tray + close-to-tray behaviour (contract §"Tray and window behavior").
 //!
-//! - Tray icon always present, menu: **Show Zen Launcher** / **Quit**.
+//! - Tray icon always present, menu: **Show Zinc Launcher** / **Quit**.
 //! - Quit exits the process (`app.exit(0)`).
 //! - Window close hides to tray when `settings.closeToTray`, otherwise quits.
 
@@ -12,7 +12,7 @@ use tauri::{AppHandle, Manager, WindowEvent};
 
 use crate::state::AppState;
 
-pub const TRAY_ID: &str = "zen-launcher-tray";
+pub const TRAY_ID: &str = "zinc-launcher-tray";
 pub const MENU_SHOW: &str = "show";
 pub const MENU_QUIT: &str = "quit";
 
@@ -29,10 +29,7 @@ pub fn is_available() -> bool {
 /// library is missing. With `panic = "abort"` that is not catchable, so probe
 /// the library before the tray builder is ever touched.
 fn appindicator_present() -> bool {
-    const CANDIDATES: [&str; 2] = [
-        "libayatana-appindicator3.so.1",
-        "libappindicator3.so.1",
-    ];
+    const CANDIDATES: [&str; 2] = ["libayatana-appindicator3.so.1", "libappindicator3.so.1"];
     CANDIDATES.iter().any(|name| {
         // SAFETY: plain dlopen/dlclose of a shared object, no symbols called.
         unsafe { libloading::Library::new(name) }.is_ok()
@@ -73,13 +70,13 @@ pub fn init(app: &tauri::App) -> tauri::Result<()> {
 
 fn build(app: &tauri::App) -> tauri::Result<()> {
     let handle = app.handle();
-    let show = MenuItem::with_id(handle, MENU_SHOW, "Show Zen Launcher", true, None::<&str>)?;
+    let show = MenuItem::with_id(handle, MENU_SHOW, "Show Zinc Launcher", true, None::<&str>)?;
     let quit = MenuItem::with_id(handle, MENU_QUIT, "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(handle, &[&show, &quit])?;
 
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
-        .tooltip("Zen Launcher")
+        .tooltip("Zinc Launcher")
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id.as_ref() {
             MENU_SHOW => show_main_window(app),

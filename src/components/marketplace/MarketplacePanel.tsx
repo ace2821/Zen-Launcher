@@ -55,7 +55,7 @@ export function MarketplacePanel() {
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
 
   /*
-   * Deep link: `zenlauncher://install?id=<itemId>` → the core emits
+   * Deep link: `zinclaucher://install?id=<itemId>` → the core emits
    * `marketplace://install-started`. We mirror the install request so the
    * spinner shows on the card and the install actually runs.
    */

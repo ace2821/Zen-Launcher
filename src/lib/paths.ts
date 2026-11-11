@@ -1,5 +1,5 @@
 /**
- * Where Zen Launcher keeps its files.
+ * Where Zinc Launcher keeps its files.
  *
  * The M1 contract exposes no path query, so these are the fixed locations named
  * by the design document (§7). The Settings view shows them read-only; if a
@@ -14,6 +14,6 @@ export interface StoragePaths {
 }
 
 export const STORAGE_PATHS: StoragePaths = {
-  config: "~/.config/zen-launcher/config.toml",
-  data: "~/.local/share/zen-launcher/",
+  config: "~/.config/zinc-launcher/config.toml",
+  data: "~/.local/share/zinc-launcher/",
 };

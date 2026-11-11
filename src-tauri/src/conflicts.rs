@@ -177,7 +177,11 @@ mod tests {
                 ("ModB".to_string(), "ModC".to_string()),
             ]
         );
-        assert!(conflicts.iter().all(|c| c.files == vec!["shared.txt".to_string()]));
+        assert!(
+            conflicts
+                .iter()
+                .all(|c| c.files == vec!["shared.txt".to_string()])
+        );
     }
 
     #[test]

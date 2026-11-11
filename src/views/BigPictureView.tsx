@@ -368,6 +368,7 @@ export function BigPictureView() {
   const settings = useLibraryStore((state) => state.settings);
   const updateSettings = useLibraryStore((state) => state.updateSettings);
   const goToLibrary = useShellStore((state) => state.goToLibrary);
+  const goToMarketplace = useShellStore((state) => state.goToMarketplace);
   const { theme, pads } = useGlyphTheme(settings?.bigPictureLayout ?? "auto");
 
   const [focus, setFocus] = useState(0);
@@ -517,7 +518,8 @@ export function BigPictureView() {
           handlers.current.move(event.key === "ArrowLeft" ? -1 : 1);
           return;
         }
-        case "Enter": {
+        case "Enter":
+        case " ": {
           if (openRef.current) {
             if (tab === "mods") {
               event.preventDefault();
@@ -703,6 +705,31 @@ export function BigPictureView() {
           />
         </div>
       </header>
+
+      <section className={styles.sections}>
+        <button
+          type="button"
+          className={styles.sectionTile}
+          onClick={goToLibrary}
+          aria-label={t("bigPicture.sectionLibrary")}
+        >
+          <span className={styles.sectionTitle}>{t("bigPicture.sectionLibrary")}</span>
+          <span className={styles.sectionHint}>
+            {t("bigPicture.sectionLibraryHint")}
+          </span>
+        </button>
+        <button
+          type="button"
+          className={styles.sectionTile}
+          onClick={goToMarketplace}
+          aria-label={t("bigPicture.sectionMarketplace")}
+        >
+          <span className={styles.sectionTitle}>{t("bigPicture.sectionMarketplace")}</span>
+          <span className={styles.sectionHint}>
+            {t("bigPicture.sectionMarketplaceHint")}
+          </span>
+        </button>
+      </section>
 
       {games.length === 0 ? (
         ready ? (

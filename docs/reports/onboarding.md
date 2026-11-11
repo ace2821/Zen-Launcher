@@ -68,7 +68,7 @@ copy):
 ## Uruchamianie
 
 - Dev: `bun run tauri dev` (kreator pokaże się, gdy `onboardingCompleted` w
-  `~/.config/zen-launcher/config.toml` nie jest `true`).
+  `~/.config/zinc-launcher/config.toml` nie jest `true`).
 - Ponowne uruchomienie na żądanie: Ustawienia → „Uruchom kreatora ponownie”.
 - Frontend na mocku: `bun run dev`.
 

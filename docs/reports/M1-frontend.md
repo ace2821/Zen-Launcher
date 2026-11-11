@@ -58,7 +58,7 @@ Rust — świadomie nie uruchamiałem `tauri dev`, żeby nie wchodzić w jej pro
 
 | Plik | Rola |
 |---|---|
-| `index.html` | `lang`, favicon `zen.svg`, kolor tła przed pierwszym renderem, `color-scheme: dark`, tytuł |
+| `index.html` | `lang`, favicon `zinc.svg`, kolor tła przed pierwszym renderem, `color-scheme: dark`, tytuł |
 | `src/main.tsx` | synchroniczna inicjalizacja i18n (`initAsync: false`), montaż Reacta, import `global.css` |
 | `src/App.tsx` | `MotionConfig reducedMotion="user"` + `AppShell` |
 | `src/vite-env.d.ts` | typy `VITE_MOCK` i `__APP_VERSION__` |
@@ -100,7 +100,7 @@ Rust — świadomie nie uruchamiałem `tauri dev`, żeby nie wchodzić w jej pro
   `TextAreaField`, `SelectField`, `SwitchField`, `Segmented`), Modal (pułapka
   fokusa, Escape, przywrócenie fokusu), ConfirmHost, Toaster, Feedback
   (Meter, Skeleton, ProgressBar, EmptyState) + `ui.module.css`.
-- `layout/`: `AppShell.tsx`, `Sidebar.tsx`, `Header.tsx`, `ZenMark.tsx`,
+- `layout/`: `AppShell.tsx`, `Sidebar.tsx`, `Header.tsx`, `ZincMark.tsx`,
   `layout.module.css`.
 - `page/page.module.css`: wspólny szkielet stron (scroll, kolumna, panel, fakty).
 - `library/`: `GameGrid.tsx` (wirtualizacja `@tanstack/react-virtual`),
@@ -117,7 +117,7 @@ Rust — świadomie nie uruchamiałem `tauri dev`, żeby nie wchodzić w jej pro
   `src/lib/mock/mock.test.ts`, `src/lib/filter.test.ts`, `src/lib/args.test.ts`,
   `src/views/ImportView.test.tsx`, `src/views/views.smoke.test.tsx`.
 - `src/assets/fonts/` — 5 plików woff2 (Instrument Sans + Instrument Serif) i
-  `OFL.txt`; `public/zen.svg` (favicon).
+  `OFL.txt`; `public/zinc.svg` (favicon).
 
 Usunięte resztki szablonu: `src/App.css`, `src/assets/react.svg`,
 `public/vite.svg`, `public/tauri.svg` (żaden plik w repo już ich nie

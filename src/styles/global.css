@@ -181,7 +181,7 @@ body::after {
 
 /* --------------------------------------------------------------- motion --- */
 
-@keyframes zen-fade-in {
+@keyframes zinc-fade-in {
   from {
     opacity: 0;
     transform: translateY(4px);
@@ -192,7 +192,7 @@ body::after {
   }
 }
 
-@keyframes zen-shimmer {
+@keyframes zinc-shimmer {
   from {
     background-position: 200% 0;
   }
@@ -201,7 +201,7 @@ body::after {
   }
 }
 
-@keyframes zen-marquee {
+@keyframes zinc-marquee {
   from {
     transform: translateX(-45%);
   }
@@ -210,7 +210,7 @@ body::after {
   }
 }
 
-@keyframes zen-spin {
+@keyframes zinc-spin {
   to {
     transform: rotate(360deg);
   }

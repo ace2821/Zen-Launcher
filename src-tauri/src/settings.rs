@@ -1,5 +1,5 @@
 //! Settings persisted as human-editable TOML at
-//! `~/.config/zen-launcher/config.toml`.
+//! `~/.config/zinc-launcher/config.toml`.
 
 use std::path::Path;
 

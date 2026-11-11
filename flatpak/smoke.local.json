@@ -1,9 +1,9 @@
 {
-  "app-id": "io.github.ace2821.ZenLauncher",
+  "app-id": "io.github.ace2821.ZincLauncher",
   "runtime": "org.gnome.Platform",
   "runtime-version": "51",
   "sdk": "org.gnome.Sdk",
-  "command": "zen-launcher",
+  "command": "zinc-launcher",
   "sdk-extensions": [
     "org.freedesktop.Sdk.Extension.rust-stable",
     "org.freedesktop.Sdk.Extension.node24"
@@ -27,27 +27,27 @@
   ],
   "modules": [
     {
-      "name": "zen-launcher",
+      "name": "zinc-launcher",
       "buildsystem": "simple",
       "build-options": {
         "append-path": "/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node24/bin",
         "env": {
-          "CARGO_HOME": "/run/build/zen-launcher/cargo",
+          "CARGO_HOME": "/run/build/zinc-launcher/cargo",
           "CARGO_NET_OFFLINE": "true",
-          "XDG_CACHE_HOME": "/run/build/zen-launcher/flatpak-node/cache",
-          "npm_config_cache": "/run/build/zen-launcher/flatpak-node/npm-cache"
+          "XDG_CACHE_HOME": "/run/build/zinc-launcher/flatpak-node/cache",
+          "npm_config_cache": "/run/build/zinc-launcher/flatpak-node/npm-cache"
         }
       },
       "build-commands": [
         "npm ci --offline",
         "npm run build",
         "cargo build --release --offline --manifest-path src-tauri/Cargo.toml",
-        "install -Dm0755 src-tauri/target/release/zen-launcher ${FLATPAK_DEST}/bin/zen-launcher",
-        "install -Dm0644 io.github.ace2821.ZenLauncher.desktop ${FLATPAK_DEST}/share/applications/io.github.ace2821.ZenLauncher.desktop",
-        "install -Dm0644 io.github.ace2821.ZenLauncher.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.ace2821.ZenLauncher.metainfo.xml",
-        "install -Dm0644 src-tauri/icons/128x128.png ${FLATPAK_DEST}/share/icons/hicolor/128x128/apps/io.github.ace2821.ZenLauncher.png",
-        "install -Dm0644 src-tauri/icons/128x128@2x.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.ace2821.ZenLauncher.png",
-        "install -Dm0644 src-tauri/icons/icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/io.github.ace2821.ZenLauncher.png"
+        "install -Dm0755 src-tauri/target/release/zinc-launcher ${FLATPAK_DEST}/bin/zinc-launcher",
+        "install -Dm0644 io.github.ace2821.ZincLauncher.desktop ${FLATPAK_DEST}/share/applications/io.github.ace2821.ZincLauncher.desktop",
+        "install -Dm0644 io.github.ace2821.ZincLauncher.metainfo.xml ${FLATPAK_DEST}/share/metainfo/io.github.ace2821.ZincLauncher.metainfo.xml",
+        "install -Dm0644 src-tauri/icons/128x128.png ${FLATPAK_DEST}/share/icons/hicolor/128x128/apps/io.github.ace2821.ZincLauncher.png",
+        "install -Dm0644 src-tauri/icons/128x128@2x.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.ace2821.ZincLauncher.png",
+        "install -Dm0644 src-tauri/icons/icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/io.github.ace2821.ZincLauncher.png"
       ],
       "sources": [
         {

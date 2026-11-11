@@ -7,11 +7,13 @@ import { OnboardingWizard } from "../onboarding/OnboardingWizard";
 import { ConfirmHost } from "../ui/ConfirmHost";
 import { Toaster } from "../ui/Toaster";
 import { BigPictureView } from "../../views/BigPictureView";
+import { BigPictureDashboardView } from "../../views/BigPictureDashboardView";
 import { GameDetailsView } from "../../views/GameDetailsView";
 import { ImportView } from "../../views/ImportView";
 import { LibraryView } from "../../views/LibraryView";
 import { MarketplacePanel } from "../marketplace/MarketplacePanel";
 import { SettingsView } from "../../views/SettingsView";
+import { StatisticsView } from "../../views/StatisticsView";
 import { Header } from "./Header";
 import styles from "./layout.module.css";
 import { Sidebar } from "./Sidebar";
@@ -49,6 +51,17 @@ export function AppShell() {
     );
   }
 
+  if (view === "bigPictureDashboard") {
+    return (
+      <>
+        <BigPictureDashboardView />
+        <ConfirmHost />
+        <Toaster />
+        <OnboardingWizard />
+      </>
+    );
+  }
+
   return (
     <div className={styles.shell}>
       <Sidebar />
@@ -72,6 +85,8 @@ export function AppShell() {
               <SettingsView />
             ) : view === "marketplace" ? (
               <MarketplacePanel />
+            ) : view === "statystyki" ? (
+              <StatisticsView />
             ) : (
               <GameDetailsView />
             )}

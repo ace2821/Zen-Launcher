@@ -63,8 +63,8 @@
   height: 30px;
   display: block;
   background: var(--accent);
-  mask-image: url("../../assets/zen-logo.png");
-  -webkit-mask-image: url("../../assets/zen-logo.png");
+  mask-image: url("../../assets/zinc-logo.png");
+  -webkit-mask-image: url("../../assets/zinc-logo.png");
   mask-size: contain;
   -webkit-mask-size: contain;
   mask-repeat: no-repeat;

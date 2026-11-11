@@ -8,6 +8,7 @@ import { formatClockDuration } from "../lib/format";
 import type {
   Candidate,
   CandidatePatch,
+  CoverVariant,
   Game,
   GamePatch,
   ScanSummary,
@@ -88,6 +89,8 @@ interface LibraryState {
   ): Promise<Game | null>;
   /** Replaces the game's cover, either from provider art or from a local file. */
   updateCover(id: number, source: CoverSource): Promise<Game | null>;
+  /** Downloads provider artwork as a specific cover variant (`library` or `bigPicture`). */
+  downloadCover(id: number, url: string, variant?: CoverVariant): Promise<Game | null>;
   toggleFavorite(game: Game): Promise<void>;
   removeGame(id: number): Promise<void>;
   launchGame(id: number): Promise<void>;
@@ -518,6 +521,32 @@ export const useLibraryStore = create<LibraryState>()((set, get) => {
             translate(
               source.kind === "url" ? "covers.downloadFailed" : "covers.fileFailed",
             ),
+            toUiError(error),
+          );
+          updated = null;
+        }
+      });
+      return updated;
+    },
+
+    /** Downloads provider artwork as a specific cover variant (`library` or `bigPicture`). */
+    async downloadCover(id: number, url: string, variant: CoverVariant = "library") {
+      let updated: Game | null = null;
+      await run(`cover:${variant}:${id}`, async () => {
+        try {
+          const result = await api.downloadCover(id, url, variant);
+          updated = result;
+          set((state) => ({
+            games: state.games.map((game) => (game.id === id ? result : game)),
+            currentGame: state.currentGame?.id === id ? result : state.currentGame,
+          }));
+          toastSuccess(
+            translate("covers.updated"),
+            translate("covers.updatedBody", { title: result.title }),
+          );
+        } catch (error) {
+          toastError(
+            translate("covers.downloadFailed"),
             toUiError(error),
           );
           updated = null;

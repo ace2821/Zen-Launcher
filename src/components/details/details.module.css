@@ -25,7 +25,6 @@
   border: 1px solid var(--border-strong);
   border-radius: var(--r-lg);
   background: var(--surface-raised);
-  box-shadow: var(--shadow-md);
 }
 
 .heroBody {
@@ -263,6 +262,19 @@
   list-style: none;
 }
 
+/* One candidate row: poster download on the left, Big Picture hero download on
+   the right. Kept on a single line so the grid stays scannable. */
+.candidateRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+}
+
+.candidateRow .candidate {
+  flex: 1;
+}
+
 .candidate {
   display: flex;
   flex-direction: column;
@@ -286,14 +298,12 @@
   background: var(--surface-raised);
   transition:
     border-color var(--t-fast) var(--ease),
-    transform var(--t-fast) var(--ease),
-    box-shadow var(--t-fast) var(--ease);
+    transform var(--t-fast) var(--ease);
 }
 
 .candidate:hover .candidateArt {
   border-color: var(--accent-line);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
 }
 
 .candidate:focus-visible .candidateArt {
@@ -353,7 +363,7 @@
 }
 
 .spinner {
-  animation: zen-spin 900ms linear infinite;
+  animation: zinc-spin 900ms linear infinite;
 }
 
 /* ---------------------------------------------------------------- mods --- */
@@ -700,7 +710,7 @@
   color: var(--text-muted);
 }
 
-/* Update notice for a loader Zen installed itself: a hint plus the reinstall
+/* Update notice for a loader Zinc installed itself: a hint plus the reinstall
    action, kept compact so it reads as part of the loader fact row. */
 .loaderUpdate {
   display: flex;

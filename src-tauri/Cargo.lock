@@ -5715,36 +5715,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "zen-launcher"
-version = "1.2.0"
-dependencies = [
- "chrono",
- "dirs 5.0.1",
- "gilrs",
- "libloading",
- "rusqlite",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "tauri",
- "tauri-build",
- "tauri-plugin-deep-link",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tempfile",
- "thiserror 2.0.21",
- "toml 0.8.2",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "trash",
- "ureq",
- "walkdir",
- "zip",
-]
-
-[[package]]
 name = "zerocopy"
 version = "0.8.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5836,6 +5806,36 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "zinc-launcher"
+version = "1.2.6"
+dependencies = [
+ "chrono",
+ "dirs 5.0.1",
+ "gilrs",
+ "libloading",
+ "rusqlite",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml 0.8.2",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "trash",
+ "ureq",
+ "walkdir",
+ "zip",
 ]
 
 [[package]]

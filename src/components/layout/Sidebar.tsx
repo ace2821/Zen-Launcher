@@ -1,4 +1,4 @@
-import { FolderInput, Layout, Library, Settings, type LucideIcon } from "lucide-react";
+import { FolderInput, Layout, Library, Settings, Timer, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isMock } from "../../lib/api";
@@ -41,6 +41,7 @@ export function Sidebar() {
   const { t } = useTranslation();
   const view = useShellStore((state) => state.view);
   const goToLibrary = useShellStore((state) => state.goToLibrary);
+  const goToStatistics = useShellStore((state) => state.goToStatistics);
   const goToImport = useShellStore((state) => state.goToImport);
   const goToSettings = useShellStore((state) => state.goToSettings);
   const goToMarketplace = useShellStore((state) => state.goToMarketplace);
@@ -67,6 +68,12 @@ export function Sidebar() {
           label={t("nav.library")}
           active={view === "library" || view === "game"}
           onClick={goToLibrary}
+        />
+        <NavItem
+          icon={Timer}
+          label={t("nav.statystyki")}
+          active={view === "statystyki"}
+          onClick={goToStatistics}
         />
         <NavItem
           icon={FolderInput}

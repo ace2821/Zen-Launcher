@@ -14,7 +14,10 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
-  background: var(--ink-1000);
+  background:
+    radial-gradient(600px 400px at 20% 10%, rgba(56, 118, 92, 0.18), transparent 50%),
+    radial-gradient(500px 300px at 80% 0%, rgba(108, 92, 140, 0.12), transparent 50%),
+    var(--ink-1000);
   color: var(--text);
 }
 
@@ -25,6 +28,67 @@
   inset: 0;
   pointer-events: none;
   background: var(--ink-1000);
+}
+
+/* Sections sit above the rail like Xbox dashboard panels: big, pressable,
+   rounded tiles that take you to another part of the launcher. */
+.sections {
+  display: flex;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-6);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sections::-webkit-scrollbar {
+  display: none;
+}
+
+.sectionTile {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 340px;
+  height: 220px;
+  padding: var(--s-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--t-base) var(--ease),
+    transform var(--t-base) var(--ease),
+    box-shadow var(--t-base) var(--ease);
+}
+
+.sectionTile:hover,
+.sectionTile:focus-visible {
+  border-color: var(--accent-line);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.sectionTile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 500;
+  letter-spacing: var(--display-tracking);
+  line-height: 1.15;
+  margin: 0 0 var(--s-1) 0;
+}
+
+.sectionHint {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
 }
 
 /* A pool of accent light under the rail: the row reads as lit from below rather
@@ -60,8 +124,8 @@
   height: 30px;
   display: block;
   background: var(--accent);
-  mask-image: url("../../assets/zen-logo.png");
-  -webkit-mask-image: url("../../assets/zen-logo.png");
+  mask-image: url("../../assets/zinc-logo.png");
+  -webkit-mask-image: url("../../assets/zinc-logo.png");
   mask-size: contain;
   -webkit-mask-size: contain;
   mask-repeat: no-repeat;
@@ -219,12 +283,10 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--surface-raised);
-  box-shadow: var(--shadow-md);
   transform: scale(0.94);
   transition:
     transform 260ms var(--ease-out),
-    border-color var(--t-base) var(--ease),
-    box-shadow 260ms var(--ease-out);
+    border-color var(--t-base) var(--ease);
 }
 
 /* A hairline around the artwork: without it a dark poster melts into the
@@ -233,17 +295,13 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   content: "";
   pointer-events: none;
 }
 
 .tile[data-focused="true"] .tileArt {
   border-color: var(--accent);
-  box-shadow:
-    0 0 0 2px var(--accent-soft),
-    0 28px 64px -22px rgba(0, 0, 0, 0.92),
-    0 0 58px -6px var(--accent-line);
   transform: translateY(-10px) scale(1.06);
 }
 
@@ -259,7 +317,7 @@
   overflow: hidden;
   max-width: 100%;
   color: var(--text-faint);
-  font-size: var(--fs-md);
+  font-size: var(--fs-lg);
   line-height: 1.35;
   text-align: center;
   transition: color var(--t-base) var(--ease);

@@ -25,7 +25,7 @@ fi
 
 # Python deps for both generators, in a throwaway venv (keeps the system
 # Python clean; override with GEN_VENV=/some/path).
-VENV_DIR="${GEN_VENV:-/tmp/zen-flatpak-gen-venv}"
+VENV_DIR="${GEN_VENV:-/tmp/zinc-flatpak-gen-venv}"
 if [ ! -x "$VENV_DIR/bin/python" ]; then
     python3 -m venv "$VENV_DIR"
 fi

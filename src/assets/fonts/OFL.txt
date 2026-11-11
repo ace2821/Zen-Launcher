@@ -1,4 +1,4 @@
-Fonts bundled with Zen Launcher (self-hosted, no runtime network requests).
+Fonts bundled with Zinc Launcher (self-hosted, no runtime network requests).
 
 Instrument Sans (the optional proportional UI face)
 Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans)

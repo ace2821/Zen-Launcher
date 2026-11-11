@@ -10,7 +10,7 @@ initI18n();
 
 const container = document.getElementById("root");
 if (container === null) {
-  throw new Error("Zen Launcher: #root is missing from index.html");
+  throw new Error("Zinc Launcher: #root is missing from index.html");
 }
 
 ReactDOM.createRoot(container).render(

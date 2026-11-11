@@ -1,13 +1,13 @@
 [Desktop Entry]
-Name=Zen Launcher
+Name=Zinc Launcher
 Comment=Local-first game library manager and launcher
-Exec=zen-launcher %u
-Icon=io.github.ace2821.ZenLauncher
+Exec=zinc-launcher %u
+Icon=io.github.ace2821.ZincLauncher
 Terminal=false
 Type=Application
 Categories=Game;Utility;
 Keywords=game;launcher;library;mods;wine;big picture;
 StartupNotify=true
-StartupWMClass=zen-launcher
-MimeType=x-scheme-handler/zenlauncher;
-X-Scheme-Handler=zenlauncher;
+StartupWMClass=zinc-launcher
+MimeType=x-scheme-handler/zinclaucher;
+X-Scheme-Handler=zinclaucher;

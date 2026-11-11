@@ -272,7 +272,7 @@ describe("mock adapter — games", () => {
       kind: "samp" as const,
       host: "play.example.com",
       port: 7777,
-      nick: "Zen",
+      nick: "Zinc",
     };
     const updated = await api.updateGame(2, { client: samp });
     expect(updated.client).toEqual(samp);

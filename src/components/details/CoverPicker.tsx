@@ -1,4 +1,4 @@
-import { Images, LoaderCircle, Search } from "lucide-react";
+import { Images, LoaderCircle, Search, Tv } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
@@ -87,6 +87,10 @@ export function CoverPicker({ game, open, onClose }: CoverPickerProps) {
   const downloading = useLibraryStore(
     (state) => state.busy[`cover:url:${game.id}`] === true,
   );
+  const downloadCover = useLibraryStore((state) => state.downloadCover);
+  const bpDownloading = useLibraryStore(
+    (state) => state.busy[`cover:bigPicture:${game.id}`] === true,
+  );
   // Last-write-wins: a slow first search must not overwrite a newer one.
   const request = useRef(0);
 
@@ -127,6 +131,13 @@ export function CoverPicker({ game, open, onClose }: CoverPickerProps) {
     // read, and the tile goes back to normal.
     if (updated !== null) onClose();
     else setChosen(null);
+  };
+
+  /** Downloads the wide hero art as the Big Picture backdrop for this game. */
+  const downloadBP = async (candidate: CoverCandidate) => {
+    const url = candidate.heroUrl ?? candidate.landscapeUrl ?? candidate.portraitUrl;
+    if (!url) return;
+    await downloadCover(game.id, url, "bigPicture");
   };
 
   const canSearch = query.trim().length > 0 && status !== "loading" && !downloading;
@@ -188,8 +199,9 @@ export function CoverPicker({ game, open, onClose }: CoverPickerProps) {
             {candidates.map((candidate) => {
               const url = candidate.portraitUrl ?? candidate.thumbUrl;
               const busy = downloading && chosen === url;
+              const bpBusy = bpDownloading && chosen === candidate.id;
               return (
-                <li key={candidate.id}>
+                <li key={candidate.id} className={styles.candidateRow}>
                   <button
                     type="button"
                     className={styles.candidate}
@@ -223,6 +235,16 @@ export function CoverPicker({ game, open, onClose }: CoverPickerProps) {
                     </span>
                     <span className={styles.candidateName}>{candidate.name}</span>
                   </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    icon={Tv}
+                    disabled={downloading || bpBusy}
+                    onClick={() => void downloadBP(candidate)}
+                    aria-label={t("covers.downloadForBigPicture")}
+                    title={t("covers.downloadForBigPicture")}
+                  />
                 </li>
               );
             })}

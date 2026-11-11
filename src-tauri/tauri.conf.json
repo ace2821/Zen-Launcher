@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Zen Launcher",
-  "mainBinaryName": "zen-launcher",
-  "version": "1.2.0",
-  "identifier": "io.github.ace2821.ZenLauncher",
+  "productName": "Zinc Launcher",
+  "mainBinaryName": "zinc-launcher",
+  "version": "1.2.6",
+  "identifier": "io.github.ace2821.ZincLauncher",
   "build": {
     "beforeDevCommand": "bun run dev",
     "beforeBuildCommand": "npm run build",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Zen Launcher",
+        "title": "Zinc Launcher",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
@@ -31,7 +31,7 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["zenlauncher"]
+        "schemes": ["zinclaucher"]
       }
     }
   },

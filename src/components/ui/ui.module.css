@@ -95,7 +95,7 @@
 }
 
 .btnSpinner {
-  animation: zen-spin 900ms linear infinite;
+  animation: zinc-spin 900ms linear infinite;
 }
 
 /* --------------------------------------------------------- icon button --- */
@@ -578,7 +578,7 @@
 .skeleton {
   border-radius: var(--r-sm);
   background: var(--surface-hover);
-  animation: zen-shimmer 1.4s linear infinite;
+  animation: zinc-shimmer 1.4s linear infinite;
 }
 
 /* ----------------------------------------------------------- progress --- */
@@ -610,7 +610,7 @@
   width: 45%;
   border-radius: var(--r-pill);
   background: var(--accent);
-  animation: zen-marquee 1.5s var(--ease) infinite;
+  animation: zinc-marquee 1.5s var(--ease) infinite;
 }
 
 .progressMeta {

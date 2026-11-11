@@ -244,6 +244,43 @@ pub struct Session {
 }
 
 // ---------------------------------------------------------------------------
+// Playtime / statistics
+// ---------------------------------------------------------------------------
+
+/// Playtime of a single library entry, as returned by `get_playtime_stats`.
+///
+/// Field names follow the contract literally (`total_sec`, `last_played` stay
+/// snake_case while the ids use camelCase).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GamePlaytime {
+    #[serde(rename = "gameId")]
+    pub game_id: i64,
+    #[serde(rename = "gameName")]
+    pub game_name: String,
+    #[serde(rename = "total_sec")]
+    pub total_sec: i64,
+    /// Most recent `sessions.ended_at` for the game, `null` when never played.
+    #[serde(rename = "last_played")]
+    pub last_played: Option<String>,
+}
+
+/// Aggregate answered by `get_playtime_stats`. `games` is sorted by
+/// `total_sec` descending; entries without a finished session have `0`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlaytimeStats {
+    #[serde(rename = "total_hours")]
+    pub total_hours: f64,
+    pub games: Vec<GamePlaytime>,
+}
+
+/// Answer of `get_playtime`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct PlaytimeTotal {
+    #[serde(rename = "total_sec")]
+    pub total_sec: i64,
+}
+
+// ---------------------------------------------------------------------------
 // Settings & command payloads
 // ---------------------------------------------------------------------------
 

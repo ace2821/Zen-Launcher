@@ -70,7 +70,7 @@ Etap rdzeń + UI zakończony, zbudowany na mroczonym kontrakcie
 - [x] Testy Rust 52/52, frontend 114/114, tsc/clippy czyste
 - [ ] Test na żywo z użytkownikiem (okładki AoH/WorldBox, drop moda, Play .exe)
 - [x] AppImage 0.1.0 zbudowany z tym etapem (111,57 MiB, 2026-10-18 11:35)
-      i podmieniony na pulpicie (`~/Pulpit/Zen Launcher_0.1.0_amd64.AppImage`)
+      i podmieniony na pulpicie (`~/Pulpit/Zinc Launcher_0.1.0_amd64.AppImage`)
 
 ## Uwagi
 

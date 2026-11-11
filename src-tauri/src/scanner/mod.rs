@@ -848,7 +848,12 @@ mod tests {
         assert_eq!(client.kind, ClientKind::Fivem);
         let candidate = detect_dir(&fx).expect("FiveM folder is a candidate");
         assert_eq!(
-            candidate.executable.unwrap().file_name().unwrap().to_string_lossy(),
+            candidate
+                .executable
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_string_lossy(),
             "CitizenFX.exe"
         );
 
@@ -858,7 +863,13 @@ mod tests {
         std::fs::write(mta.join("multi theft auto.EXE"), b"MZ").unwrap();
         assert_eq!(detect_client(&mta).unwrap().kind, ClientKind::Mta);
         assert_eq!(
-            detect_dir(&mta).unwrap().executable.unwrap().file_name().unwrap().to_string_lossy(),
+            detect_dir(&mta)
+                .unwrap()
+                .executable
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_string_lossy(),
             "multi theft auto.EXE"
         );
 
@@ -871,7 +882,12 @@ mod tests {
         assert_eq!(detect_client(&sa).unwrap().kind, ClientKind::Samp);
         let candidate = detect_dir(&sa).unwrap();
         assert_eq!(
-            candidate.executable.unwrap().file_name().unwrap().to_string_lossy(),
+            candidate
+                .executable
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_string_lossy(),
             "gta_sa.exe"
         );
 
@@ -1012,7 +1028,13 @@ mod tests {
         let candidate = detect_dir(&game_dir).expect("Windows-only folder must be detected");
         assert_eq!(candidate.engine, EngineKind::Unknown);
         assert_eq!(candidate.suggested_title, "States Of Power");
-        let exe_name = candidate.executable.unwrap().file_name().unwrap().to_string_lossy().into_owned();
+        let exe_name = candidate
+            .executable
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
         assert_eq!(exe_name, "sop.exe");
         assert!(candidate.evidence[0].contains("Windows executable"));
     }
@@ -1037,10 +1059,7 @@ mod tests {
         std::fs::write(dir2.path().join("zzz.exe"), b"a").unwrap();
         let long2 = dir2.path().join("awholelongername.exe");
         std::fs::write(&long2, b"b").unwrap();
-        assert_eq!(
-            first_exe_in(dir2.path()),
-            Some(dir2.path().join("zzz.exe"))
-        );
+        assert_eq!(first_exe_in(dir2.path()), Some(dir2.path().join("zzz.exe")));
     }
 
     /// Mixed folder (native ELF + Windows `.exe`) stays native: the ELF rule
@@ -1055,7 +1074,12 @@ mod tests {
 
         let candidate = detect_dir(&game_dir).expect("mixed folder must be detected");
         assert_eq!(
-            candidate.executable.unwrap().file_name().unwrap().to_string_lossy(),
+            candidate
+                .executable
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_string_lossy(),
             "hybrid"
         );
         assert!(candidate.evidence[0].contains("ELF"));

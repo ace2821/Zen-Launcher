@@ -136,7 +136,7 @@ describe("MarketplacePanel", () => {
     fireEvent.click(cardFor("Solarized Ember"));
 
     await waitFor(() => {
-      expect(screen.getByText("Zen Studio")).toBeInTheDocument();
+      expect(screen.getByText("Zinc Studio")).toBeInTheDocument();
       expect(screen.getByText("1.1.0")).toBeInTheDocument();
     });
     expect(screen.getAllByText("Set as active theme")[0]).toBeInTheDocument();

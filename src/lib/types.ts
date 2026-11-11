@@ -162,6 +162,27 @@ export interface LaunchInfo {
   sessionId: number;
 }
 
+/** Playtime of one library entry (`get_playtime_stats`). */
+export interface GamePlaytime {
+  gameId: number;
+  gameName: string;
+  /** Finished sessions only. */
+  total_sec: number;
+  /** Newest `sessions.endedAt`, `null` when no session has finished. */
+  last_played: string | null;
+}
+
+export interface PlaytimeStats {
+  /** Sum of every `total_sec`, in hours, rounded to 2 decimals. */
+  total_hours: number;
+  /** Whole library, `total_sec` descending. */
+  games: GamePlaytime[];
+}
+
+export interface PlaytimeTotal {
+  total_sec: number;
+}
+
 /** Fields accepted by `approve_candidate`'s `patch`. */
 export interface CandidatePatch {
   title?: string;
@@ -221,7 +242,15 @@ export interface CoverCandidate {
   portraitUrl: string | null;
   /** 460×215 header art — `null` when the app id has no store page. */
   landscapeUrl: string | null;
+  /**
+   * Wide Big Picture hero art (`library_hero.jpg`) — `null`/absent when the
+   * provider has no hero asset for the app.
+   */
+  heroUrl?: string | null;
 }
+
+/** Which stored artwork slot a downloaded cover fills. */
+export type CoverVariant = "library" | "bigPicture";
 
 /* ---------------------------------------------------------------------------
  * Mods (loaders & installs)
@@ -283,13 +312,13 @@ export interface ModsStatus {
   /** Top-level entries of `modsDir`, capped at 50 by the core. */
   installed: string[];
   /**
-   * The loader Zen installed itself (from `<dataDir>/games/<gameId>/loader.json`);
+   * The loader Zinc installed itself (from `<dataDir>/games/<gameId>/loader.json`);
    * `null` for detected/manual loaders and when nothing is installed.
    */
   installLoader: LoaderInstall | null;
 }
 
-/** A loader Zen downloaded, with the release version it came from. */
+/** A loader Zinc downloaded, with the release version it came from. */
 export interface LoaderInstall {
   id: string;
   version: string;

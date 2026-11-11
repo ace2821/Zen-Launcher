@@ -18,6 +18,9 @@
   padding: var(--s-4) var(--s-3) var(--s-4);
   background: var(--bg-sunken);
   border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  align-self: start;
 }
 
 .brand {
@@ -33,8 +36,8 @@
   height: 30px;
   display: block;
   background: var(--accent);
-  mask-image: url("../../assets/zen-logo.png");
-  -webkit-mask-image: url("../../assets/zen-logo.png");
+  mask-image: url("../../assets/zinc-logo.png");
+  -webkit-mask-image: url("../../assets/zinc-logo.png");
   mask-size: contain;
   -webkit-mask-size: contain;
   mask-repeat: no-repeat;
@@ -138,6 +141,9 @@
   padding: 0 var(--s-5);
   border-bottom: 1px solid var(--border);
   background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .headerHeading {
@@ -235,7 +241,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .view {

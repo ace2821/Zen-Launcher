@@ -1,4 +1,4 @@
-# Zen Launcher — agent guide
+# Zinc Launcher — agent guide
 
 Local-first game library manager for Linux. Tauri 2: Rust core in `src-tauri/`,
 React UI in `src/`. The design document (`docs/DESIGN.md`) and interface

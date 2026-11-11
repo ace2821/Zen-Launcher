@@ -14,8 +14,9 @@ use crate::db::{self, NewCandidate, NewGame};
 use crate::error::{AppError, AppResult};
 use crate::launch;
 use crate::models::{
-    Candidate, CandidatePatch, CandidateStatus, Game, GamePatch, LaunchInfo, ScanFinished,
-    ScanProgress, ScanSummary, Session, Settings, SettingsPatch, Source, events,
+    Candidate, CandidatePatch, CandidateStatus, Game, GamePatch, LaunchInfo, PlaytimeStats,
+    PlaytimeTotal, ScanFinished, ScanProgress, ScanSummary, Session, Settings, SettingsPatch, Source,
+    events,
 };
 use crate::scanner;
 use crate::settings;
@@ -400,6 +401,28 @@ pub fn list_sessions(
 }
 
 // ---------------------------------------------------------------------------
+// Playtime statistics
+// ---------------------------------------------------------------------------
+
+/// Totals for the Statistics tab: finished session time per game, descending.
+#[tauri::command]
+pub fn get_playtime_stats(state: State<'_, AppState>) -> AppResult<PlaytimeStats> {
+    let conn = state.lock_db()?;
+    db::playtime_stats(&conn)
+}
+
+/// Total finished playtime of one game, in seconds.
+#[tauri::command]
+pub fn get_playtime(state: State<'_, AppState>, game_id: i64) -> AppResult<PlaytimeTotal> {
+    let conn = state.lock_db()?;
+    // An unknown id is NOT_FOUND instead of a silent zero.
+    db::get_game(&conn, game_id)?;
+    Ok(PlaytimeTotal {
+        total_sec: db::game_playtime(&conn, game_id)?,
+    })
+}
+
+// ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
 
@@ -450,9 +473,14 @@ pub async fn download_cover(
     state: State<'_, AppState>,
     game_id: i64,
     url: String,
+    variant: Option<crate::covers::CoverVariant>,
 ) -> AppResult<Game> {
     let covers = crate::paths::covers_dir()?;
-    let path = crate::covers::download(&covers, game_id, &url)?;
+    let variant = variant.unwrap_or(crate::covers::CoverVariant::Library);
+    let path = crate::covers::download_variant(&covers, game_id, &url, variant)?;
+    // There is no separate Big Picture artwork column: the Big Picture UI
+    // renders `coverPath` as its full-screen background, so the hero file is
+    // stored under its own `hero-` prefix and still becomes the game's cover.
     apply_cover(app, state, game_id, path).await
 }
 
@@ -527,8 +555,8 @@ pub async fn install_mod_loader(
     crate::mods::install_loader(&root, loader_id.as_deref(), &state_dir)
 }
 
-/// Compare the loader Zen installed for this game with the latest release.
-/// `null` when there is nothing Zen-installed to check (manual/detected loaders).
+/// Compare the loader Zinc installed for this game with the latest release.
+/// `null` when there is nothing Zinc-installed to check (manual/detected loaders).
 #[tauri::command]
 pub async fn check_loader_updates(
     state: State<'_, AppState>,
@@ -561,6 +589,28 @@ pub async fn install_mod_archive(
     )
 }
 
+/// Install a single `.dll`/`.asi` mod into the loader's real mods folder.
+#[tauri::command]
+pub async fn install_mod_file(
+    state: State<'_, AppState>,
+    game_id: i64,
+    file_path: String,
+) -> AppResult<crate::mods::ModInstallResult> {
+    let root = game_root_for(&state, game_id)?;
+    crate::mods::install_file(&root, Path::new(&file_path))
+}
+
+/// Remove an installed single-file mod (moved to the system trash).
+#[tauri::command]
+pub async fn uninstall_mod_file(
+    state: State<'_, AppState>,
+    game_id: i64,
+    name: String,
+) -> AppResult<()> {
+    let root = game_root_for(&state, game_id)?;
+    crate::mods::uninstall_file(&root, &name)
+}
+
 /// Connected pads for `list_gamepads` — contract shape: `{ pads: [...] }`.
 #[tauri::command]
 pub fn list_gamepads() -> AppResult<serde_json::Value> {
@@ -577,18 +627,12 @@ pub fn list_gamepads() -> AppResult<serde_json::Value> {
 #[tauri::command]
 pub async fn marketplace_list() -> AppResult<crate::marketplace::MarketplaceList> {
     let addons = crate::paths::addons_dir()?;
-    crate::marketplace::load_catalog(
-        &addons,
-        time::now_unix(),
-        crate::marketplace::fetch_catalog,
-    )
+    crate::marketplace::load_catalog(&addons, time::now_unix(), crate::marketplace::fetch_catalog)
 }
 
 /// Download, verify and install one catalogue item into `<dataDir>/addons/<id>/`.
 #[tauri::command]
-pub async fn marketplace_install(
-    item_id: String,
-) -> AppResult<crate::marketplace::InstalledAddon> {
+pub async fn marketplace_install(item_id: String) -> AppResult<crate::marketplace::InstalledAddon> {
     let addons = crate::paths::addons_dir()?;
     let catalog = crate::marketplace::load_catalog(
         &addons,
@@ -605,7 +649,7 @@ pub async fn marketplace_install(
     crate::marketplace::install_item(&addons, &item, &bytes)
 }
 
-/// Entry point for `zenlauncher://install?id=<itemId>` deep links: announce
+/// Entry point for `zinclaucher://install?id=<itemId>` deep links: announce
 /// the install so the UI can show progress, then run the regular install flow.
 /// Failures are logged and reported with `marketplace://install-finished`.
 pub async fn install_from_deep_link(app: AppHandle, item_id: String) {
@@ -638,10 +682,7 @@ pub async fn install_from_deep_link(app: AppHandle, item_id: String) {
 
 /// Remove an installed item (and clear the active theme when it was this one).
 #[tauri::command]
-pub async fn marketplace_uninstall(
-    state: State<'_, AppState>,
-    item_id: String,
-) -> AppResult<()> {
+pub async fn marketplace_uninstall(state: State<'_, AppState>, item_id: String) -> AppResult<()> {
     let addons = crate::paths::addons_dir()?;
     crate::marketplace::uninstall_item(&addons, &item_id)?;
 

@@ -1,0 +1,542 @@
+/*
+ * Big Picture Dashboard — PS5-style couch UI.
+ *
+ * A fullscreen takeover rendered by AppShell when `view === "bigPictureDashboard"`.
+ * The regular Big Picture rail (BigPictureView) is untouched; this is a separate
+ * view toggled from the library header.
+ *
+ * Layout (top → bottom):
+ *   Top bar: logo, Games/Media tabs, clock, search, settings, profile.
+ *   Games row: horizontal track of large cover tiles, focus ring on selected.
+ *   Main: selected game's cover as a blurred background, title + "Graj" + menu.
+ *   Widgets: grid of panels (Online Friends, Accessibility, Trophies, Wishlist, Store).
+ */
+
+.dashboardView {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  overflow: hidden;
+  background:
+    radial-gradient(600px 400px at 20% 10%, rgba(56, 118, 92, 0.18), transparent 50%),
+    radial-gradient(500px 300px at 80% 0%, rgba(108, 92, 140, 0.12), transparent 50%),
+    var(--ink-1000);
+  color: var(--text);
+}
+
+/* --------------------------------------------------------------- topbar --- */
+
+.topBar {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-6);
+  background: rgba(8, 10, 9, 0.82);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.brandMark {
+  width: 30px;
+  height: 30px;
+  display: block;
+  background: var(--accent);
+  mask-image: url("../../assets/zinc-logo.png");
+  -webkit-mask-image: url("../../assets/zinc-logo.png");
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.brandName {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: var(--display-tracking);
+}
+
+.brandMeta {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--s-2);
+  flex: none;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+  border-radius: var(--r-md);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background-color var(--t-base) var(--ease),
+    color var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease);
+}
+
+.tab:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.tab.active {
+  background: var(--accent);
+  color: var(--ink-1000);
+  border-color: var(--accent-line);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.clock {
+  flex: none;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-lg);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--display-tracking);
+  color: var(--text-muted);
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex: none;
+}
+
+/* ------------------------------------------------------------ games row --- */
+
+.gamesRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-6);
+  background: rgba(8, 10, 9, 0.4);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+  min-height: 0;
+}
+
+.gamesRowTitle {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0;
+}
+
+.gamesTrack {
+  display: flex;
+  gap: var(--s-3);
+  overflow-x: auto;
+  padding-bottom: var(--s-2);
+  scrollbar-width: none;
+}
+
+.gamesTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  flex: none;
+  width: 220px;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition:
+    border-color var(--t-base) var(--ease),
+    transform var(--t-base) var(--ease);
+}
+
+.tile:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  z-index: 5;
+}
+
+.tile[data-focused="true"] {
+  border-color: var(--accent);
+  transform: translateY(-4px);
+  z-index: 5;
+}
+
+.tile:hover {
+  border-color: var(--accent-line);
+}
+
+.tileCover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.tileCover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tileCover::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(8, 10, 9, 0.6) 60%,
+    rgba(8, 10, 9, 0.95) 100%
+  );
+  content: "";
+  pointer-events: none;
+}
+
+.tileTitle {
+  padding: 0 var(--s-3) var(--s-3) var(--s-3);
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  letter-spacing: var(--display-tracking);
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Actions overlay on each tile: three dots + Play. */
+.tileActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-2) var(--s-3);
+  gap: var(--s-2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-base) var(--ease);
+}
+
+.tile[data-focused="true"] .tileActions,
+.tile:hover .tileActions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.moreButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-pill);
+  background: rgba(8, 10, 9, 0.75);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition:
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.moreButton:hover {
+  background: rgba(8, 10, 9, 0.9);
+  border-color: var(--accent-line);
+}
+
+.moreButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.playButton {
+  flex: 1;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-md);
+  background: var(--accent);
+  color: var(--ink-1000);
+  border: none;
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: var(--display-tracking);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  transition:
+    background-color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+
+.playButton:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.playButton:focus-visible {
+  outline: 2px solid var(--ink-1000);
+  outline-offset: 2px;
+}
+
+.playButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ----------------------------------------------------------------- main --- */
+
+.main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Selected game's cover as a PS5-style blurred backdrop: the artwork fills the
+   main area, is blurred and darkened, with a gradient so the title and buttons
+   stay readable. Never stretched, never a raw poster. */
+.backgroundCover {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.backgroundCover .coverImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(48px) brightness(0.4);
+  transform: scale(1.2);
+  transform-origin: center;
+}
+
+.backgroundCover::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(8, 10, 9, 0.35) 0%,
+    rgba(8, 10, 9, 0.72) 45%,
+    var(--ink-1000) 100%
+  );
+  content: "";
+  pointer-events: none;
+}
+
+/* No artwork: a plain dark field so nothing looks broken. */
+.backgroundCoverEmpty {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--ink-1000);
+}
+
+.gameInfo {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: var(--s-8) var(--s-6) var(--s-6);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-3);
+  background: linear-gradient(
+    to top,
+    rgba(8, 10, 9, 0.85) 0%,
+    transparent 40%
+  );
+}
+
+.gameTitle {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xl);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: var(--display-tracking);
+  margin: 0;
+  color: var(--text);
+  max-width: 70vw;
+  overflow-wrap: break-word;
+}
+
+.gameActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+
+.playGameButton {
+  padding: var(--s-3) var(--s-5);
+  font-size: var(--fs-md);
+}
+
+.menuButton {
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------ mods --- */
+
+.modsSection {
+  padding: var(--s-6);
+  background: rgba(8, 10, 9, 0.4);
+  border-top: 1px solid var(--border);
+  flex: none;
+  min-height: 0;
+}
+
+.modsTitle {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 var(--s-3) 0;
+}
+
+
+/* ----------------------------------------------------------------- states --- */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--s-6);
+}
+
+.emptyTitle {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 500;
+  letter-spacing: var(--display-tracking);
+  margin: var(--s-3) 0 var(--s-2);
+  color: var(--text);
+}
+
+.emptyBody {
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  max-width: 320px;
+}
+
+/* ------------------------------------------------------------------- menu --- */
+
+.menuScrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(8, 10, 9, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+.menuPanel {
+  position: fixed;
+  bottom: var(--s-6);
+  right: var(--s-6);
+  z-index: 41;
+  width: min(260px, 90vw);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xl);
+  animation: menuSlideIn var(--t-base) var(--ease-out) both;
+}
+
+@keyframes menuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.menuDivider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--s-1) 0;
+}
+
+@media (max-width: 900px) {
+  .widgets {
+    grid-template-columns: 1fr;
+  }
+
+  .gamesRow {
+    padding-inline: var(--s-4);
+  }
+
+  .main {
+    padding-inline: var(--s-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile,
+  .tileActions {
+    transition: none;
+  }
+  .menuPanel {
+    animation: none;
+  }
+}
